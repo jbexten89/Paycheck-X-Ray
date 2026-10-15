@@ -203,13 +203,13 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .rv .note2{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
 .rv-prog{height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
 .rv-prog div{height:100%;background:var(--accent);width:0}
-.yearnav{display:inline-flex;align-items:center;gap:6px}
-.yearnav .btn{font-size:18px;line-height:1;padding:6px 12px}
+.yearnav{display:inline-flex;align-items:stretch;gap:5px}
+.yearnav .btn,.chkbar .btn{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:0 14px;font-size:22px;line-height:1;border-radius:8px}
+@media (max-width:430px){.ctlbar .seg button{padding:6px 9px}.ctlbar .row-actions{gap:6px}}
 .yearnav .btn:disabled{opacity:.35;cursor:default}
 /* one paycheck */
-.chkbar{display:flex;gap:8px;align-items:center}
+.chkbar{display:flex;gap:8px;align-items:stretch}
 .chkbar select{flex:1;min-width:0}
-.chkbar .btn{font-size:18px;line-height:1;padding:6px 12px}
 .chkbar .btn:disabled{opacity:.35;cursor:default}
 .pd.have,.pd.bon,.pd.ext{cursor:pointer}
 .pd.bon{background:var(--c-k-p45);border-color:var(--c-k-p45);color:#1A1404;font-weight:700}
