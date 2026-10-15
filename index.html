@@ -210,8 +210,7 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 @media (max-width:430px){.ctlbar .seg button{padding:6px 9px}.ctlbar .row-actions{gap:6px}}
 .yearnav .btn:disabled{opacity:.35;cursor:default}
 /* one paycheck */
-.chkbar{display:flex;gap:8px;align-items:stretch;position:sticky;top:calc(env(safe-area-inset-top,0px) + 22px + var(--ctl-h,56px));z-index:50;background:var(--surface);margin:0 -18px;padding:6px 18px;border-bottom:1px solid transparent}
-.chkbar.stuck{border-bottom-color:var(--line)}
+.chkbar{display:flex;gap:8px;align-items:stretch;margin-top:8px}
 .chkbar select{flex:1;min-width:0}
 .chkbar .btn:disabled{opacity:.35;cursor:default}
 .pd.have,.pd.bon,.pd.ext{cursor:pointer}
@@ -298,7 +297,7 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}
 .ctlbar{--ctl-gap:22px;position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--ctl-gap));z-index:60;background:var(--bg);box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax -1px);margin-top:-10px;padding:8px 0;border-bottom:1px solid transparent}
 html,body{overflow-x:clip;max-width:100%}
 .ctlbar.stuck{border-bottom-color:var(--line);clip-path:inset(-400px -100vmax -1px)}
-section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 90px)}</style>
+section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 34px + var(--ctl-h,56px))}</style>
 </head>
 <body>
 <div class="wrap">
@@ -312,6 +311,11 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div class="row-actions">
       <div class="seg" id="viewSeg" role="group" aria-label="View"><button data-view="year" aria-pressed="true">One year</button><button data-view="all" aria-pressed="false">All years</button></div>
       <div class="yearnav" id="yearField"><button type="button" class="btn ghost small" id="yearPrev" aria-label="Previous year">‹</button><select id="yearSel" aria-label="Year"></select><button type="button" class="btn ghost small" id="yearNext" aria-label="Next year">›</button></div>
+    </div>
+    <div class="chkbar" id="chkBar" hidden>
+      <button type="button" class="btn ghost small" id="chkPrev" aria-label="Previous check">‹</button>
+      <select id="checkSel" aria-label="Choose a paycheck"></select>
+      <button type="button" class="btn ghost small" id="chkNext" aria-label="Next check">›</button>
     </div>
   </div>
 
@@ -431,11 +435,6 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
         <button id="m-ytd" data-mode="ytd" aria-pressed="true">Year to date</button>
         <button id="m-proj" data-mode="proj" aria-pressed="false">Full year</button>
       </div>
-    </div>
-    <div class="chkbar" id="chkBar" hidden>
-      <button type="button" class="btn ghost small" id="chkPrev" aria-label="Previous check">‹</button>
-      <select id="checkSel" aria-label="Choose a paycheck"></select>
-      <button type="button" class="btn ghost small" id="chkNext" aria-label="Next check">›</button>
     </div>
     <div class="statline" id="bdStats"></div>
     <div class="bar" id="bar" role="img"></div>
@@ -1472,11 +1471,11 @@ function render(){
   renderStubs();
   const panels=document.querySelectorAll(".wrap > section.panel:not(:last-child):not(#emptyNote), .wrap > .grid2");
   const addSec=document.querySelector('section[data-k="add"]');
-  if(!m.latest){panels.forEach(p=>p.hidden=true);$("yoyView").hidden=true;$("viewSeg").hidden=true;$("emptyNote").hidden=false;if(addSec)applyPanel(addSec,true);return}
+  if(!m.latest){panels.forEach(p=>p.hidden=true);$("chkBar").hidden=true;$("yoyView").hidden=true;$("viewSeg").hidden=true;$("emptyNote").hidden=false;if(addSec)applyPanel(addSec,true);return}
   $("emptyNote").hidden=true;$("viewSeg").hidden=false;
   const all=state.view==="all";
   $("viewSeg").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.view==="all")===all)));
-  $("yearField").hidden=all;$("yoyView").hidden=!all;
+  $("yearField").hidden=all;$("yoyView").hidden=!all;if(all)$("chkBar").hidden=true;
   panels.forEach(p=>p.hidden=all);
   if(all){renderYoy();return}
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
@@ -1556,7 +1555,7 @@ window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:
 const setH=()=>document.documentElement.style.setProperty("--ctl-h",Math.round(b.getBoundingClientRect().height)+"px");setH();
 if(window.ResizeObserver)new ResizeObserver(setH).observe(b);
 const upd=()=>{const t=parseFloat(getComputedStyle(b).top)||0;b.classList.toggle("stuck",(window.scrollY||0)>0&&b.getBoundingClientRect().top<=t+0.5);
-  if(c&&!c.hidden){const ct=parseFloat(getComputedStyle(c).top)||0;c.classList.toggle("stuck",c.getBoundingClientRect().top<=ct+0.5&&(window.scrollY||0)>0)}};
+};
 window.addEventListener("scroll",upd,{passive:true});window.addEventListener("resize",upd);upd()})();</script>
 <script>(function(){const stop=e=>e.preventDefault();["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,{passive:false}));
 document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
