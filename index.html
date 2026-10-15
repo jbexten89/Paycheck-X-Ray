@@ -228,7 +228,9 @@ table.yt{font-size:13.5px}
 table.yt th[data-sort]{cursor:pointer;white-space:nowrap}
 table.yt th[aria-sort=ascending]::after{content:" ▲";font-size:9px}
 table.yt th[aria-sort=descending]::after{content:" ▼";font-size:9px}
-table.yt td.nt{color:var(--muted);font-size:12.5px;min-width:180px}
+table.yt td.nt{color:var(--muted);font-size:12.5px;white-space:nowrap}
+table.yt td{white-space:nowrap}
+table.yt tr.sel td:first-child{background:var(--soft)}
 table.yt td:first-child,table.yt th:first-child{position:sticky;left:0;background:var(--surface)}
 tr.click{cursor:pointer}
 tr.sel td{background:var(--soft)}
