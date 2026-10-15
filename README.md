@@ -2,7 +2,8 @@
 
 A single-page tool that reads a year of bi-weekly pay stubs and shows:
 
-- **Pay calendar**: which paydays are loaded or missing, and which months have three checks
+- **Pay calendar**: which paydays are loaded or missing, and which months have three checks. Tap a payday to open that check.
+- **One check**: pick any paycheck (list, arrows, or the calendar) to see where it went and every line on the stub, with year-to-date and the change from the previous check
 - **Where the gross went**: take-home, federal tax, Social Security and Medicare, state and local tax, 401(k), health insurance and HSA, plus what your employer pays on top
 - **Stub checks**: section totals, net pay, year-to-date carry-forward, FICA rates, and changes between checks
 - **W-2 preview**: year-to-date and projected Dec 31 box amounts

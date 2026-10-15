@@ -199,6 +199,26 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .rv .note2{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
 .rv-prog{height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
 .rv-prog div{height:100%;background:var(--accent);width:0}
+/* one paycheck */
+.chkbar{display:flex;gap:8px;align-items:center}
+.chkbar select{flex:1;min-width:0}
+.chkbar .btn{font-size:18px;line-height:1;padding:6px 12px}
+.chkbar .btn:disabled{opacity:.35;cursor:default}
+.pd.have,.pd.xtra{cursor:pointer}
+.pd.on{outline:2px solid var(--ink);outline-offset:1px}
+.sd{border-top:1px solid var(--line);padding-top:12px}
+.sd summary{cursor:pointer;font-weight:700;font-size:15px}
+.sd-meta{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;color:var(--muted);margin:10px 0 6px}
+.sd-meta b{color:var(--ink);font-weight:600}
+#sdTbl{font-size:13.5px}
+#sdTbl th,#sdTbl td{padding:6px 5px}
+#sdTbl td.n,#sdTbl th.n{white-space:nowrap}
+#sdTbl td:first-child{min-width:96px}
+#sdTbl tr.z td{color:var(--muted);opacity:.6}
+@media (max-width:520px){#sdTbl .pc{display:none}}
+#sdTbl tr.sec td{font-weight:800;color:var(--ink);padding-top:12px;border-bottom:1px solid var(--line)}
+#sdTbl td.dif.up{color:var(--amber)}#sdTbl td.dif.dn{color:var(--good)}
+#sdTbl tr.net td{font-weight:800;border-top:1.5px solid var(--line)}
 /* year over year */
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px}
 @media (min-width:700px){.tiles{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}}
@@ -343,6 +363,7 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
       <span><i class="pd miss"></i> Paid, stub missing</span>
       <span><i class="pd next"></i> Next payday</span>
       <span><i class="pd"></i> Upcoming</span>
+      <span>Tap a loaded payday to open that check</span>
     </div>
   </section>
 
@@ -350,15 +371,21 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
     <div class="panel-head">
       <h2>Where the gross went</h2>
       <div class="seg" role="group" aria-label="Period">
-        <button id="m-cur" data-mode="cur" aria-pressed="false">Latest check</button>
+        <button id="m-cur" data-mode="cur" aria-pressed="false">One check</button>
         <button id="m-ytd" data-mode="ytd" aria-pressed="true">Year to date</button>
         <button id="m-proj" data-mode="proj" aria-pressed="false">Full year</button>
       </div>
+    </div>
+    <div class="chkbar" id="chkBar" hidden>
+      <button type="button" class="btn ghost small" id="chkPrev" aria-label="Previous check">‹</button>
+      <select id="checkSel" aria-label="Choose a paycheck"></select>
+      <button type="button" class="btn ghost small" id="chkNext" aria-label="Next check">›</button>
     </div>
     <div class="statline" id="bdStats"></div>
     <div class="bar" id="bar" role="img"></div>
     <div class="bd-list" id="bdList"></div>
     <div class="er" id="erBlock"></div>
+    <details class="sd" id="stubDetail" hidden><summary>Every line on this check</summary><div class="sd-meta" id="sdMeta"></div><div class="tbl-wrap"><table id="sdTbl"></table></div></details>
   </section>
 
   <section class="panel" data-k="checks">
@@ -706,7 +733,8 @@ function renderCalendar(m,y){
     const pills=ds.map(d=>{const cls=have.has(d)?"have":d<=todayISO?"miss":d===next?"next":"";
       const t=have.has(d)?"stub loaded":d<=todayISO?"paid, stub missing":d===next?"next payday":"upcoming";
       const plus=extra.has(d);
-      return `<span class="pd ${cls}" title="${nice(d)}, ${y}: ${t}${plus?" plus an extra check":""}">${dObj(d).getDate()}${plus?"+":""}</span>`}).join("");
+      const sel=state.mode==="cur"&&state.checkDate===d;
+      return `<span class="pd ${cls}${sel?" on":""}"${have.has(d)?` role="button" tabindex="0" data-chk="${d}"`:""} title="${nice(d)}, ${y}: ${t}${plus?" plus an extra check":""}">${dObj(d).getDate()}${plus?"+":""}</span>`}).join("");
     return `<div class="mo${ds.length===3?" three":""}"><div class="mo-h"><span>${MON[mi]}</span>${ds.length===3?'<span class="x3">3 checks</span>':""}</div><div class="pds">${pills}</div></div>`}).join("");
   const miss=m.pds.filter(d=>d<=todayISO&&!have.has(d)).length;const threes=byMonth.map((d,i)=>d.length===3?MON[i]:null).filter(Boolean);
   setSum("cal",`<strong>${have.size}/${m.pds.length}</strong> stubs`+(miss?` · <span class="warn">${miss} missing</span>`:"")+(next?` · next payday ${nice(next)}`:""));
@@ -726,7 +754,34 @@ function breakdown(m,f){
   const net=r2(gross-fed-fica-st-ret-health-hsa-fsa-loan-other);
   return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,fsa,loan,other}};
 }
+function chosenCheck(m){const ys=m.ys;let s=ys.find(x=>skey(x)===state.checkKey);if(!s){s=m.reg;state.checkKey=skey(s)}state.checkDate=s.payDate;return s}
+function checkModel(m){const s=chosenCheck(m);return Object.assign({},m,{reg:s,latest:s,val:(p,f)=>f==="cur"?r2(s.items.filter(p).reduce((a,i)=>a+i.cur,0)):m.val(p,f)})}
+const SECN=[["earnings","Earnings"],["taxable","Taxable benefits (not paid in cash)"],["pretax","Pre-tax deductions"],["taxes","Taxes"],["posttax","After-tax deductions"],["memo","Paid by your employer (not in your pay)"]];
+function renderCheckUI(m){
+  const cur=state.mode==="cur";$("chkBar").hidden=!cur;$("stubDetail").hidden=!cur;if(!cur)return;
+  const ys=m.ys,s=chosenCheck(m),i=ys.indexOf(s);
+  $("checkSel").innerHTML=[...ys].reverse().map(x=>`<option value="${esc(skey(x))}"${x===s?" selected":""}>${nice(x.payDate)}${isExtra(x)?" · extra check":""} · ${x.net&&x.net.cur!=null?fmt(x.net.cur):"—"}</option>`).join("");
+  $("chkPrev").disabled=i<=0;$("chkNext").disabled=i>=ys.length-1;
+  const regs=ys.filter(x=>!isExtra(x));let pv=isExtra(s)?null:regs[regs.indexOf(s)-1]||null;
+  const pv0=pv;if(pv&&!s.items.some(x=>{const q=pv.items.find(j=>j.sec===x.sec&&j.label===x.label);return Math.abs(x.cur-(q?q.cur:0))>=0.005}))pv=null;
+  const g=s.items.filter(x=>x.sec==="earnings").reduce((a,x)=>a+x.cur,0);
+  $("sdMeta").innerHTML=[`<span>Paid <b>${nice(s.payDate)}, ${s.payDate.slice(0,4)}</b></span>`,s.period&&s.period[0]?`<span>Period <b>${nice(s.period[0])} – ${nice(s.period[1])}</b></span>`:"",
+    s.payRate?`<span>Rate <b>${fmt(s.payRate)}</b> per ${isSemi(s)?"half month":"two weeks"}</span>`:"",isExtra(s)?`<span><b>Extra check</b>${s.seq&&!/taxadj/.test(s.seq)?" #"+esc(s.seq):""}</span>`:"",
+    s.filing?`<span>Withholding <b>${esc(s.filing)}</b></span>`:"",s.employer?`<span>${esc(s.employer)}</span>`:"",pv?`<span>Diff compares with <b>${nice(pv.payDate)}</b></span>`:pv0?`<span>Same as <b>${nice(pv0.payDate)}</b>, line for line</span>`:""].filter(Boolean).join("");
+  const dif=(x)=>{if(!pv)return"";const q=pv.items.find(j=>j.sec===x.sec&&j.label===x.label);const d=r2(x.cur-(q?q.cur:0));if(Math.abs(d)<0.005)return"";
+    const bad=x.sec==="earnings"||x.sec==="memo"?d<0:d>0;return`<td class="n dif ${bad?"up":"dn"}">${d>0?"+":"−"}${fmt(Math.abs(d)).slice(1)}</td>`};
+  let h=`<thead><tr><th>Line</th><th class="n">Check</th><th class="n pc">% of gross</th><th class="n">YTD</th>${pv?'<th class="n">Diff</th>':""}</tr></thead><tbody>`;
+  for(const[sec,name]of SECN){const it=s.items.filter(x=>x.sec===sec);if(!it.length)continue;
+    const tc=r2(it.reduce((a,x)=>a+x.cur,0)),ty=r2(it.reduce((a,x)=>a+(x.ytd||0),0));
+    h+=`<tr class="sec"><td>${name}</td><td class="n">${fmt(tc)}</td><td class="n pc">${g?(tc/g*100).toFixed(1)+"%":""}</td><td class="n">${fmt(ty)}</td>${pv?"<td></td>":""}</tr>`;
+    h+=it.map(x=>`<tr${Math.abs(x.cur)<0.005&&!dif(x)?' class="z"':""}><td>${esc(x.label)}</td><td class="n">${fmt(x.cur)}</td><td class="n pc">${g?(x.cur/g*100).toFixed(1)+"%":""}</td><td class="n">${x.ytd!=null?fmt(x.ytd):"—"}</td>${pv?(dif(x)||"<td></td>"):""}</tr>`).join("")}
+  if(s.net){const nd=pv&&pv.net?r2(s.net.cur-pv.net.cur):0;
+    h+=`<tr class="net"><td>Net pay (deposit)</td><td class="n">${fmt(s.net.cur)}</td><td class="n pc">${g?(s.net.cur/g*100).toFixed(1)+"%":""}</td><td class="n">${s.net.ytd!=null?fmt(s.net.ytd):"—"}</td>${pv?(Math.abs(nd)>=0.005?`<td class="n dif ${nd<0?"up":"dn"}">${nd>0?"+":"−"}${fmt(Math.abs(nd)).slice(1)}</td>`:"<td></td>"):""}</tr>`}
+  $("sdTbl").innerHTML=h+"</tbody>";
+  if(s.note)$("sdMeta").innerHTML+=`<span style="flex-basis:100%"><b>${esc(s.noteTitle||"Note")}:</b> ${esc(s.note)}</span>`;
+}
 function renderBreakdown(m){
+  if(state.mode==="cur")m=checkModel(m);
   const f=state.mode;["cur","ytd","proj"].forEach(k=>$("m-"+k).setAttribute("aria-pressed",String(k===f)));
   const b=breakdown(m,f);const g=b.gross||1;
   const shown=CATS.filter(([k])=>b.parts[k]>0.004);
@@ -740,8 +795,8 @@ function renderBreakdown(m){
       .map(i=>({n:subName(i),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
     return lines.length>1?lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.n)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${(x.v/g*100).toFixed(1)}%</span></div>`).join(""):""};
   $("bdList").innerHTML=shown.map(([k,l,c])=>{const sb=subs(k);return grpRow("ee-"+k,c,l,fmt(b.parts[k]),(b.parts[k]/g*100).toFixed(1)+"%",!!sb)+sb+"</div>"}).join("");
-  setSum("gross",`<strong>${fmt0(b.parts.net)}</strong> take-home of ${fmt0(b.gross)} · ${f==="cur"?"latest check":f==="ytd"?"so far":m.partial?`through ${nice(m.latest.payDate)}`:"full year"}`);
-  const label=f==="cur"?`Check of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:(m.partial?`Through ${nice(m.latest.payDate)} (rest of year not loaded)`:m.remaining?`Projected through Dec 31 (${m.remaining} paydays left)`:`Full year ${state.year}`);
+  setSum("gross",`<strong>${fmt0(b.parts.net)}</strong> take-home of ${fmt0(b.gross)} · ${f==="cur"?`check of ${nice(m.reg.payDate)}`:f==="ytd"?"so far":m.partial?`through ${nice(m.latest.payDate)}`:"full year"}`);
+  const label=f==="cur"?`${isExtra(m.reg)?"Extra check":"Check"} of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:(m.partial?`Through ${nice(m.latest.payDate)} (rest of year not loaded)`:m.remaining?`Projected through Dec 31 (${m.remaining} paydays left)`:`Full year ${state.year}`);
   const totalTax=b.parts.fed+b.parts.fica+b.parts.state;
   $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>gross pay</small></div>
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
@@ -749,7 +804,7 @@ function renderBreakdown(m){
     <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small></div>`;
   const er=m.val(i=>i.sec==="memo",f),erRet=m.val(isErRet,f);
   renderEmployer(m,f,b.gross,er);
-  void erRet;
+  void erRet;renderCheckUI(m);
 }
 
 /* ---------- render: employer-paid ---------- */
@@ -1130,12 +1185,12 @@ function renderYoy(){
     if(lastBi){const cnt={};for(let d=lastBi.payDate;d<addDays(todayISO,800);d=addDays(d,14)){const k=d.slice(0,7);cnt[k]=(cnt[k]||0)+1}
       next=Object.keys(cnt).filter(k=>cnt[k]>=3&&k>=todayISO.slice(0,7)).slice(0,2).map(k=>MON[+k.slice(5)-1]+" "+k.slice(0,4))}
     const thisY=rows.find(r=>r.y===+todayISO.slice(0,4));
-    const T=(lbl,val,sub,y)=>`<${y?`button type="button" class="tile" data-open="${y}"`:'div class="tile"'}><span class="tl">${lbl}</span><b>${val}</b><small>${sub}</small></${y?"button":"div"}>`;
+    const T=(lbl,val,sub,y,k)=>`<${y?`button type="button" class="tile" data-open="${y}"${k?` data-key="${esc(k)}"`:""}`:'div class="tile"'}><span class="tl">${lbl}</span><b>${val}</b><small>${sub}</small></${y?"button":"div"}>`;
     const erT=rows.reduce((a,r)=>a+r.sofar.er401,0),youT=rows.reduce((a,r)=>a+r.sofar.ret,0);
     $("yoyTiles").innerHTML=[
-      big&&T("Biggest deposit",fmt(big.net.cur),`${dl(big)}${isExtra(big)?" · extra check":""}`,+big.payDate.slice(0,4)),
-      bigR&&T("Biggest regular check",fmt(bigR.net.cur),dl(bigR),+bigR.payDate.slice(0,4)),
-      smR&&T("Smallest regular check",fmt(smR.net.cur),dl(smR)+why(smR),+smR.payDate.slice(0,4)),
+      big&&T("Biggest deposit",fmt(big.net.cur),`${dl(big)}${isExtra(big)?" · extra check":""}`,+big.payDate.slice(0,4),skey(big)),
+      bigR&&T("Biggest regular check",fmt(bigR.net.cur),dl(bigR),+bigR.payDate.slice(0,4),skey(bigR)),
+      smR&&T("Smallest regular check",fmt(smR.net.cur),dl(smR)+why(smR),+smR.payDate.slice(0,4),skey(smR)),
       T("Paychecks",(regsA.length+(all.length-regsA.length)).toLocaleString(),`${regsA.length} regular + ${all.length-regsA.length} extra since ${years[0]}`),
       R.length&&T("Raise streak",`${streak} year${streak===1?"":"s"}`,`${R.length} raises · average ${(avgR*100).toFixed(1)}% · largest ${(maxR.pct*100).toFixed(1)}% (${MON[+maxR.d.slice(5,7)-1]} ${maxR.d.slice(0,4)})`),
       youT>0&&T("Employer 401(k) per $1",`$${(erT/youT).toFixed(2)}`,`${fmt0(erT)} from your employer so far`),
@@ -1253,7 +1308,7 @@ function renderYoy(){
   setSum("yoyTbl",`${rows.length} years`);
 }
 document.addEventListener("click",e=>{
-  const ob=e.target.closest("[data-open]");if(ob){state.year=+ob.dataset.open;setView("year");window.scrollTo(0,0);return}
+  const ob=e.target.closest("[data-open]");if(ob){state.year=+ob.dataset.open;if(ob.dataset.key){state.checkKey=ob.dataset.key;state.mode="cur"}setView("year");window.scrollTo(0,0);return}
   const th=e.target.closest("#yoyTbl th[data-sort]");if(th){const k=th.dataset.sort;const so=state.yoySort||{k:"y",d:-1};state.yoySort={k,d:so.k===k?-so.d:(k==="y"?-1:-1)};renderYoy();return}
   const tr=e.target.closest("#yoyTbl tr[data-y], #yoyBonusTbl tr[data-y]");if(tr){state.year=+tr.dataset.y;setView("year");window.scrollTo(0,0);return}
   const col=e.target.closest("#yoyView .col");if(col){const y=+col.dataset.y;state.yoySel=state.yoySel===y?null:y;renderYoy();return}
@@ -1281,7 +1336,7 @@ function render(){
   panels.forEach(p=>p.hidden=all);
   if(all){renderYoy();return}
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
-  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y);renderW2(m,y);renderTax(m);renderMeters(m);
+  if(state.mode==="cur")chosenCheck(m);renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y);renderW2(m,y);renderTax(m);renderMeters(m);
 }
 
 /* ---------- events ---------- */
@@ -1317,7 +1372,14 @@ $("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:s
   const fallback=()=>{out.hidden=false;out.value=json;out.focus();out.select();toast("Select-all is ready. Copy this text and keep it somewhere safe.")};
   try{navigator.clipboard.writeText(json).then(()=>{out.hidden=true;toast("Backup copied. Paste it into the box above to restore.")},fallback)}catch(e){fallback()}});
 $("m-cur").closest(".seg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;state.mode=b.dataset.mode;render()});
-$("yearSel").addEventListener("change",e=>{state.year=Number(e.target.value);render()});
+$("yearSel").addEventListener("change",e=>{state.year=Number(e.target.value);state.checkKey=null;render()});
+$("checkSel").addEventListener("change",e=>{state.checkKey=e.target.value;render()});
+const stepCheck=d=>{const ys=yearStubs(state.year);const i=ys.findIndex(x=>skey(x)===state.checkKey);const n=ys[i+d];if(n){state.checkKey=skey(n);render()}};
+$("chkPrev").addEventListener("click",()=>stepCheck(-1));$("chkNext").addEventListener("click",()=>stepCheck(1));
+const pickDay=d=>{const ys=yearStubs(state.year);const s=ys.find(x=>x.payDate===d&&!isExtra(x))||ys.find(x=>x.payDate===d);if(!s)return;
+  state.checkKey=skey(s);state.mode="cur";render();const sec=document.querySelector('section[data-k="gross"]');if(sec){applyPanel(sec,true);setOpen("gross",true);sec.scrollIntoView({behavior:"smooth",block:"start"})}};
+$("months").addEventListener("click",e=>{const p=e.target.closest("[data-chk]");if(p)pickDay(p.dataset.chk)});
+$("months").addEventListener("keydown",e=>{const p=e.target.closest("[data-chk]");if(p&&(e.key==="Enter"||e.key===" ")){e.preventDefault();pickDay(p.dataset.chk)}});
 function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=state.settings.seProfit;$("otherInc").value=state.settings.otherInc;$("estPaid").value=state.settings.estPaid}
 $("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();render()});
 ["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();render()}));
