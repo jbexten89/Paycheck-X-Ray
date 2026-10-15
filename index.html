@@ -325,6 +325,12 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
 "use strict";
 /* ---------- constants (2026 tax year) ---------- */
 const LIMS={
+  2011:{std:5800,exempt:3700,noQbi:true,ssRate:.042,br:[[8500,.10],[34500,.15],[83600,.25],[174400,.28],[379150,.33],[Infinity,.35]],
+    k401:16500,c50:5500,c60:5500,total:49000,ssBase:106800,hsaSelf:3050,hsaFam:6150,hsaCatch:1000},
+  2012:{std:5950,exempt:3800,noQbi:true,ssRate:.042,br:[[8700,.10],[35350,.15],[85650,.25],[178650,.28],[388350,.33],[Infinity,.35]],
+    k401:17000,c50:5500,c60:5500,total:50000,ssBase:110100,hsaSelf:3100,hsaFam:6250,hsaCatch:1000},
+  2013:{std:6100,exempt:3900,noQbi:true,br:[[8925,.10],[36250,.15],[87850,.25],[183250,.28],[398350,.33],[400000,.35],[Infinity,.396]],
+    k401:17500,c50:5500,c60:5500,total:51000,ssBase:113700,hsaSelf:3250,hsaFam:6450,hsaCatch:1000},
   2014:{std:6200,exempt:3950,noQbi:true,br:[[9075,.10],[36900,.15],[89350,.25],[186350,.28],[405100,.33],[406750,.35],[Infinity,.396]],
     k401:17500,c50:5500,c60:5500,total:52000,ssBase:117000,hsaSelf:3300,hsaFam:6550,hsaCatch:1000},
   2015:{std:6300,exempt:4000,noQbi:true,br:[[9225,.10],[37450,.15],[90750,.25],[189300,.28],[411500,.33],[413200,.35],[Infinity,.396]],
@@ -354,6 +360,7 @@ const LIMS={
 const limYears=Object.keys(LIMS).map(Number).sort();
 const limFor=y=>LIMS[y]||LIMS[limYears.filter(k=>k<=y).pop()||limYears[0]];
 let LIM=limFor(2026);
+let SSR=.062;const pctS=()=>(SSR*100).toFixed(1)+"%";
 const KEY="pxr.v1";
 
 /* ---------- no built-in data: stubs live only in this browser ---------- */
@@ -364,7 +371,11 @@ const SEED=[];
 /* ---------- state ---------- */
 let state={stubs:[],settings:{age:40,seProfit:0,otherInc:0,estPaid:0},mode:"ytd",year:null};
 const skey=s=>s.payDate+(s.kind==="Additional"?"b"+(s.seq||""):"a");
-const sortStubs=a=>a.sort((x,y)=>skey(x)<skey(y)?-1:skey(x)>skey(y)?1:0);
+const stubCmp=(x,y)=>{if(x.payDate!==y.payDate)return x.payDate<y.payDate?-1:1;
+  const nx=x.net&&x.net.ytd,ny=y.net&&y.net.ytd;
+  if((x.employer||"")===(y.employer||"")&&typeof nx==="number"&&typeof ny==="number"&&Math.abs(nx-ny)>0.005)return nx-ny;
+  const a=skey(x),b=skey(y);return a<b?-1:a>b?1:0};
+const sortStubs=a=>a.sort(stubCmp);
 function load(){
   let stored=null;try{const r=localStorage.getItem(KEY);if(r)stored=JSON.parse(r)}catch(e){}
   if(stored&&Array.isArray(stored.stubs)){state.stubs=stored.stubs;Object.assign(state.settings,stored.settings||{})}
@@ -461,15 +472,27 @@ function empGroups(ys){
 /* ---------- year model ---------- */
 const isExtra=s=>s.kind==="Additional";
 function yearStubs(y){return sortStubs(state.stubs.filter(s=>s.payDate.slice(0,4)==String(y)))}
+const isSemi=s=>/^semi/i.test(s.freq||"");
 function payDates(y){
-  const ys=yearStubs(y).filter(s=>!isExtra(s));const anchor=ys.length?ys[0].payDate:(state.stubs[0]?state.stubs[0].payDate:null);if(!anchor)return[];
-  let d=anchor;while(d>=y+"-01-01")d=addDays(d,-14);
+  const ys=yearStubs(y).filter(s=>!isExtra(s));
   const all=yearStubs(y-1).concat(ys,yearStubs(y+1)).filter(s=>!isExtra(s)).map(s=>s.payDate);
   const dayDiff=(a,b)=>Math.round((dObj(a)-dObj(b))/864e5);
-  const out=[];for(;d<=(y+1)+"-01-07";d=addDays(d,14)){
-    const near=all.find(x=>Math.abs(dayDiff(x,d))<=3);const real=near||d;
-    if(Number(real.slice(0,4))===y&&!out.includes(real))out.push(real);
+  const snap=d=>all.find(x=>Math.abs(dayDiff(x,d))<=3)||d;
+  const semi=ys.filter(isSemi),bi=ys.filter(s=>!isSemi(s));
+  const out=[];const push=d=>{if(Number(d.slice(0,4))===y&&!out.includes(d))out.push(d)};
+  if(semi.length){
+    const end=bi.length?bi[0].payDate:(y+1)+"-01-01";
+    for(let mo=0;mo<12;mo++)for(const day of[15,new Date(y,mo+1,0).getDate()]){
+      const t=new Date(y,mo,day);const wd=t.getDay();if(wd===6)t.setDate(t.getDate()-1);if(wd===0)t.setDate(t.getDate()-2);
+      const d=snap(isoOf(t));if(d<end)push(d)}
   }
+  if(bi.length||!semi.length){
+    const anchor=bi.length?bi[0].payDate:(state.stubs[0]?state.stubs[0].payDate:null);
+    if(anchor){const from=semi.length?bi[0].payDate:y+"-01-01";
+      let d=anchor;while(d>=from)d=addDays(d,-14);
+      for(;d<=(y+1)+"-01-07";d=addDays(d,14)){const r=snap(d);if(r>=from)push(r)}}
+  }
+  out.sort();
   const f=ys[0];if(f&&f.net&&f.net.cur!=null&&f.net.ytd!=null&&Math.abs(f.net.cur-f.net.ytd)<0.01&&f.net.cur>0)return out.filter(x=>x>=f.payDate);
   return out;
 }
@@ -482,14 +505,17 @@ function model(y){
   const ys=yearStubs(y),pds=payDates(y);
   if(!ys.length)return{ys,pds,latest:null,remaining:0};
   const latest=ys[ys.length-1];const regs=ys.filter(s=>!isExtra(s));const reg=regs.length?regs[regs.length-1]:latest;
-  const remaining=pds.filter(d=>d>latest.payDate).length;
+  const closed=y<Number(todayISO.slice(0,4));
+  const remaining=closed?0:pds.filter(d=>d>latest.payDate).length;
+  const haveD=new Set(regs.map(s=>s.payDate));
+  const partial=closed&&pds.some(d=>d>latest.payDate&&!haveD.has(d));
   const grp=empGroups(ys);const emps=[...new Set(ys.map(s=>grp.get(s)))];
   const lastByEmp=emps.map(e=>{const es=ys.filter(s=>grp.get(s)===e);const last=es[es.length-1];return{e:last.employer||e,last,es}});
   const val=(pred,field)=>{let y=0,c=0;
     for(const g of lastByEmp)for(const i of g.last.items)if(pred(i))y+=ytdOf(g.last,i,g.es);
     for(const i of reg.items)if(pred(i))c+=i.cur;
     return r2(field==="cur"?c:field==="ytd"?y:y+c*remaining)};
-  return{ys,pds,latest,reg,remaining,val,lastByEmp,grp};
+  return{ys,pds,latest,reg,remaining,val,lastByEmp,grp,partial};
 }
 
 /* ---------- parser ---------- */
@@ -508,6 +534,7 @@ function parseChunk(chunk){
   const fs=chunk.match(/Federal Filing Status:?[\s\S]{0,200}?\b(Single|Married[A-Za-z ]*?|Head of Household)\b/i);
   const kd=chunk.match(/•\s*\d{1,2}\/\d{1,2}\/\d{4}\s*•\s*([A-Za-z]+)/);
   const stub={payDate:toISO(pd[1]),period:pp?[toISO(pp[1]),toISO(pp[2])]:null,kind:kd&&/additional|bonus|off/i.test(kd[1])?"Additional":"Normal",payRate:rt?parseFloat(rt[1].replace(/,/g,"")):null,filing:fs?fs[1]:null,items:[],totals:{},net:null};
+  const fq=chunk.match(/Pay Frequency:?[ \t]*([A-Za-z-]+)/);if(fq&&/^(s|semi)/i.test(fq[1]))stub.freq="semimonthly";
   const adv=chunk.match(/(?:Deposit Advice|Check)\s*#:?[ \t]*([A-Za-z0-9]+)/);if(adv)stub.seq=adv[1];
   const em=chunk.match(/Employer Name:?[ \t]*([^\n\t]+?)(?:[ ]{2,}|\t|\n|$)/);if(em)stub.employer=em[1].trim();
   let sec=null,block=false,pL=[],pA=[],netA=[];
@@ -597,14 +624,14 @@ function renderBreakdown(m){
   $("bar").setAttribute("aria-label",shown.map(([k,l])=>`${l} ${Math.round(b.parts[k]/g*100)}%`).join(", "));
   const SUBP={health:i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&/MED|DENT|VIS|FSA|HEALTH|INS/i.test(i.label),
     fica:i=>isSS(i)||isMedi(i),state:isStateLocal,ret:isRet};
-  const subName=i=>isRoth(i)?"Roth 401(k)":isPreRet(i)?"Pre-tax 401(k)":isSS(i)?"Social Security (6.2%)":isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b|SdW/i.test(i.label)?(()=>{const n=i.label.replace(/\s*(Schl|School|Sd)\b.*$|\s*SdW.*$/i,"").trim();return n?`School district tax (${n.charAt(0)+n.slice(1).toLowerCase()})`:"School district tax"})():i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
+  const subName=i=>isRoth(i)?"Roth 401(k)":isPreRet(i)?"Pre-tax 401(k)":isSS(i)?`Social Security (${pctS()})`:isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b|SdW/i.test(i.label)?(()=>{const n=i.label.replace(/\s*(Schl|School|Sd)\b.*$|\s*SdW.*$/i,"").trim();return n?`School district tax (${n.charAt(0)+n.slice(1).toLowerCase()})`:"School district tax"})():i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
   const subs=k=>{if(!SUBP[k])return"";
     const lines=m.latest.items.filter(SUBP[k])
       .map(i=>({n:subName(i),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
     return lines.length>1?lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.n)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${(x.v/g*100).toFixed(1)}%</span></div>`).join(""):""};
   $("bdList").innerHTML=shown.map(([k,l,c])=>{const sb=subs(k);return grpRow("ee-"+k,c,l,fmt(b.parts[k]),(b.parts[k]/g*100).toFixed(1)+"%",!!sb)+sb+"</div>"}).join("");
-  setSum("gross",`<strong>${fmt0(b.parts.net)}</strong> take-home of ${fmt0(b.gross)} · ${f==="cur"?"latest check":f==="ytd"?"so far":"full year"}`);
-  const label=f==="cur"?`Check of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:`Projected through Dec 31 (${m.remaining} paydays left)`;
+  setSum("gross",`<strong>${fmt0(b.parts.net)}</strong> take-home of ${fmt0(b.gross)} · ${f==="cur"?"latest check":f==="ytd"?"so far":m.partial?`through ${nice(m.latest.payDate)}`:"full year"}`);
+  const label=f==="cur"?`Check of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:(m.partial?`Through ${nice(m.latest.payDate)} (rest of year not loaded)`:m.remaining?`Projected through Dec 31 (${m.remaining} paydays left)`:`Full year ${state.year}`);
   const totalTax=b.parts.fed+b.parts.fica+b.parts.state;
   $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>gross pay</small></div>
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
@@ -669,7 +696,7 @@ function k401Total(m,catchUp){
 function runChecks(m,y){
   const out=[];const ys=m.ys;const have=new Set(ys.filter(s=>!isExtra(s)).map(s=>s.payDate));
   const missPast=m.pds.filter(d=>d<=todayISO&&!have.has(d));
-  if(missPast.length)out.push(["warn",`${missPast.length} paid stub${missPast.length>1?"s":""} not loaded`,`Missing: ${missPast.slice(0,6).map(nice).join(", ")}${missPast.length>6?` and ${missPast.length-6} more`:""}. `+(m.remaining?"Projections lean on the latest stub, so add the newest one first.":"Year totals still come from the last stub's year-to-date, so they include these checks; only their individual details are missing.")]);
+  if(missPast.length)out.push(["warn",`${missPast.length} paid stub${missPast.length>1?"s":""} not loaded`,`Missing: ${missPast.slice(0,6).map(nice).join(", ")}${missPast.length>6?` and ${missPast.length-6} more`:""}. `+(m.partial?`Totals only run through ${nice(m.latest.payDate)}; checks after that aren't loaded yet.`:m.remaining?"Projections lean on the latest stub, so add the newest one first.":"Year totals still come from the last stub's year-to-date, so they include these checks; only their individual details are missing.")]);
   let totBad=0,ytdBad=0,ficaBad=0,netBad=0,ytdChecked=0,capNoted=false;
   ys.forEach((s,idx)=>{
     for(const[sec,t]of Object.entries(s.totals||{})){const sum=r2(s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0));
@@ -683,7 +710,7 @@ function runChecks(m,y){
     if(s._renamedFrom&&before&&(before.employer||"")!==(s.employer||""))out.push(["info",`Employer name changed on ${nice(s.payDate)}`,`${s._renamedFrom} → ${s.employer}. Year-to-date totals carry on, so it's the same employer and one W-2.`]);
     const first=(idx===0&&m.pds[0]===s.payDate)||newEmp;
     const gap=prev?Math.round((dObj(s.payDate)-dObj(prev.payDate))/864e5):99;
-    const prevOk=prev&&((gap>=11&&gap<=17)||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&m.grp.get(before)!==emp));
+    const prevOk=prev&&((gap>=11&&gap<=19)||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&m.grp.get(before)!==emp));
     if(newEmp)out.push(["info",`New employer on ${nice(s.payDate)}`,`${s.employer||"Unnamed employer"}${before.employer?` (was ${before.employer})`:""}. Year-to-date totals restart, and you'll get a separate W-2 from each.`]);
     if(first||prevOk){for(const i of s.items){if(i.ytd==null)continue;ytdChecked++;
       const pi=prevOk?prev.items.find(j=>j.sec===i.sec&&j.label===i.label):null;
@@ -694,9 +721,9 @@ function runChecks(m,y){
     const ss=Y(isSS),md=Y(isMedi);
     const ficaNow=s.items.filter(i=>isSS(i)||isMedi(i)).reduce((a,i)=>a+Math.abs(i.cur),0);
     if(isExtra(s)&&ficaNow<0.005){}else{
-    if(ss&&ssW<=LIM.ssBase&&Math.abs(ss-ssW*.062)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security isn't 6.2%`,`Year-to-date Social Security wages ${fmt(ssW)} × 6.2% = ${fmt(ssW*.062)}, withheld ${fmt(ss)}.`])}
-    if(ss&&ssW>LIM.ssBase&&Math.abs(ss-LIM.ssBase*.062)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security over the cap`,`Wages passed the ${fmt0(LIM.ssBase)} cap, so withholding should stop at ${fmt(LIM.ssBase*.062)}. Year-to-date withheld: ${fmt(ss)}.`])}
-    if(ss&&ssW>LIM.ssBase&&!capNoted){capNoted=true;out.push(["info",`Hit the Social Security cap on ${nice(s.payDate)}`,`Wages passed ${fmt0(LIM.ssBase)}, so Social Security stopped at ${fmt(LIM.ssBase*.062)} for the year. Checks after this are bigger.`])}
+    if(ss&&ssW<=LIM.ssBase&&Math.abs(ss-ssW*SSR)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security isn't ${pctS()}`,`Year-to-date Social Security wages ${fmt(ssW)} × ${pctS()} = ${fmt(ssW*SSR)}, withheld ${fmt(ss)}.`])}
+    if(ss&&ssW>LIM.ssBase&&Math.abs(ss-LIM.ssBase*SSR)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security over the cap`,`Wages passed the ${fmt0(LIM.ssBase)} cap, so withholding should stop at ${fmt(LIM.ssBase*SSR)}. Year-to-date withheld: ${fmt(ss)}.`])}
+    if(ss&&ssW>LIM.ssBase&&!capNoted){capNoted=true;out.push(["info",`Hit the Social Security cap on ${nice(s.payDate)}`,`Wages passed ${fmt0(LIM.ssBase)}, so Social Security stopped at ${fmt(LIM.ssBase*SSR)} for the year. Checks after this are bigger.`])}
     if(md&&ssW<=200000&&Math.abs(md-ssW*.0145)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Medicare isn't 1.45%`,`${fmt(ssW)} × 1.45% = ${fmt(ssW*.0145)}, withheld ${fmt(md)}.`])}}
     if(isExtra(s)){
       const what=s.items.filter(i=>(i.sec==="earnings"||i.sec==="taxable")&&i.cur>0).map(i=>`${i.label} ${fmt(i.cur)}`).join(", ");
@@ -731,7 +758,7 @@ function runChecks(m,y){
       for(const pi of pv.items){if(!["pretax","posttax"].includes(pi.sec))continue;if(!s.items.some(j=>j.sec===pi.sec&&j.label===pi.label))out.push(["info",`${pi.label} stopped on ${nice(s.payDate)}`,`It was ${fmt(pi.cur)} per check before.`])}
     }
   });
-  if(m.lastByEmp&&m.lastByEmp.length>1){const ssAll=m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0);const mx=LIM.ssBase*.062;
+  if(m.lastByEmp&&m.lastByEmp.length>1){const ssAll=m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0);const mx=LIM.ssBase*SSR;
     if(ssAll>mx+0.05)out.push(["info","Extra Social Security withheld",`With ${m.lastByEmp.length} employers, ${fmt(ssAll)} of Social Security was withheld, ${fmt(ssAll-mx)} over the ${fmt(mx)} yearly maximum. You get the extra back as a credit on your federal return (Form 1040, Schedule 3).`]);}
   if(m.latest){const hsaIt=m.latest.items.filter(isHSA);if(hsaIt.length){const fam=hsaIt.some(i=>/FAM/i.test(i.label));const age=ageFor(y);
       const hl=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);const ht=m.val(isHSAall,m.remaining?"proj":"ytd");
@@ -742,7 +769,7 @@ function runChecks(m,y){
   if(n){if(!totBad&&Object.keys(ys[0].totals||{}).length)out.push(["ok","Section totals add up",`Every earnings, deduction and tax section matches its total on all ${n} stub${n>1?"s":""}.`]);
     if(!netBad)out.push(["ok","Net pay matches the math",`Gross minus deductions and taxes equals the deposit on every stub.`]);
     if(!ytdBad&&ytdChecked)out.push(["ok","Year-to-date totals carry forward",`Each line's YTD equals the previous YTD plus the current check (${ytdChecked} lines checked).`]);
-    if(!ficaBad)out.push(["ok","FICA rates are right","Social Security is 6.2% (up to the yearly cap) and Medicare 1.45% of wages after insurance and HSA, as expected."]);}
+    if(!ficaBad)out.push(["ok","FICA rates are right",`Social Security is ${pctS()} (up to the yearly cap) and Medicare 1.45% of wages after insurance and HSA, as expected.`]);}
   const order={bad:0,warn:1,info:2,ok:3};out.sort((a,b)=>order[a[0]]-order[b[0]]);return out;
 }
 function renderChecks(m,y){
@@ -783,16 +810,17 @@ function renderW2(m,y){
 /* ---------- render: tax ---------- */
 function bracketTax(t){let tax=0,lo=0;for(const[hi,r]of LIM.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax}
 function renderTax(m){
+  if(m.partial){$("fsLabel").textContent="";$("taxOut").innerHTML=`<p class="note">Only stubs through ${nice(m.latest.payDate)} are loaded for ${state.year}, so there's no full-year estimate yet. Add the rest of the year to see one.</p>`;setSum("tax",`Partial year (through ${nice(m.latest.payDate)})`);return}
   const st=taxIn(state.year);const fs=m.latest.filing||"Single";$("fsLabel").textContent=`Filing as ${fs}`;
   if(!/single/i.test(fs)){$("taxOut").innerHTML=`<p class="note">This estimate only handles Single filing. Withholding for ${state.year} was set as ${esc(fs)}, and a joint return depends on a spouse's income too, so no estimate is shown.</p>`;setSum("tax",`No estimate (withholding set as ${esc(fs)})`);return}
   const wages=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj");
   const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
   const se=Math.max(0,+st.seProfit||0),oth=Math.max(0,+st.otherInc||0),est=Math.max(0,+st.estPaid||0);
-  const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*0.124+seBase*0.029:0;const halfSE=seTax/2;
+  const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*(0.062+SSR)+seBase*0.029:0;const halfSE=seTax/2;
   const agi=wages+oth+se-halfSE;const pre=Math.max(0,agi-LIM.std-(LIM.exempt||0));
   const qbi=LIM.noQbi?0:Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
   const inc=bracketTax(taxable);const total=inc+seTax;const withheld=m.val(isFed,"proj")+est;
-  const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*.062):0;
+  const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*SSR):0;
   const gap=total-withheld-ssCredit;
   const per=m.remaining?gap/m.remaining:0;
   const rows=[[(m.remaining?"Projected W-2 wages":"W-2 wages")+" (Box 1)",wages],se?["Side business profit",se]:null,oth?["Other taxable income",oth]:null,se?["Half of self-employment tax",-halfSE]:null,
@@ -822,8 +850,8 @@ function renderMeters(m){
   const mY=m.val(isMatch,"ytd");const erP=m.val(isErRet,"proj");
   const gross=m.remaining?m.val(i=>i.sec==="earnings","cur"):r2(m.val(i=>i.sec==="earnings","ytd")/nReg);const perLbl=m.remaining?"per check":"per check on average";
   const kLines=[`${fmt0(kY)} so far`+(rothY?` (${fmt0(kY-rothY)} pre-tax + ${fmt0(rothY)} Roth)`:"")+` · ${fmt(kC)} ${perLbl} (${gross?(kC/gross*100).toFixed(1):0}% of gross).`,
-    m.remaining===0?(kY<kLim?`Year finished ${fmt0(kLim-kY)} under the limit.`:`Reached the limit.`):kP<kLim?`To max out, raise it to about <b class="num">${fmt0(need)}</b> per check for the ${m.remaining} paydays left.`:`On pace to reach the limit.`,
-    (catchUp?`Limit includes the ${fmt0(catchUp)} age catch-up.`:`No catch-up yet; that starts the year you turn 50.`)+(kY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`+(loanY?` 401(k) loan repayments (${fmt0(loanY)}) aren't contributions and aren't counted here.`:"")];
+    m.partial?`Only stubs through ${nice(m.latest.payDate)} are loaded, so the year isn't complete.`:m.remaining===0?(kY<kLim?`Year finished ${fmt0(kLim-kY)} under the limit.`:`Reached the limit.`):kP<kLim?`To max out, raise it to about <b class="num">${fmt0(need)}</b> per check for the ${m.remaining} paydays left.`:`On pace to reach the limit.`,
+    (catchUp?`Limit includes the ${fmt0(catchUp)} age catch-up.`:`No catch-up yet; that starts the year you turn 50.`)+(kY&&mY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+(erP?` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`:" These stubs don't list employer contributions.")+(loanY?` 401(k) loan repayments (${fmt0(loanY)}) aren't contributions and aren't counted here.`:"")];
   const hsaItems=m.latest.items.filter(isHSA);const fam=hsaItems.some(i=>/FAM/i.test(i.label));
   const hLim=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);
   const hY=m.val(isHSAall,"ytd"),hP=m.val(isHSAall,"proj"),hEr=m.val(isHSAer,"ytd"),hC=m.remaining?m.val(isHSA,"cur"):r2((hY-hEr)/nReg);
@@ -852,7 +880,7 @@ function render(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
   $("yearSel").innerHTML=(years.length?years:[state.year]).map(y=>`<option${y===state.year?" selected":""}>${y}</option>`).join("");
-  const y=state.year;LIM=limFor(y);const m=model(y);
+  const y=state.year;LIM=limFor(y);SSR=LIM.ssRate||.062;const m=model(y);
   renderStubs();
   const panels=document.querySelectorAll(".wrap > section.panel:not(:last-child):not(#emptyNote), .wrap > .grid2");
   const addSec=document.querySelector('section[data-k="add"]');

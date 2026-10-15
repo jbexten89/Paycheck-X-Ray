@@ -157,7 +157,7 @@
     for (const s of SECS) { const its = items.filter(i => i.sec === s); if (its.length) totals[s] = { cur: r2(its.reduce((a, i) => a + i.cur, 0)), ytd: r2(its.reduce((a, i) => a + (i.ytd || 0), 0)) }; }
     const S = s => totals[s] ? totals[s].cur : 0, SY = s => totals[s] ? totals[s].ytd : 0;
     const net = { cur: r2(S("earnings") - S("pretax") - S("posttax") - S("taxes")), ytd: r2(SY("earnings") - SY("pretax") - SY("posttax") - SY("taxes")) };
-    const stub = { payDate: date, period: res.stub.period, kind, payRate: tpl.payRate || null, filing: tpl.filing || null, employer: tpl.employer || undefined, items, totals, net, source: "photo" };
+    const stub = { payDate: date, period: res.stub.period, kind, payRate: tpl.payRate || null, filing: tpl.filing || null, employer: tpl.employer || undefined, freq: tpl.freq || undefined, items, totals, net, source: "photo" };
     P().addStubs([stub]);
     if (current.thumb) URL.revokeObjectURL(current.thumb); current = null;
     $("review").hidden = true; $("review").innerHTML = "";
