@@ -21,7 +21,7 @@
 :root{
   --bg:#07080A; --surface:#111317; --ink:#ECEEF0; --muted:#9BA1A8; --line:#23272D; --soft:#1A1D22;
   --accent:#3CC79A; --accent-ink:#04140E; --amber:#E3A04F; --amber-ink:#1A1004;
-  --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-other:#6B7280;
+  --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-fsa:#4FC3C7; --c-other:#6B7280;
   --c-k-you:#5FA8F5; --c-k-roth:#7FD1F0; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
   --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2;
   --bad:#F0707C; --warn:#E3A04F; --good:#3CC79A; --info:#8FB3D9;
@@ -449,6 +449,7 @@ const isDefer=i=>isPreRet(i)||isRoth(i);
 const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
 const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
 const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
+const isFSA=i=>(i.sec==="pretax"||i.sec==="posttax")&&/\bFSA\b|FLEX SPEND/i.test(i.label);
 const isHSAall=i=>isHSA(i)||isHSAer(i);
 const isErRet=i=>i.sec==="memo"&&/401|403|PENSION|MATCH|HARBOR|PROFIT|RETIRE/i.test(i.label);
 const isMatch=i=>i.sec==="memo"&&/MATCH/i.test(i.label);
@@ -605,16 +606,17 @@ function renderCalendar(m,y){
 }
 
 /* ---------- render: breakdown ---------- */
-const CATS=[["net","Take-home pay","--c-net"],["fed","Federal income tax","--c-fed"],["fica","Social Security + Medicare","--c-fica"],["state","State + local tax","--c-state"],["ret","401(k)","--c-ret"],["health","Health insurance","--c-health"],["loan","401(k) loan repayment","--c-other"],["hsa","HSA","--c-er-hsa"],["other","Other deductions","--c-other"]];
+const CATS=[["net","Take-home pay","--c-net"],["fed","Federal income tax","--c-fed"],["fica","Social Security + Medicare","--c-fica"],["state","State + local tax","--c-state"],["ret","401(k)","--c-ret"],["health","Health insurance","--c-health"],["loan","401(k) loan repayment","--c-other"],["hsa","HSA","--c-er-hsa"],["fsa","Health FSA","--c-fsa"],["other","Other deductions","--c-other"]];
 function breakdown(m,f){
   const gross=m.val(i=>i.sec==="earnings",f);
   const fed=m.val(isFed,f),fica=m.val(i=>isSS(i)||isMedi(i),f),st=m.val(isStateLocal,f),ret=m.val(isRet,f);
-  const health=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&(/MED|DENT|VIS|FSA|HEALTH|INS/i.test(i.label)),f);
+  const health=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&!isFSA(i)&&(/MED|DENT|VIS|HEALTH|INS/i.test(i.label)),f);
+  const fsa=m.val(isFSA,f);
   const hsa=m.val(isHSA,f);
   const loan=m.val(isLoan,f);
   const other=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isLoan(i)&&!(/MED|DENT|VIS|HSA|FSA|HEALTH|INS/i.test(i.label)),f);
-  const net=r2(gross-fed-fica-st-ret-health-hsa-loan-other);
-  return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,loan,other}};
+  const net=r2(gross-fed-fica-st-ret-health-hsa-fsa-loan-other);
+  return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,fsa,loan,other}};
 }
 function renderBreakdown(m){
   const f=state.mode;["cur","ytd","proj"].forEach(k=>$("m-"+k).setAttribute("aria-pressed",String(k===f)));
@@ -622,7 +624,7 @@ function renderBreakdown(m){
   const shown=CATS.filter(([k])=>b.parts[k]>0.004);
   $("bar").innerHTML=shown.map(([k,l,c])=>`<div style="width:${(b.parts[k]/g*100).toFixed(3)}%;background:var(${c})" title="${l}: ${fmt(b.parts[k])}"></div>`).join("");
   $("bar").setAttribute("aria-label",shown.map(([k,l])=>`${l} ${Math.round(b.parts[k]/g*100)}%`).join(", "));
-  const SUBP={health:i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&/MED|DENT|VIS|FSA|HEALTH|INS/i.test(i.label),
+  const SUBP={health:i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&!isFSA(i)&&/MED|DENT|VIS|HEALTH|INS/i.test(i.label),
     fica:i=>isSS(i)||isMedi(i),state:isStateLocal,ret:isRet};
   const subName=i=>isRoth(i)?"Roth 401(k)":isPreRet(i)?"Pre-tax 401(k)":isSS(i)?`Social Security (${pctS()})`:isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b|SdW/i.test(i.label)?(()=>{const n=i.label.replace(/\s*(Schl|School|Sd)\b.*$|\s*SdW.*$/i,"").trim();return n?`School district tax (${n.charAt(0)+n.slice(1).toLowerCase()})`:"School district tax"})():i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
   const subs=k=>{if(!SUBP[k])return"";
@@ -645,7 +647,7 @@ function renderBreakdown(m){
 /* ---------- render: employer-paid ---------- */
 const ER_GROUPS=[
   ["ret","Retirement","--c-er-ret",i=>isErRet(i)],
-  ["med","Health coverage","--c-er-med",i=>i.sec==="memo"&&/MEDICAL|DENTAL|VISION/i.test(i.label)],
+  ["med","Health coverage","--c-er-med",i=>i.sec==="memo"&&!/FSA/i.test(i.label)&&/MEDICAL|DENTAL|VISION/i.test(i.label)],
   ["hsa","HSA deposit","--c-er-hsa",i=>isHSAer(i)],
   ["life","Life + disability","--c-er-life",i=>i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!/MEDICAL|DENTAL|VISION/i.test(i.label)]];
 function erName(l){
@@ -754,7 +756,10 @@ function runChecks(m,y){
         out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check.`+(pctBased?` Now ${(i.cur/gr(s)*100).toFixed(2)}% of gross.`:"")])}
       const preSum=x=>x.items.filter(i=>i.sec==="pretax").reduce((a,i)=>a+i.cur,0);const preDiff=r2(preSum(s)-preSum(pv));
       if(Math.abs(gr(pv)-gr(s))<0.01)for(const i of s.items.filter(x=>x.sec==="taxes"&&!isSS(x)&&!isMedi(x))){const pi=pv.items.find(j=>j.sec==="taxes"&&j.label===i.label);
-        if(pi&&pi.cur>0&&Math.abs(pi.cur-i.cur)/pi.cur>0.01)out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check with the same gross pay. `+(Math.abs(preDiff)>0.01?`Pre-tax deductions ${preDiff>0?"rose":"fell"} by ${fmt(Math.abs(preDiff))}, which changes the taxable amount.`:`Payroll likely switched to new withholding tables.`)])}
+        if(!(pi&&pi.cur>0&&Math.abs(pi.cur-i.cur)/pi.cur>0.01))continue;
+        const pp=regsBefore[regsBefore.length-2],ppi=pp&&pp.items.find(j=>j.sec==="taxes"&&j.label===i.label);
+        if(ppi&&ppi.cur>0&&Math.abs(ppi.cur-pi.cur)/ppi.cur>0.5&&Math.abs(ppi.cur-i.cur)/ppi.cur<0.75){out.push(["info",`${i.label} was unusual on ${nice(pv.payDate)}`,`Only ${fmt(pi.cur)} that check, against ${fmt(ppi.cur)} on ${nice(pp.payDate)} and ${fmt(i.cur)} on ${nice(s.payDate)}. Likely a one-time payroll correction; the year-to-date still adds up.`]);continue}
+        out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check with the same gross pay. `+(Math.abs(preDiff)>0.01?`Pre-tax deductions ${preDiff>0?"rose":"fell"} by ${fmt(Math.abs(preDiff))}, which changes the taxable amount.`:`Payroll likely switched to new withholding tables.`)])}
       for(const pi of pv.items){if(!["pretax","posttax"].includes(pi.sec))continue;if(!s.items.some(j=>j.sec===pi.sec&&j.label===pi.label))out.push(["info",`${pi.label} stopped on ${nice(s.payDate)}`,`It was ${fmt(pi.cur)} per check before.`])}
     }
   });
@@ -797,7 +802,7 @@ function renderW2(m,y){
       ["12 D","401(k) deferrals",m.val(isPreRet,f)],
       ["12 W","HSA (you + employer)",m.val(isHSAall,f)],
       ["12 AA","Roth 401(k)",m.val(isRoth,f)],
-      ["12 DD","Health coverage cost",m.val(i=>/MEDICAL|DENTAL|VISION/i.test(i.label)&&(i.sec==="memo"||i.sec==="pretax"),f)],
+      ["12 DD","Health coverage cost",m.val(i=>/MEDICAL|DENTAL|VISION/i.test(i.label)&&!/FSA/i.test(i.label)&&(i.sec==="memo"||i.sec==="pretax"),f)],
       ["17","State income tax",m.val(i=>isStateLocal(i)&&/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)],
       ["19","Local / school district tax",m.val(i=>isStateLocal(i)&&!/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)]]};
   const a=box("ytd"),p=box("proj");
