@@ -9,6 +9,7 @@ A single-page tool that reads a year of bi-weekly pay stubs and shows:
 - **W-2 preview**: year-to-date and projected Dec 31 box amounts
 - **Federal withholding check**: projected refund or amount owed, including side-business income
 - **Savings pace**: 401(k) and HSA against the IRS limits, and a combined you-plus-employer 401(k) total
+- **Time off**: vacation, personal, sick and bereavement days by year (from 2014, when stubs list them separately), which months you take vacation, and a dot in the pay calendar on checks that paid time off
 - **All years**: a year-over-year view with totals since your first stub, where each year's pay went, base pay and every raise against inflation, tax rates, 401(k) against the limit, health costs, bonuses and overtime, and a sortable table of every year. Records and milestones (biggest and smallest checks, raise streak, years at the 401(k) limit, three-paycheck months), total compensation including what your employer pays, Tax Freedom Day, and pay per hour. Switch between dollars as paid and after inflation (CPI-U).
 
 ## Privacy

@@ -211,6 +211,13 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .pd.have,.pd.bon,.pd.ext{cursor:pointer}
 .pd.bon{background:var(--c-k-p45);border-color:var(--c-k-p45);color:#1A1404;font-weight:700}
 .pd.ext{border-color:var(--c-k-p45);color:var(--c-k-p45)}
+.pd.vac{position:relative}.pd.vac::after{content:"";position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;background:#7FD1F0;border:1.5px solid var(--surface)}
+.legend-row .vacdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#7FD1F0}
+.subh{font-size:14px;font-weight:700;margin:4px 0 -4px}
+.mheat{display:grid;grid-template-columns:repeat(12,1fr);gap:4px}
+@media (max-width:620px){.mheat{grid-template-columns:repeat(6,1fr);gap:6px}}
+.mheat .mh{border-radius:6px;padding:6px 2px;text-align:center;font-size:11px;color:var(--muted);background:var(--soft);min-width:0}
+.mheat .mh b{display:block;font-size:13px;color:var(--ink);font-family:var(--f-num);font-variant-numeric:tabular-nums}
 .pd.on{outline:2px solid var(--ink);outline-offset:1px}
 .sd{border-top:1px solid var(--line);padding-top:12px}
 .sd summary{cursor:pointer;font-weight:700;font-size:15px}
@@ -375,6 +382,15 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <div class="tbl-wrap"><table class="yt ytab" id="tbObl"></table></div>
       <p class="note" style="margin:0">401(k) loan payments come out after tax and go back into your own 401(k) account, principal plus interest; the stubs don't show the split. Child support includes processing fees.</p>
     </section>
+    <section class="panel" data-k="yoyPto" id="yoyPtoPanel" style="grid-column:1/-1">
+      <div class="panel-head"><h2>Time off</h2></div>
+      <div class="tiles" id="yoyPtoTiles"></div>
+      <div class="chart" id="yoyPto"></div><div class="legend-row" id="yoyPtoLeg"></div><p class="yd" id="yoyPtoD"></p>
+      <h3 class="subh">When you take vacation</h3>
+      <div class="mheat" id="yoyPtoMonths"></div>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbPto"></table></div>
+      <p class="note" id="yoyPtoNote" style="margin:0"></p>
+    </section>
   </div>
   <section class="panel" data-k="yoyTbl">
     <div class="panel-head"><h2>Every year</h2></div>
@@ -397,6 +413,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <span><i class="pd"></i> Upcoming</span>
       <span><i class="pd bon"></i> Bonus check</span>
       <span><i class="pd ext"></i> Other extra check</span>
+      <span><i class="vacdot"></i> Time off on this check</span>
       <span>Tap any check to open it</span>
     </div>
   </section>
@@ -577,7 +594,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -620,6 +637,10 @@ const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
 const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
 const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
 const isChild=i=>(i.sec==="pretax"||i.sec==="posttax")&&/CHILD|CHLD/i.test(i.label);
+const PTO_T=[["vac","Vacation",/VAC|\bPTO\b/i,"--c-net"],["hol","Holiday",/HOLIDAY/i,"--c-ret"],["per","Personal",/PERSONAL/i,"--c-k-p45"],["sick","Sick",/SICK/i,"--c-health"],["ber","Bereavement",/BEREAV/i,"--c-state"]];
+const ptoType=i=>i.sec==="earnings"?(PTO_T.find(t=>t[2].test(i.label))||[null])[0]:null;
+const stubPto=s=>{const out={};const b=(s.payRate&&(s.payRate<500?s.payRate*2080:s.payRate*(/^semi/i.test(s.freq||"")?24:26)))||0;if(!b)return out;const hr=b/2080;
+  for(const i of s.items){const t=ptoType(i);if(!t||!(i.cur>0))continue;const o=out[t]||(out[t]={h:0,d:0});o.h+=i.cur/hr;o.d+=i.cur}return out};
 const isFSA=i=>(i.sec==="pretax"||i.sec==="posttax")&&/\bFSA\b|FLEX SPEND/i.test(i.label);
 const isHSAall=i=>isHSA(i)||isHSAer(i);
 const isErRet=i=>i.sec==="memo"&&/401|403|PENSION|MATCH|HARBOR|PROFIT|RETIRE/i.test(i.label);
@@ -775,13 +796,14 @@ function renderCalendar(m,y){
         return `<span class="pd ${bon?"bon":"ext"}${selKey===skey(x)?" on":""}" role="button" tabindex="0" data-key="${esc(skey(x))}" title="${nice(d)}, ${y}: ${bon?"bonus check":"extra check"}, ${amt} deposited">${dObj(d).getDate()}</span>`}
       const cls=have.has(d)?"have":d<=todayISO?"miss":d===next?"next":"";
       const t=have.has(d)?"stub loaded":d<=todayISO?"paid, stub missing":d===next?"next payday":"upcoming";
-      const rs=m.ys.find(s=>s.payDate===d&&!isExtra(s)),sel=!!(selKey&&rs&&selKey===skey(rs));
-      return `<span class="pd ${cls}${sel?" on":""}"${have.has(d)?` role="button" tabindex="0" data-chk="${d}"`:""} title="${nice(d)}, ${y}: ${t}">${dObj(d).getDate()}</span>`}).join("");
+      const rs=m.ys.find(s=>s.payDate===d&&!isExtra(s)),sel=!!(selKey&&rs&&selKey===skey(rs));const vh=rs?Object.values(stubPto(rs)).reduce((a,o)=>a+o.h,0):0;
+      return `<span class="pd ${cls}${sel?" on":""}${vh>0.05?" vac":""}"${have.has(d)?` role="button" tabindex="0" data-chk="${d}"`:""} title="${nice(d)}, ${y}: ${t}${vh>0.05?` · ${vh<7.95?Math.round(vh)+" hr":+(vh/8).toFixed(1)+(Math.abs(vh-8)<0.05?" day":" days")} time off`:""}">${dObj(d).getDate()}</span>`}).join("");
     return `<div class="mo${ds.length===3?" three":""}"><div class="mo-h"><span>${MON[mi]}</span>${ds.length===3?'<span class="x3">3 checks</span>':""}</div><div class="pds">${pills}</div></div>`}).join("");
   const miss=m.pds.filter(d=>d<=todayISO&&!have.has(d)).length;const threes=byMonth.map((d,i)=>d.length===3?MON[i]:null).filter(Boolean);
-  setSum("cal",`<strong>${have.size}/${m.pds.length}</strong> stubs`+(miss?` · <span class="warn">${miss} missing</span>`:"")+(next?` · next payday ${nice(next)}`:""));
+  const ptoH=m.ys.reduce((a,s)=>a+Object.values(stubPto(s)).reduce((b,o)=>b+o.h,0),0);
+  setSum("cal",`<strong>${have.size}/${m.pds.length}</strong> stubs`+(ptoH>0.05?` · ${+(ptoH/8).toFixed(1)} days off`:"")+(miss?` · <span class="warn">${miss} missing</span>`:"")+(next?` · next payday ${nice(next)}`:""));
   const xs=m.ys.filter(isExtra),nb=xs.filter(isBonusCheck).length,no=xs.length-nb;
-  $("calSummary").textContent=`${have.size} of ${m.pds.length} stubs loaded`+(nb?` + ${nb} bonus check${nb>1?"s":""}`:"")+(no?` + ${no} other extra`:"")+(miss?` · ${miss} missing`:"")+(threes.length?` · 3-check months: ${threes.join(", ")}`:"");
+  $("calSummary").textContent=`${have.size} of ${m.pds.length} stubs loaded`+(ptoH>0.05?` · ${+(ptoH/8).toFixed(1)} days time off paid`:"")+(nb?` + ${nb} bonus check${nb>1?"s":""}`:"")+(no?` + ${no} other extra`:"")+(miss?` · ${miss} missing`:"")+(threes.length?` · 3-check months: ${threes.join(", ")}`:"");
 }
 
 /* ---------- render: breakdown ---------- */
@@ -1126,10 +1148,11 @@ function yoyRow(y){
     const eT=e.reduce((a,i)=>a+i.cur,0)||be,sh=be/eT,sum=p=>s.items.filter(p).reduce((a,i)=>a+i.cur,0);
     bn.bonusNet+=(s.net&&s.net.cur!=null?s.net.cur:0)*sh;bn.bonusTax+=sum(i=>i.sec==="taxes")*sh;bn.bonus401+=sum(isRet)*sh;
     if(!isExtra(s))bn.bonusEst=true;if(be>=500)bn.bonusDates.push(s.payDate)}
+  const pto={};for(const s of m.ys)for(const[t,o]of Object.entries(stubPto(s))){const p=pto[t]||(pto[t]={h:0,d:0});p.h+=o.h;p.d+=o.d}
   const hrs=regs.reduce((a,s)=>a+stubHours(s),0)+(f==="proj"?m.remaining*(isSemi(m.reg)?2080/24:80):0);
   const mc={};for(const d of m.pds){const k=d.slice(0,7);mc[k]=(mc[k]||0)+1}
   const full=Object.assign(pack(f),bn),sofar=Object.assign(pack("ytd"),bn);
-  return{y,m,proj:f==="proj",partial:m.partial,full,sofar,base:annualBase(m.reg),hrs,threes:Object.values(mc).filter(n=>n>=3).length,
+  return{y,m,proj:f==="proj",partial:m.partial,full,sofar,pto,base:annualBase(m.reg),hrs,threes:Object.values(mc).filter(n=>n>=3).length,
     checks:regs.length,k401Lim:lim.k401+cu,ssRate:lim.ssRate||.062,notes,latest:m.latest.payDate};
 }
 function yoyEvents(){
@@ -1188,7 +1211,7 @@ function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows]
   const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):"n";
   const hasT=cols.some(c=>c[3]);
   el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
-    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
+    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.tag?`<span class="pj">${r.tag}</span>`:r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
     (hasT?`<tr class="total"><td>All</td>${cols.map(c=>`<td class="${c[2]==="txt"?"":"n"}">${c[3]==="sum"?f(c[2],rows.reduce((a,r)=>a+(+c[1](r)||0),0)):typeof c[3]==="function"?f(c[2],c[3](rows)):""}</td>`).join("")}</tr>`:"")+"</tbody>";
 }
 const legend=items=>items.map(([c,l,cls])=>`<span><i class="sw${cls?" "+cls:""}" style="background:var(${c})"></i>${l}</span>`).join("");
@@ -1341,6 +1364,30 @@ function renderYoy(){
   }
   const bT=S("bonus"),oT=S("ot");setSum("yoyExtra",`<strong>${fmt0(bT+oT)}</strong> total`);
   $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross: ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5&&sel.full.bonusNet>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept), ${fmt0(yv(sel,"bonus401"))} to 401(k), ${fmt0(yv(sel,"bonusTax"))} taxes · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
+  /* time off */
+  {const pr=rows.filter(r=>Object.keys(r.pto).length);$("yoyPtoPanel").hidden=!pr.length;
+   if(pr.length){const y0=pr[0].y,ry=rows.filter(r=>r.y>=y0),types=PTO_T.filter(t=>pr.some(r=>r.pto[t[0]]));
+    const dys=(r,t)=>r.pto[t]?r.pto[t].h/8:0,tot=r=>Object.values(r.pto).reduce((a,o)=>a+o.h,0)/8,dol=r=>Object.values(r.pto).reduce((a,o)=>a+o.d,0);
+    const fd=v=>{const x=Math.round(v*10)/10;return(x%1?x.toFixed(1):String(x))};
+    const done=ry.filter(r=>!r.proj),most=done.reduce((a,r)=>!a||tot(r)>tot(a)?r:a,null),cur=ry.find(r=>r.proj);
+    const vacs=done.map(r=>dys(r,"vac")).sort((a,b)=>a-b),med=vacs.length?vacs[Math.floor(vacs.length/2)]:0;
+    $("yoyPtoTiles").innerHTML=[`<div class="tile"><span class="tl">Days off since ${y0}</span><b>${fd(ry.reduce((a,r)=>a+tot(r),0))}</b><small>${fmt0(ry.reduce((a,r)=>a+dol(r),0))} of paid time off</small></div>`,
+      most?`<button type="button" class="tile" data-open="${most.y}"><span class="tl">Most in a year</span><b>${fd(tot(most))} days</b><small>${most.y}</small></button>`:"",
+      `<div class="tile"><span class="tl">Typical year</span><b>${fd(med)} days</b><small>vacation, middle year since ${y0}</small></div>`,
+      cur?`<button type="button" class="tile" data-open="${cur.y}"><span class="tl">${cur.y} so far</span><b>${fd(tot(cur))} days</b><small>through ${nice(cur.latest)}</small></button>`:""].join("");
+    barChart($("yoyPto"),{years:ry.map(r=>r.y),proj:new Set(),series:types.map(t=>({c:t[3],vals:ry.map(r=>dys(r,t[0]))})),yFmt:v=>Math.round(v)+"d",aria:"Days of paid time off by year"});
+    $("yoyPtoLeg").innerHTML=legend(types.map(t=>[t[3],t[1]]));
+    const sr=ry.find(r=>r.y===state.yoySel);
+    $("yoyPtoD").innerHTML=sr?`<b>${sr.y}${sr.proj?" (so far)":""}</b> · `+types.filter(t=>sr.pto[t[0]]).map(t=>`${t[1]} ${sr.pto[t[0]].h<7.95?Math.round(sr.pto[t[0]].h)+" hr":fd(dys(sr,t[0]))+" days"}`).join(" · ")+` · ${fmt0(dol(sr))} paid`+openBtn(sr.y):`Days are hours ÷ 8. ${cur?`${cur.y} counts checks so far, with no projection.`:""}`;
+    const mon=Array(12).fill(0),yrsIn=new Set();for(const s of state.stubs){const y=+s.payDate.slice(0,4);if(y<y0)continue;const v=stubPto(s).vac;if(v){mon[+s.payDate.slice(5,7)-1]+=v.h/8;yrsIn.add(y)}}
+    const mx=Math.max(...mon,1);
+    $("yoyPtoMonths").innerHTML=mon.map((v,i)=>`<div class="mh" style="background:color-mix(in srgb,var(--c-net) ${Math.round(v/mx*55)}%,var(--soft))" title="${MON[i]}: ${fd(v)} vacation days in all"><b>${Math.round(v)}</b>${MON[i]}</div>`).join("");
+    const fdh=h=>!h?"—":h<7.95?`${Math.round(h)} hr`:fd(h/8);
+    yearTable("tbPto",ry.map(r=>Object.assign({},r,{tag:r.proj?"so far":""})),types.map(t=>[t[1]==="Bereavement"?"Bereav.":t[1],r=>fdh(r.pto[t[0]]?r.pto[t[0]].h:0),"txt",rs=>fdh(rs.reduce((a,r)=>a+(r.pto[t[0]]?r.pto[t[0]].h:0),0))])
+      .concat([["Total days",r=>fd(tot(r)),"txt",rs=>fd(rs.reduce((a,r)=>a+tot(r),0))],["Hours",r=>Object.values(r.pto).reduce((a,o)=>a+o.h,0),"n","sum"],["Paid",r=>dol(r)*rf(r.y),"$","sum"]]));
+    $("yoyPtoNote").textContent=`Days are worked out as time-off pay ÷ your hourly base rate ÷ 8, and land on whole hours. Time off is counted on the check that paid it, which can be a pay period after the days themselves. The month grid adds up vacation days by the month of the paying check, across all years.${y0>rows[0].y?` Stubs before ${y0} don't list time off separately, so those years aren't shown.`:""}`;
+    setSum("yoyPto",`<strong>${fd(ry.reduce((a,r)=>a+tot(r),0))} days</strong> off since ${y0}`);
+   }}
   /* 401(k) loans and child support */
   {const has=rows.some(r=>r.full.loan>0.5||r.full.child>0.5);$("yoyOblPanel").hidden=!has;
    if(has){
