@@ -325,6 +325,8 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
 "use strict";
 /* ---------- constants (2026 tax year) ---------- */
 const LIMS={
+  2014:{std:6200,exempt:3950,noQbi:true,br:[[9075,.10],[36900,.15],[89350,.25],[186350,.28],[405100,.33],[406750,.35],[Infinity,.396]],
+    k401:17500,c50:5500,c60:5500,total:52000,ssBase:117000,hsaSelf:3300,hsaFam:6550,hsaCatch:1000},
   2015:{std:6300,exempt:4000,noQbi:true,br:[[9225,.10],[37450,.15],[90750,.25],[189300,.28],[411500,.33],[413200,.35],[Infinity,.396]],
     k401:18000,c50:6000,c60:6000,total:53000,ssBase:118500,hsaSelf:3350,hsaFam:6650,hsaCatch:1000},
   2016:{std:6300,exempt:4050,noQbi:true,br:[[9275,.10],[37650,.15],[91150,.25],[190150,.28],[413350,.33],[415050,.35],[Infinity,.396]],
@@ -667,7 +669,7 @@ function k401Total(m,catchUp){
 function runChecks(m,y){
   const out=[];const ys=m.ys;const have=new Set(ys.filter(s=>!isExtra(s)).map(s=>s.payDate));
   const missPast=m.pds.filter(d=>d<=todayISO&&!have.has(d));
-  if(missPast.length)out.push(["warn",`${missPast.length} paid stub${missPast.length>1?"s":""} not loaded`,`Missing: ${missPast.slice(0,6).map(nice).join(", ")}${missPast.length>6?` and ${missPast.length-6} more`:""}. Projections lean on the latest stub, so add the newest one first.`]);
+  if(missPast.length)out.push(["warn",`${missPast.length} paid stub${missPast.length>1?"s":""} not loaded`,`Missing: ${missPast.slice(0,6).map(nice).join(", ")}${missPast.length>6?` and ${missPast.length-6} more`:""}. `+(m.remaining?"Projections lean on the latest stub, so add the newest one first.":"Year totals still come from the last stub's year-to-date, so they include these checks; only their individual details are missing.")]);
   let totBad=0,ytdBad=0,ficaBad=0,netBad=0,ytdChecked=0,capNoted=false;
   ys.forEach((s,idx)=>{
     for(const[sec,t]of Object.entries(s.totals||{})){const sum=r2(s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0));
