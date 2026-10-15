@@ -1293,8 +1293,9 @@ function renderYoy(){
   setSum("yoyHealth",H0&&H1&&H0!==H1?`Insurance ${fmt0(yv(H0,"health"))} in ${H0.y} → ${fmt0(yv(H1,"health"))} in ${H1.y}`:"");
   $("yoyHealthD").innerHTML=sel?`<b>${sel.y}</b> · `+hs.filter(([k])=>sel.full[k]>0.004).map(([k,l])=>`${l} ${fmt0(yv(sel,k))}`).join(" · ")+(sel.full.erHsa?` · Employer HSA deposit ${fmt0(yv(sel,"erHsa"))}`:"")+openBtn(sel.y):"What came out of your pay for health coverage and health accounts.";
   /* extras */
-  barChart($("yoyExtra"),{years:Y,proj,series:[{c:"--c-k-p45",vals:V("bonusNet")},{c:"--c-bonus-wh",vals:rows.map(r=>Math.max(0,yv(r,"bonus")-yv(r,"bonusNet")))},{c:"--c-fica",vals:V("ot")}],aria:"Bonuses (net and withheld) and overtime by year"});
-  $("yoyExtraLeg").innerHTML=legend([["--c-k-p45","Bonus you kept (net)"],["--c-bonus-wh","Bonus taxes and 401(k)"],["--c-fica","Overtime"]]);
+  const bOther=r=>Math.max(0,yv(r,"bonus")-yv(r,"bonusNet")-yv(r,"bonusTax")-yv(r,"bonus401"));const hasBO=rows.some(r=>bOther(r)>1);
+  barChart($("yoyExtra"),{years:Y,proj,series:[{c:"--c-k-p45",vals:V("bonusNet")},{c:"--c-ret",vals:V("bonus401")},{c:"--c-fed",vals:V("bonusTax")}].concat(hasBO?[{c:"--c-other",vals:rows.map(bOther)}]:[]).concat([{c:"--c-fica",vals:V("ot")}]),aria:"Bonuses split into net, 401(k) and taxes, plus overtime, by year"});
+  $("yoyExtraLeg").innerHTML=legend([["--c-k-p45","Bonus you kept (net)"],["--c-ret","Bonus to 401(k)"],["--c-fed","Bonus taxes"]].concat(hasBO?[["--c-other","Gift card and other"]]:[]).concat([["--c-fica","Overtime"]]));
   {const br=[...rows].reverse();const bg=r=>yv(r,"bonus"),Tb=k=>rows.reduce((a,r)=>a+yv(r,k),0),gT=Tb("bonus"),nT=Tb("bonusNet");
     const dts=r=>r.full.bonusDates.map(d=>nice(d)).join(", ");
     $("yoyBonusTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Bonus gross</th><th class="n">Bonus net</th><th class="n">Overtime</th><th class="n">Kept</th><th class="n">401(k)</th><th class="n">Taxes</th><th class="n">Bonus + OT</th><th class="n">% of gross</th><th>Paid</th></tr></thead><tbody>`+
@@ -1303,7 +1304,7 @@ function renderYoy(){
     $("yoyBonusNote").textContent=`Bonus net is what was deposited from the bonus. Bonuses paid on their own check use that check's actual deposit; when a check mixed a bonus with other pay, its taxes, 401(k) and deposit are split in proportion to the bonus share.${rows.some(r=>r.full.bonusEst)?" † Includes a bonus paid on a regular check, split that way.":""} Gift cards and tax gross-ups count in gross but deposit nothing. Overtime is shown gross; it's paid on regular checks with everything else. Paid lists bonus dates of $500 or more. Tap a row to open that year.`;
   }
   const bT=S("bonus"),oT=S("ot");setSum("yoyExtra",`<strong>${fmt0(bT+oT)}</strong> total`);
-  $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross, ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept) · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
+  $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross: ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5&&sel.full.bonusNet>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept), ${fmt0(yv(sel,"bonus401"))} to 401(k), ${fmt0(yv(sel,"bonusTax"))} taxes · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
   /* table */
   const cols=[["y","Year",r=>r.y],["base","Base pay",r=>r.base?r.base*rf(r.y):0,1],["gross","Gross",r=>yv(r,"gross"),1],["net","Take-home",r=>yv(r,"net"),1],
     ["kept","Kept",r=>r.full.net/r.full.gross,2],["fedp","Federal",r=>r.full.fed/r.full.gross,2],["ficap","FICA",r=>r.full.fica/r.full.gross,2],["statep","State + local",r=>r.full.state/r.full.gross,2],
