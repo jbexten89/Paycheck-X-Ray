@@ -325,6 +325,8 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
 "use strict";
 /* ---------- constants (2026 tax year) ---------- */
 const LIMS={
+  2016:{std:6300,exempt:4050,noQbi:true,br:[[9275,.10],[37650,.15],[91150,.25],[190150,.28],[413350,.33],[415050,.35],[Infinity,.396]],
+    k401:18000,c50:6000,c60:6000,total:53000,ssBase:118500,hsaSelf:3350,hsaFam:6750,hsaCatch:1000},
   2017:{std:6350,exempt:4050,noQbi:true,br:[[9325,.10],[37950,.15],[91900,.25],[191650,.28],[416700,.33],[418400,.35],[Infinity,.396]],
     k401:18000,c50:6000,c60:6000,total:54000,ssBase:127200,hsaSelf:3400,hsaFam:6750,hsaCatch:1000},
   2018:{std:12000,br:[[9525,.10],[38700,.12],[82500,.22],[157500,.24],[200000,.32],[500000,.35],[Infinity,.37]],
@@ -357,7 +359,7 @@ const SEED=[];
 
 /* ---------- state ---------- */
 let state={stubs:[],settings:{age:40,seProfit:0,otherInc:0,estPaid:0},mode:"ytd",year:null};
-const skey=s=>s.payDate+(s.kind==="Additional"?"b":"a");
+const skey=s=>s.payDate+(s.kind==="Additional"?"b"+(s.seq||""):"a");
 const sortStubs=a=>a.sort((x,y)=>skey(x)<skey(y)?-1:skey(x)>skey(y)?1:0);
 function load(){
   let stored=null;try{const r=localStorage.getItem(KEY);if(r)stored=JSON.parse(r)}catch(e){}
@@ -502,6 +504,7 @@ function parseChunk(chunk){
   const fs=chunk.match(/Federal Filing Status:?[\s\S]{0,200}?\b(Single|Married[A-Za-z ]*?|Head of Household)\b/i);
   const kd=chunk.match(/•\s*\d{1,2}\/\d{1,2}\/\d{4}\s*•\s*([A-Za-z]+)/);
   const stub={payDate:toISO(pd[1]),period:pp?[toISO(pp[1]),toISO(pp[2])]:null,kind:kd&&/additional|bonus|off/i.test(kd[1])?"Additional":"Normal",payRate:rt?parseFloat(rt[1].replace(/,/g,"")):null,filing:fs?fs[1]:null,items:[],totals:{},net:null};
+  const adv=chunk.match(/(?:Deposit Advice|Check)\s*#:?[ \t]*([A-Za-z0-9]+)/);if(adv)stub.seq=adv[1];
   const em=chunk.match(/Employer Name:?[ \t]*([^\n\t]+?)(?:[ ]{2,}|\t|\n|$)/);if(em)stub.employer=em[1].trim();
   let sec=null,block=false,pL=[],pA=[],netA=[];
   const flush=()=>{if(sec&&sec!=="net"&&block){const n=pL.length;if(n&&pA.length>=n){const two=pA.length>=2*n;
@@ -535,7 +538,7 @@ function parseText(txt){
 }
 function addStubs(list){
   let added=0,replaced=0;
-  for(const s of list){if(!s.kind)s.kind="Normal";const i=state.stubs.findIndex(x=>skey(x)===skey(s));if(i>=0){state.stubs[i]=s;replaced++}else{state.stubs.push(s);added++}}
+  for(const s of list){if(!s.kind)s.kind="Normal";if(s.kind!=="Additional")delete s.seq;const i=state.stubs.findIndex(x=>skey(x)===skey(s));if(i>=0){state.stubs[i]=s;replaced++}else{state.stubs.push(s);added++}}
   sortStubs(state.stubs);
   if(list.length)state.year=Number(list[list.length-1].payDate.slice(0,4));
   save();render();return{added,replaced};
@@ -616,7 +619,7 @@ const ER_GROUPS=[
   ["life","Life + disability","--c-er-life",i=>i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!/MEDICAL|DENTAL|VISION/i.test(i.label)]];
 function erName(l){
   const map=[[/401K\s*MATCH/i,"401(k) match"],[/PENSION\s*45/i,"Pension 45+"],[/SAFE\s*HARBOR/i,"Safe harbor"],[/MEDICAL/i,"Medical"],[/DENTAL/i,"Dental"],[/VISION/i,"Vision"],
-    [/AD&D/i,"AD&D"],[/BASIC\s*LIFE/i,"Basic life"],[/LTD/i,"Long-term disability"],[/STD/i,"Short-term disability"],[/HSA/i,"HSA deposit"]];
+    [/PENSION\s*LT\s*45/i,"Pension (under 45)"],[/AD&D/i,"AD&D"],[/BASIC\s*LIFE/i,"Basic life"],[/LTD/i,"Long-term disability"],[/STD/i,"Short-term disability"],[/HSA/i,"HSA deposit"]];
   for(const[re,n]of map)if(re.test(l))return n;return l.replace(/\bER\b|\bCOST\b/gi,"").trim();
 }
 function renderEmployer(m,f,gross,er){
@@ -684,13 +687,21 @@ function runChecks(m,y){
     const Y=(p)=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);
     const ssW=Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125);
     const ss=Y(isSS),md=Y(isMedi);
+    const ficaNow=s.items.filter(i=>isSS(i)||isMedi(i)).reduce((a,i)=>a+Math.abs(i.cur),0);
+    if(isExtra(s)&&ficaNow<0.005){}else{
     if(ss&&ssW<=LIM.ssBase&&Math.abs(ss-ssW*.062)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security isn't 6.2%`,`Year-to-date Social Security wages ${fmt(ssW)} × 6.2% = ${fmt(ssW*.062)}, withheld ${fmt(ss)}.`])}
     if(ss&&ssW>LIM.ssBase&&Math.abs(ss-LIM.ssBase*.062)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security over the cap`,`Wages passed the ${fmt0(LIM.ssBase)} cap, so withholding should stop at ${fmt(LIM.ssBase*.062)}. Year-to-date withheld: ${fmt(ss)}.`])}
     if(ss&&ssW>LIM.ssBase&&!capNoted){capNoted=true;out.push(["info",`Hit the Social Security cap on ${nice(s.payDate)}`,`Wages passed ${fmt0(LIM.ssBase)}, so Social Security stopped at ${fmt(LIM.ssBase*.062)} for the year. Checks after this are bigger.`])}
-    if(md&&ssW<=200000&&Math.abs(md-ssW*.0145)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Medicare isn't 1.45%`,`${fmt(ssW)} × 1.45% = ${fmt(ssW*.0145)}, withheld ${fmt(md)}.`])}
+    if(md&&ssW<=200000&&Math.abs(md-ssW*.0145)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Medicare isn't 1.45%`,`${fmt(ssW)} × 1.45% = ${fmt(ssW*.0145)}, withheld ${fmt(md)}.`])}}
     if(isExtra(s)){
       const what=s.items.filter(i=>(i.sec==="earnings"||i.sec==="taxable")&&i.cur>0).map(i=>`${i.label} ${fmt(i.cur)}`).join(", ");
       const tax=s.items.filter(i=>i.sec==="taxes").reduce((a,i)=>a+i.cur,0);
+      const earnCur=s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0);
+      if(Math.abs(earnCur)<0.005){
+        if(Math.abs(tax)>0.005)out.push(["info",`Tax adjustment on ${nice(s.payDate)}`,tax<0?`${fmt(-tax)} of withholding refunded${s.net&&s.net.cur>0?`, paid out as ${fmt(s.net.cur)}`:""}.`:`${fmt(tax)} of withholding taken back${s.net&&s.net.cur<0?` (${fmt(s.net.cur)} net)`:""}, reversing an earlier refund.`]);
+        else out.push(["info",`Adjustment on ${nice(s.payDate)}`,`No pay or tax changed hands${what?`; benefit values recorded: ${what}`:""}.`]);
+        return;
+      }
       out.push(["info",`Extra check on ${nice(s.payDate)}`,`${what}. Taxes ${fmt(tax)}, deposit ${s.net?fmt(s.net.cur):"—"}.`+(/GIFT|GU\b/i.test(what)?" A taxable gift card with a tax gross-up: the company covered the tax, and the card's value counts as W-2 wages.":"")]);
       return;
     }
