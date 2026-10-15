@@ -452,6 +452,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
   <div class="grid2">
     <section class="panel" data-k="w2">
       <div class="panel-head"><h2>W-2 preview</h2><span class="muted">Tax year <span id="w2year"></span></span></div>
+      <p class="note asof" hidden style="margin:0"></p>
       <div class="tbl-wrap"><table id="w2"></table></div>
       <p class="note" id="w2emp" hidden></p>
       <p class="note">Projected = latest year-to-date plus the latest check repeated for each payday left. HSA money your employer deposits directly is not on the stub, so Box 12 W may come in higher.</p>
@@ -459,6 +460,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
 
     <section class="panel" data-k="tax">
       <div class="panel-head"><h2>Federal withholding check</h2><span class="muted" id="fsLabel"></span></div>
+      <p class="note asof" hidden style="margin:0"></p>
       <div class="fields">
         <label class="field" for="seProfit">Side business net profit
           <input id="seProfit" type="number" inputmode="decimal" step="100" min="0" value="0"></label>
@@ -475,6 +477,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div class="panel-head"><h2>Savings pace</h2>
       <label class="field" for="age" style="flex-direction:row;align-items:center;gap:8px">Age at Dec 31 <input id="age" type="number" min="18" max="99" value="40" style="width:72px"></label>
     </div>
+    <p class="note asof" hidden style="margin:0"></p>
     <div class="grid2" id="meters"></div>
   </section>
 
@@ -699,14 +702,15 @@ function ytdOf(s,item,ys){
   if(item.ytd!=null)return item.ytd;
   let t=0;for(const x of ys){if(x.payDate>s.payDate)break;const m=x.items.find(j=>j.sec===item.sec&&j.label===item.label);if(m)t+=m.cur}return t;
 }
-function model(y){
-  const ys=yearStubs(y),pds=payDates(y);
+function model(y,cut){
+  let ys=yearStubs(y);const pds=payDates(y);
+  if(cut){const k=ys.findIndex(s=>skey(s)===skey(cut));if(k>=0)ys=ys.slice(0,k+1)}
   if(!ys.length)return{ys,pds,latest:null,remaining:0};
   const latest=ys[ys.length-1];const regs=ys.filter(s=>!isExtra(s));const reg=regs.length?regs[regs.length-1]:latest;
   const closed=y<Number(todayISO.slice(0,4));
-  const remaining=closed?0:pds.filter(d=>d>latest.payDate).length;
+  const remaining=closed&&!cut?0:pds.filter(d=>d>latest.payDate).length;
   const haveD=new Set(regs.map(s=>s.payDate));
-  const partial=closed&&pds.some(d=>d>latest.payDate&&!haveD.has(d));
+  const partial=!cut&&closed&&pds.some(d=>d>latest.payDate&&!haveD.has(d));
   const grp=empGroups(ys);const emps=[...new Set(ys.map(s=>grp.get(s)))];
   const lastByEmp=emps.map(e=>{const es=ys.filter(s=>grp.get(s)===e);const last=es[es.length-1];return{e:last.employer||e,last,es}});
   const val=(pred,field)=>{let y=0,c=0;
@@ -1011,8 +1015,10 @@ function runChecks(m,y){
     if(!ficaBad)out.push(["ok","FICA rates are right",`Social Security is ${pctS()} (up to the yearly cap) and Medicare 1.45% of wages after insurance and HSA, as expected.`]);}
   const order={bad:0,warn:1,info:2,ok:3};out.sort((a,b)=>order[a[0]]-order[b[0]]);return out;
 }
-function renderChecks(m,y){
-  const cs=runChecks(m,y);const lab={bad:"Problem",warn:"Check",info:"Change",ok:"OK"};
+function renderChecks(m,y,ck){
+  const all=runChecks(m,y);const lab={bad:"Problem",warn:"Check",info:"Change",ok:"OK"};let cs=all;
+  if(ck){const dn=nice(ck.payDate),re=new RegExp("\\b"+dn.replace(" ","\\s")+"\\b");const mine=all.filter(c=>c[0]!=="ok"&&(re.test(c[1])||re.test(c[2])));
+    cs=[["info",`Notes for the ${dn} check`,mine.length?`${mine.length>1?mine.length+" notes below mention":"The note below mentions"} this check. Switch to Year to date to see the whole year.`:"Nothing unusual on this check: no changes or problems flagged. Switch to Year to date to see the whole year."]].concat(mine,all.filter(c=>c[0]==="ok"))}
   $("checks").innerHTML=cs.map(([s,t,d])=>`<li class="ck"><span class="chip ${s}">${lab[s]}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join("");
   const bad=cs.filter(c=>c[0]==="bad").length,gap=cs.filter(c=>c[0]==="warn").length;
   setSum("checks",bad||gap?`<span class="warn">${bad?`${bad} problem${bad>1?"s":""}`:""}${bad&&gap?" · ":""}${gap?`${gap} to check`:""}</span>`:`No payroll errors · ${cs.filter(c=>c[0]==="info").length} changes noted`);
@@ -1480,7 +1486,10 @@ function render(){
   panels.forEach(p=>p.hidden=all);
   if(all){renderYoy();return}
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
-  if(state.mode==="cur")chosenCheck(m);renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y);renderW2(m,y);renderTax(m);renderMeters(m);
+  let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
+  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);
+  {const asof=ma!==m?` · as of ${nice(ma.latest.payDate)}`:"";$("w2year").textContent=y+asof;
+   document.querySelectorAll(".asof").forEach(e=>{e.hidden=!asof;e.textContent=asof?`Showing the year as of the ${nice(ma.latest.payDate)} check, as if it were the latest. Switch to Year to date to see the whole year.`:""})}
 }
 
 /* ---------- events ---------- */
