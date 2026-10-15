@@ -22,7 +22,7 @@
   --bg:#07080A; --surface:#111317; --ink:#ECEEF0; --muted:#9BA1A8; --line:#23272D; --soft:#1A1D22;
   --accent:#3CC79A; --accent-ink:#04140E; --amber:#E3A04F; --amber-ink:#1A1004;
   --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-other:#6B7280;
-  --c-k-you:#5FA8F5; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
+  --c-k-you:#5FA8F5; --c-k-roth:#7FD1F0; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
   --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2;
   --bad:#F0707C; --warn:#E3A04F; --good:#3CC79A; --info:#8FB3D9;
   --f-display:"Nunito Sans","Avenir Next",Avenir,system-ui,sans-serif;
@@ -323,8 +323,14 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
 (function(){
 "use strict";
 /* ---------- constants (2026 tax year) ---------- */
-const LIM={std:16100,br:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]],
-  k401:24500,c50:8000,c60:11250,ssBase:184500,hsaSelf:4400,hsaFam:8750,hsaCatch:1000};
+const LIMS={
+  2025:{std:15750,br:[[11925,.10],[48475,.12],[103350,.22],[197300,.24],[250525,.32],[626350,.35],[Infinity,.37]],
+    k401:23500,c50:7500,c60:11250,total:70000,ssBase:176100,hsaSelf:4300,hsaFam:8550,hsaCatch:1000},
+  2026:{std:16100,br:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]],
+    k401:24500,c50:8000,c60:11250,total:72000,ssBase:184500,hsaSelf:4400,hsaFam:8750,hsaCatch:1000}};
+const limYears=Object.keys(LIMS).map(Number).sort();
+const limFor=y=>LIMS[y]||LIMS[limYears.filter(k=>k<=y).pop()||limYears[0]];
+let LIM=limFor(2026);
 const KEY="pxr.v1";
 
 /* ---------- no built-in data: stubs live only in this browser ---------- */
@@ -346,6 +352,10 @@ function load(){
   }
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify({stubs:state.stubs,settings:state.settings}))}catch(e){}}
+
+/* ---------- per-year settings ---------- */
+const ageFor=y=>{const a=+state.settings.age||0;const ay=+state.settings.ageYear||2026;return a?a-(ay-y):0};
+function taxIn(y){const t=(state.settings.tax||{})[y];if(t)return t;if(y===(+state.settings.ageYear||2026))return{seProfit:+state.settings.seProfit||0,otherInc:+state.settings.otherInc||0,estPaid:+state.settings.estPaid||0};return{seProfit:0,otherInc:0,estPaid:0}}
 
 /* ---------- utils ---------- */
 const $=id=>document.getElementById(id);
@@ -397,8 +407,11 @@ const isFed=i=>i.sec==="taxes"&&/\bFED|FEDERAL|\bFIT\b/i.test(i.label);
 const isSS=i=>i.sec==="taxes"&&/SOC|OASDI|\bSS\b|SOCIAL/i.test(i.label);
 const isMedi=i=>i.sec==="taxes"&&/\bMED|MEDICARE/i.test(i.label);
 const isStateLocal=i=>i.sec==="taxes"&&!isFed(i)&&!isSS(i)&&!isMedi(i);
-const isRet=i=>(i.sec==="pretax"||i.sec==="posttax")&&/401|403|457|ROTH|RETIRE/i.test(i.label);
-const isPreRet=i=>i.sec==="pretax"&&/401|403|457|RETIRE/i.test(i.label)&&!/ROTH/i.test(i.label);
+const isLoan=i=>(i.sec==="pretax"||i.sec==="posttax")&&/401L|LOAN/i.test(i.label);
+const isRet=i=>(i.sec==="pretax"||i.sec==="posttax")&&/401|403|457|ROTH|RETIRE/i.test(i.label)&&!isLoan(i);
+const isPreRet=i=>i.sec==="pretax"&&/401|403|457|RETIRE/i.test(i.label)&&!/ROTH/i.test(i.label)&&!isLoan(i);
+const isRoth=i=>(i.sec==="pretax"||i.sec==="posttax")&&/ROTH/i.test(i.label)&&!isLoan(i);
+const isDefer=i=>isPreRet(i)||isRoth(i);
 const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
 const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
 const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
@@ -516,15 +529,16 @@ function renderCalendar(m,y){
 }
 
 /* ---------- render: breakdown ---------- */
-const CATS=[["net","Take-home pay","--c-net"],["fed","Federal income tax","--c-fed"],["fica","Social Security + Medicare","--c-fica"],["state","State + local tax","--c-state"],["ret","401(k)","--c-ret"],["health","Health insurance","--c-health"],["hsa","HSA","--c-er-hsa"],["other","Other deductions","--c-other"]];
+const CATS=[["net","Take-home pay","--c-net"],["fed","Federal income tax","--c-fed"],["fica","Social Security + Medicare","--c-fica"],["state","State + local tax","--c-state"],["ret","401(k)","--c-ret"],["health","Health insurance","--c-health"],["loan","401(k) loan repayment","--c-other"],["hsa","HSA","--c-er-hsa"],["other","Other deductions","--c-other"]];
 function breakdown(m,f){
   const gross=m.val(i=>i.sec==="earnings",f);
   const fed=m.val(isFed,f),fica=m.val(i=>isSS(i)||isMedi(i),f),st=m.val(isStateLocal,f),ret=m.val(isRet,f);
   const health=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&(/MED|DENT|VIS|FSA|HEALTH|INS/i.test(i.label)),f);
   const hsa=m.val(isHSA,f);
-  const other=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!(/MED|DENT|VIS|HSA|FSA|HEALTH|INS/i.test(i.label)),f);
-  const net=r2(gross-fed-fica-st-ret-health-hsa-other);
-  return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,other}};
+  const loan=m.val(isLoan,f);
+  const other=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isLoan(i)&&!(/MED|DENT|VIS|HSA|FSA|HEALTH|INS/i.test(i.label)),f);
+  const net=r2(gross-fed-fica-st-ret-health-hsa-loan-other);
+  return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,loan,other}};
 }
 function renderBreakdown(m){
   const f=state.mode;["cur","ytd","proj"].forEach(k=>$("m-"+k).setAttribute("aria-pressed",String(k===f)));
@@ -533,8 +547,8 @@ function renderBreakdown(m){
   $("bar").innerHTML=shown.map(([k,l,c])=>`<div style="width:${(b.parts[k]/g*100).toFixed(3)}%;background:var(${c})" title="${l}: ${fmt(b.parts[k])}"></div>`).join("");
   $("bar").setAttribute("aria-label",shown.map(([k,l])=>`${l} ${Math.round(b.parts[k]/g*100)}%`).join(", "));
   const SUBP={health:i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&/MED|DENT|VIS|FSA|HEALTH|INS/i.test(i.label),
-    fica:i=>isSS(i)||isMedi(i),state:isStateLocal};
-  const subName=i=>isSS(i)?"Social Security (6.2%)":isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b/i.test(i.label)?"School district tax":i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
+    fica:i=>isSS(i)||isMedi(i),state:isStateLocal,ret:isRet};
+  const subName=i=>isRoth(i)?"Roth 401(k)":isPreRet(i)?"Pre-tax 401(k)":isSS(i)?"Social Security (6.2%)":isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b/i.test(i.label)?"School district tax":i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
   const subs=k=>{if(!SUBP[k])return"";
     const lines=m.latest.items.filter(SUBP[k])
       .map(i=>({n:subName(i),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
@@ -582,23 +596,24 @@ function renderEmployer(m,f,gross,er){
 /* ---------- 401(k) total: you + employer ---------- */
 let k401Sum=0;
 function k401Total(m,catchUp){
-  const parts=[{name:"You (pre-tax deferral)",c:"--c-k-you",pred:isPreRet,you:true}];
+  const parts=[{name:"You (pre-tax deferral)",c:"--c-k-you",pred:isPreRet,you:true},{name:"You (Roth)",c:"--c-k-roth",pred:isRoth,you:true}];
   const kc=["--c-k-match","--c-k-p45","--c-k-sh","--c-other"];let n=0;
   for(const i of m.latest.items.filter(isErRet)){parts.push({name:erName(i.label),c:kc[Math.min(n++,3)],pred:j=>j.sec==="memo"&&j.label===i.label})}
   parts.forEach(p=>{p.y=m.val(p.pred,"ytd");p.p=m.val(p.pred,"proj")});
   const shown=parts.filter(p=>p.p>0.004);
   const tY=r2(shown.reduce((a,p)=>a+p.y,0)),tP=r2(shown.reduce((a,p)=>a+p.p,0));
-  const erY=r2(tY-shown[0].y),erP=r2(tP-shown[0].p);
-  const lim=72000+catchUp;k401Sum=tP;const gP=m.val(i=>i.sec==="earnings","proj")||1;const pc=v=>(v/gP*100).toFixed(1)+"%";
+  const youY=r2(shown.filter(p=>p.you).reduce((a,p)=>a+p.y,0)),youP=r2(shown.filter(p=>p.you).reduce((a,p)=>a+p.p,0));
+  const erY=r2(tY-youY),erP=r2(tP-youP);
+  const lim=LIM.total+catchUp;k401Sum=tP;const gP=m.val(i=>i.sec==="earnings","proj")||1;const pc=v=>(v/gP*100).toFixed(1)+"%";
   return`<div class="k401"><div class="er-head"><h3>401(k) total, you + employer</h3><span class="num">${fmt0(tP)}</span></div>
-    <p class="bd-sub" style="margin:-6px 0 0">Projected for ${m.latest.payDate.slice(0,4)}: ${fmt0(shown[0].p)} from you and ${fmt0(erP)} from your employer. Your employer puts in about $${(erP/shown[0].p).toFixed(2)} for every $1 you do.</p>
+    <p class="bd-sub" style="margin:-6px 0 0">${m.remaining?"Projected for":"Total for"} ${m.latest.payDate.slice(0,4)}: ${fmt0(youP)} from you and ${fmt0(erP)} from your employer. Your employer puts in about $${(erP/(youP||1)).toFixed(2)} for every $1 you do.</p>
     <div class="bar" role="img" aria-label="${shown.map(p=>`${p.name} ${Math.round(p.p/tP*100)}%`).join(", ")}">${shown.map(p=>`<div style="width:${(p.p/tP*100).toFixed(3)}%;background:var(${p.c})" title="${p.name}: ${fmt(p.p)}"></div>`).join("")}</div>
     <div class="tbl-wrap"><table><thead><tr><th>Source</th><th class="n">YTD</th><th class="n">Dec 31</th><th class="n">% of pay</th></tr></thead><tbody>
       ${shown.map(p=>`<tr${p.you?' class="you"':""}><td><span class="sw" style="background:var(${p.c})"></span>${esc(p.name)}</td><td class="n">${fmt0(p.y)}</td><td class="n">${fmt0(p.p)}</td><td class="n">${pc(p.p)}</td></tr>`).join("")}
       <tr><td><span class="sw" style="background:transparent"></span>Employer subtotal</td><td class="n">${fmt0(erY)}</td><td class="n">${fmt0(erP)}</td><td class="n">${pc(erP)}</td></tr>
       <tr class="total"><td><span class="sw" style="background:transparent"></span>Total into your 401(k)</td><td class="n">${fmt0(tY)}</td><td class="n">${fmt0(tP)}</td><td class="n">${pc(tP)}</td></tr>
     </tbody></table></div>
-    <small class="bd-sub">The IRS cap on everything going into the plan this year is ${fmt0(lim)} ($72,000 plus your ${fmt0(catchUp)} catch-up). You're projected to use ${Math.round(tP/lim*100)}% of it. % of pay is each amount divided by projected ${m.latest.payDate.slice(0,4)} gross pay of ${fmt0(gP)}.</small></div>`;
+    <small class="bd-sub">The IRS cap on everything going into the plan this year is ${fmt0(lim)} (${fmt0(LIM.total)} plus your ${fmt0(catchUp)} catch-up). You're projected to use ${Math.round(tP/lim*100)}% of it. % of pay is each amount divided by projected ${m.latest.payDate.slice(0,4)} gross pay of ${fmt0(gP)}.</small></div>`;
 }
 
 /* ---------- render: checks ---------- */
@@ -679,6 +694,7 @@ function renderW2(m,y){
       ["12 C","Group-term life over $50k",m.val(isLife,f)],
       ["12 D","401(k) deferrals",m.val(isPreRet,f)],
       ["12 W","HSA (you + employer)",m.val(isHSAall,f)],
+      ["12 AA","Roth 401(k)",m.val(isRoth,f)],
       ["12 DD","Health coverage cost",m.val(i=>/MEDICAL|DENTAL|VISION/i.test(i.label)&&(i.sec==="memo"||i.sec==="pretax"),f)],
       ["17","State income tax",m.val(i=>isStateLocal(i)&&/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)],
       ["19","Local / school district tax",m.val(i=>isStateLocal(i)&&!/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)]]};
@@ -691,7 +707,7 @@ function renderW2(m,y){
 /* ---------- render: tax ---------- */
 function bracketTax(t){let tax=0,lo=0;for(const[hi,r]of LIM.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax}
 function renderTax(m){
-  const st=state.settings;const fs=m.latest.filing||"Single";$("fsLabel").textContent=`Filing as ${fs}`;
+  const st=taxIn(state.year);const fs=m.latest.filing||"Single";$("fsLabel").textContent=`Filing as ${fs}`;
   if(!/single/i.test(fs)){$("taxOut").innerHTML=`<p class="note">This estimate only handles the Single brackets. Your stub says ${esc(fs)}.</p>`;return}
   const wages=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj");
   const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
@@ -701,15 +717,15 @@ function renderTax(m){
   const qbi=Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
   const inc=bracketTax(taxable);const total=inc+seTax;const withheld=m.val(isFed,"proj")+est;const gap=total-withheld;
   const per=m.remaining?gap/m.remaining:0;
-  const rows=[["Projected W-2 wages (Box 1)",wages],se?["Side business profit",se]:null,oth?["Other taxable income",oth]:null,se?["Half of self-employment tax",-halfSE]:null,
+  const rows=[[(m.remaining?"Projected W-2 wages":"W-2 wages")+" (Box 1)",wages],se?["Side business profit",se]:null,oth?["Other taxable income",oth]:null,se?["Half of self-employment tax",-halfSE]:null,
     ["Standard deduction",-LIM.std],qbi?["Qualified business income deduction",-qbi]:null,["Taxable income",taxable,1],["Income tax",inc],se?["Self-employment tax",seTax]:null,["Total federal tax",total,1],
     ["Withheld by Dec 31"+(est?" + estimates":""),-withheld]].filter(Boolean);
   const owe=gap>0.5;
-  setSum("tax",owe?`<span class="warn">Projected to owe <strong>${fmt0(gap)}</strong></span>`:`Projected refund <strong>${fmt0(-gap)}</strong>`);
-  $("taxOut").innerHTML=`<div class="verdict ${owe?"owe":"refund"}"><span class="eyebrow">${owe?"Projected to owe":"Projected refund"}</span><span class="big">${fmt0(Math.abs(gap))}</span>
-    <span class="note">${owe?(m.remaining?`Adding about <b class="num">${fmt0(Math.ceil(per))}</b> per check on W-4 line 4(c) for the ${m.remaining} paydays left would close it.`:"No paydays left this year to adjust.")+(gap<1000?" Owing under $1,000 generally avoids an underpayment penalty.":""):"Withholding covers the estimate."}</span></div>
+  setSum("tax",owe?`<span class="warn">${m.remaining?"Projected to owe":"Estimated owed"} <strong>${fmt0(gap)}</strong></span>`:`Projected refund <strong>${fmt0(-gap)}</strong>`);
+  $("taxOut").innerHTML=`<div class="verdict ${owe?"owe":"refund"}"><span class="eyebrow">${m.remaining?(owe?"Projected to owe":"Projected refund"):(owe?`Estimated owed for ${state.year}`:`Estimated refund for ${state.year}`)}</span><span class="big">${fmt0(Math.abs(gap))}</span>
+    <span class="note">${owe?(m.remaining?`Adding about <b class="num">${fmt0(Math.ceil(per))}</b> per check on W-4 line 4(c) for the ${m.remaining} paydays left would close it.`:"The year's paychecks are all in, so this is what withholding left to settle on the return.")+(gap<1000?" Owing under $1,000 generally avoids an underpayment penalty.":""):"Withholding covers the estimate."}</span></div>
     <div class="tbl-wrap"><table><tbody>${rows.map(r=>`<tr${r[2]?' class="total"':""}><td>${r[0]}</td><td class="n">${fmt0(r[1])}</td></tr>`).join("")}</tbody></table></div>
-    <p class="note">Estimate using 2026 Single brackets and the standard deduction. It assumes the latest check repeats, ignores credits and itemizing, and treats side-business profit as qualified business income.</p>`;
+    <p class="note">Estimate using ${state.year} Single brackets and the standard deduction. It assumes the latest check repeats, ignores credits and itemizing, and treats side-business profit as qualified business income.</p>`;
 }
 
 /* ---------- render: meters ---------- */
@@ -720,23 +736,24 @@ function meter(cls,title,ytd,proj,limit,lines){
     ${lines.map(l=>`<small>${l}</small>`).join("")}</div>`;
 }
 function renderMeters(m){
-  const age=+state.settings.age||0;const catchUp=age>=60&&age<=63?LIM.c60:age>=50?LIM.c50:0;const kLim=LIM.k401+catchUp;
-  const kY=m.val(isPreRet,"ytd"),kP=m.val(isPreRet,"proj"),kC=m.val(isPreRet,"cur");
+  const age=ageFor(state.year);const catchUp=age>=60&&age<=63?LIM.c60:age>=50?LIM.c50:0;const kLim=LIM.k401+catchUp;
+  const kY=m.val(isDefer,"ytd"),kP=m.val(isDefer,"proj"),kC=m.val(isDefer,"cur");
+  const rothY=m.val(isRoth,"ytd"),loanY=m.val(isLoan,"ytd");
   const need=m.remaining?Math.max(0,(kLim-kY)/m.remaining):0;
   const mY=m.val(isMatch,"ytd");const erP=m.val(isErRet,"proj");
   const gross=m.val(i=>i.sec==="earnings","cur");
-  const kLines=[`${fmt0(kY)} so far · ${fmt(kC)} per check (${gross?(kC/gross*100).toFixed(1):0}% of gross).`,
-    kP<kLim?`To max out, raise it to about <b class="num">${fmt0(need)}</b> per check for the ${m.remaining} paydays left.`:`On pace to reach the limit.`,
-    `Limit includes the ${fmt0(catchUp)} age catch-up.`+(kY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`];
+  const kLines=[`${fmt0(kY)} so far`+(rothY?` (${fmt0(kY-rothY)} pre-tax + ${fmt0(rothY)} Roth)`:"")+` · ${fmt(kC)} per check (${gross?(kC/gross*100).toFixed(1):0}% of gross).`,
+    m.remaining===0?(kY<kLim?`Year finished ${fmt0(kLim-kY)} under the limit.`:`Reached the limit.`):kP<kLim?`To max out, raise it to about <b class="num">${fmt0(need)}</b> per check for the ${m.remaining} paydays left.`:`On pace to reach the limit.`,
+    `Limit includes the ${fmt0(catchUp)} age catch-up.`+(kY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`+(loanY?` 401(k) loan repayments (${fmt0(loanY)}) aren't contributions and aren't counted here.`:"")];
   const hsaItems=m.latest.items.filter(isHSA);const fam=hsaItems.some(i=>/FAM/i.test(i.label));
   const hLim=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);
   const hY=m.val(isHSAall,"ytd"),hP=m.val(isHSAall,"proj"),hC=m.val(isHSA,"cur"),hEr=m.val(isHSAer,"ytd");
   const hNeed=m.remaining?Math.max(0,(hLim-hY)/m.remaining):0;
   const extraPer=m.remaining?(hLim-hP)/m.remaining:0;
   const hLines=[`${fmt0(hY)} so far: ${fmt0(hY-hEr)} from you (${fmt(hC)} per check) and ${fmt0(hEr)} from your employer.`,
-    hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it by about ${fmt0(-extraPer)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. Adding about <b class="num">${fmt0(extraPer)}</b> per check (about <b class="num">${fmt0(hC+extraPer)}</b> total) would fill it.`:`On pace to hit the limit exactly.`,
+    m.remaining===0?(hY>hLim+0.5?`<b>Year finished ${fmt0(hY-hLim)} over the limit.</b>`:(hLim-hY>1?`Year finished ${fmt0(hLim-hY)} under the limit.`:`Hit the limit exactly.`)):hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it by about ${fmt0(-extraPer)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. Adding about <b class="num">${fmt0(extraPer)}</b> per check (about <b class="num">${fmt0(hC+extraPer)}</b> total) would fill it.`:`On pace to hit the limit exactly.`,
     `${fam?"Family":"Self-only"} limit${age>=55?" plus the age-55 catch-up":""}. Employer deposits count toward it.`];
-  $("meters").innerHTML=meter("","401(k), your contributions",kY,kP,kLim,kLines)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines):"")+k401Total(m,catchUp);
+  $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines):"")+k401Total(m,catchUp);
   setSum("savings",`401(k) <strong>${fmt0(k401Sum)}</strong> total`+(hsaItems.length?` · HSA `+(hP>hLim+0.5?`<span class="warn">${fmt0(hP-hLim)} over</span>`:`<strong>${fmt0(Math.max(0,hLim-hP))}</strong> room left`):""));
 }
 
@@ -756,13 +773,14 @@ function render(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
   $("yearSel").innerHTML=(years.length?years:[state.year]).map(y=>`<option${y===state.year?" selected":""}>${y}</option>`).join("");
-  const y=state.year;const m=model(y);
+  const y=state.year;LIM=limFor(y);const m=model(y);
   renderStubs();
   const panels=document.querySelectorAll(".wrap > section.panel:not(:last-child):not(#emptyNote), .wrap > .grid2");
   const addSec=document.querySelector('section[data-k="add"]');
   if(!m.latest){panels.forEach(p=>p.hidden=true);$("emptyNote").hidden=false;if(addSec)applyPanel(addSec,true);return}
   $("emptyNote").hidden=true;
   panels.forEach(p=>p.hidden=false);
+  $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
   renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y);renderW2(m,y);renderTax(m);renderMeters(m);
 }
 
@@ -796,7 +814,8 @@ $("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:s
 document.querySelector(".seg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;state.mode=b.dataset.mode;render()});
 $("yearSel").addEventListener("change",e=>{state.year=Number(e.target.value);render()});
 function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=state.settings.seProfit;$("otherInc").value=state.settings.otherInc;$("estPaid").value=state.settings.estPaid}
-[["age","age"],["seProfit","seProfit"],["otherInc","otherInc"],["estPaid","estPaid"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{state.settings[k]=Number(e.target.value)||0;save();render()}));
+$("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();render()});
+["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();render()}));
 
 initPanels();load();syncInputs();render();
 window.__pxr={parseText,model,breakdown};
