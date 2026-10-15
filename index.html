@@ -1544,12 +1544,12 @@ $("yearPrev").addEventListener("click",()=>stepYear(-1));$("yearNext").addEventL
 /* keep the screen still: anchor on what's just under the pinned bar, re-render, then put it back at the same height */
 function keepPos(fn){
   const bar=$("ctlBar"),top=bar?bar.getBoundingClientRect().bottom+8:80,x=Math.round(window.innerWidth/2);
-  let el=document.elementFromPoint(x,Math.min(top+40,window.innerHeight-1));
+  let el=null;try{el=document.elementFromPoint?document.elementFromPoint(x,Math.min(top+40,(window.innerHeight||800)-1)):null}catch(e){}
   const pick=e=>{while(e&&e!==document.body){if(e.id&&!e.closest("#ctlBar"))return e;if(e.matches&&e.matches("section.panel"))return e;e=e.parentElement}return null};
   let a=pick(el);const y0=window.scrollY,t0=a?a.getBoundingClientRect().top:0;
-  fn();
+  try{fn()}finally{
   if(a&&(!a.isConnected||!a.getClientRects().length))a=null;
-  if(a){const d=a.getBoundingClientRect().top-t0;if(Math.abs(d)>0.5)window.scrollTo(0,window.scrollY+d)}else window.scrollTo(0,y0);
+  try{if(a){const d=a.getBoundingClientRect().top-t0;if(Math.abs(d)>0.5)window.scrollTo(0,window.scrollY+d)}else if(window.scrollY!==y0)window.scrollTo(0,y0)}catch(e){}}
 }
 $("checkSel").addEventListener("change",e=>{keepPos(()=>{state.checkKey=e.target.value;render()})});
 const stepCheck=d=>{const ys=yearStubs(state.year);const i=ys.findIndex(x=>skey(x)===state.checkKey);const n=ys[i+d];if(n)keepPos(()=>{state.checkKey=skey(n);render()})};
