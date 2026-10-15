@@ -21,7 +21,7 @@
 :root{
   --bg:#07080A; --surface:#111317; --ink:#ECEEF0; --muted:#9BA1A8; --line:#23272D; --soft:#1A1D22;
   --accent:#3CC79A; --accent-ink:#04140E; --amber:#E3A04F; --amber-ink:#1A1004;
-  --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-fsa:#4FC3C7; --c-gross:#59616D; --c-other:#6B7280;
+  --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-fsa:#4FC3C7; --c-gross:#59616D; --c-bonus-wh:#7D6B2C; --c-other:#6B7280;
   --c-k-you:#5FA8F5; --c-k-roth:#7FD1F0; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
   --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2;
   --bad:#F0707C; --warn:#E3A04F; --good:#3CC79A; --info:#8FB3D9;
@@ -317,9 +317,11 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
       <div class="panel-head"><h2>Health costs</h2></div>
       <div class="chart" id="yoyHealth"></div><div class="legend-row" id="yoyHealthLeg"></div><p class="yd" id="yoyHealthD"></p>
     </section>
-    <section class="panel" data-k="yoyExtra">
+    <section class="panel" data-k="yoyExtra" style="grid-column:1/-1">
       <div class="panel-head"><h2>Bonuses and overtime</h2></div>
       <div class="chart" id="yoyExtra"></div><div class="legend-row" id="yoyExtraLeg"></div><p class="yd" id="yoyExtraD"></p>
+      <div class="tbl-wrap"><table id="yoyBonusTbl" class="yt"></table></div>
+      <p class="note" id="yoyBonusNote" style="margin:0"></p>
     </section>
   </div>
   <section class="panel" data-k="yoyTbl">
@@ -1020,9 +1022,15 @@ function yoyRow(y){
   if(m.pds.length===27)notes.push("27 paydays");
   if((lim.ssRate||.062)<.062)notes.push(`Social Security at ${(lim.ssRate*100).toFixed(1)}%`);
   if(m.ys.length>regs.length)notes.push(`${m.ys.length-regs.length} extra check${m.ys.length-regs.length>1?"s":""}`);
+  const bn={bonusNet:0,bonusTax:0,bonus401:0,bonusEst:false,bonusDates:[]};
+  for(const s of m.ys){const e=s.items.filter(i=>i.sec==="earnings"),be=e.filter(isBonusE).reduce((a,i)=>a+i.cur,0);if(!(be>0.004))continue;
+    const eT=e.reduce((a,i)=>a+i.cur,0)||be,sh=be/eT,sum=p=>s.items.filter(p).reduce((a,i)=>a+i.cur,0);
+    bn.bonusNet+=(s.net&&s.net.cur!=null?s.net.cur:0)*sh;bn.bonusTax+=sum(i=>i.sec==="taxes")*sh;bn.bonus401+=sum(isRet)*sh;
+    if(!isExtra(s))bn.bonusEst=true;if(be>=500)bn.bonusDates.push(s.payDate)}
   const hrs=regs.reduce((a,s)=>a+stubHours(s),0)+(f==="proj"?m.remaining*(isSemi(m.reg)?2080/24:80):0);
   const mc={};for(const d of m.pds){const k=d.slice(0,7);mc[k]=(mc[k]||0)+1}
-  return{y,m,proj:f==="proj",partial:m.partial,full:pack(f),sofar:pack("ytd"),base:annualBase(m.reg),hrs,threes:Object.values(mc).filter(n=>n>=3).length,
+  const full=Object.assign(pack(f),bn),sofar=Object.assign(pack("ytd"),bn);
+  return{y,m,proj:f==="proj",partial:m.partial,full,sofar,base:annualBase(m.reg),hrs,threes:Object.values(mc).filter(n=>n>=3).length,
     checks:regs.length,k401Lim:lim.k401+cu,ssRate:lim.ssRate||.062,notes,latest:m.latest.payDate};
 }
 function yoyEvents(){
@@ -1215,10 +1223,17 @@ function renderYoy(){
   setSum("yoyHealth",H0&&H1&&H0!==H1?`Insurance ${fmt0(yv(H0,"health"))} in ${H0.y} → ${fmt0(yv(H1,"health"))} in ${H1.y}`:"");
   $("yoyHealthD").innerHTML=sel?`<b>${sel.y}</b> · `+hs.filter(([k])=>sel.full[k]>0.004).map(([k,l])=>`${l} ${fmt0(yv(sel,k))}`).join(" · ")+(sel.full.erHsa?` · Employer HSA deposit ${fmt0(yv(sel,"erHsa"))}`:"")+openBtn(sel.y):"What came out of your pay for health coverage and health accounts.";
   /* extras */
-  barChart($("yoyExtra"),{years:Y,proj,series:[{c:"--c-k-p45",vals:V("bonus")},{c:"--c-fica",vals:V("ot")}],aria:"Bonuses and overtime by year"});
-  $("yoyExtraLeg").innerHTML=legend([["--c-k-p45","Bonuses and one-time pay"],["--c-fica","Overtime"]]);
+  barChart($("yoyExtra"),{years:Y,proj,series:[{c:"--c-k-p45",vals:V("bonusNet")},{c:"--c-bonus-wh",vals:rows.map(r=>Math.max(0,yv(r,"bonus")-yv(r,"bonusNet")))},{c:"--c-fica",vals:V("ot")}],aria:"Bonuses (net and withheld) and overtime by year"});
+  $("yoyExtraLeg").innerHTML=legend([["--c-k-p45","Bonus you kept (net)"],["--c-bonus-wh","Bonus taxes and 401(k)"],["--c-fica","Overtime"]]);
+  {const br=[...rows].reverse();const bg=r=>yv(r,"bonus"),Tb=k=>rows.reduce((a,r)=>a+yv(r,k),0),gT=Tb("bonus"),nT=Tb("bonusNet");
+    const dts=r=>r.full.bonusDates.map(d=>nice(d)).join(", ");
+    $("yoyBonusTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Bonus gross</th><th class="n">Bonus net</th><th class="n">Overtime</th><th class="n">Kept</th><th class="n">401(k)</th><th class="n">Taxes</th><th class="n">Bonus + OT</th><th class="n">% of gross</th><th>Paid</th></tr></thead><tbody>`+
+      br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?"*":""}</td><td class="n">${fmt0(bg(r))}</td><td class="n">${fmt0(yv(r,"bonusNet"))}${r.full.bonusEst?"†":""}</td><td class="n">${fmt0(yv(r,"ot"))}</td><td class="n">${r.full.bonus>0.5&&r.full.bonusNet>0.5?pc1(r.full.bonusNet,r.full.bonus):"—"}</td><td class="n">${fmt0(yv(r,"bonus401"))}</td><td class="n">${fmt0(yv(r,"bonusTax"))}</td><td class="n">${fmt0(bg(r)+yv(r,"ot"))}</td><td class="n">${pc1(r.full.bonus+r.full.ot,r.full.gross)}</td><td class="nt">${dts(r)}</td></tr>`).join("")+
+      `<tr class="total"><td>All</td><td class="n">${fmt0(gT)}</td><td class="n">${fmt0(nT)}</td><td class="n">${fmt0(Tb("ot"))}</td><td class="n">${pc1(nT,gT)}</td><td class="n">${fmt0(Tb("bonus401"))}</td><td class="n">${fmt0(Tb("bonusTax"))}</td><td class="n">${fmt0(gT+Tb("ot"))}</td><td class="n">${pc1(gT+Tb("ot"),rows.reduce((a,r)=>a+yv(r,"gross"),0))}</td><td></td></tr></tbody>`;
+    $("yoyBonusNote").textContent=`Bonus net is what was deposited from the bonus. Bonuses paid on their own check use that check's actual deposit; when a check mixed a bonus with other pay, its taxes, 401(k) and deposit are split in proportion to the bonus share.${rows.some(r=>r.full.bonusEst)?" † Includes a bonus paid on a regular check, split that way.":""} Gift cards and tax gross-ups count in gross but deposit nothing. Overtime is shown gross; it's paid on regular checks with everything else. Paid lists bonus dates of $500 or more. Tap a row to open that year.`;
+  }
   const bT=S("bonus"),oT=S("ot");setSum("yoyExtra",`<strong>${fmt0(bT+oT)}</strong> total`);
-  $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses and one-time pay ${fmt0(yv(sel,"bonus"))} · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
+  $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross, ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept) · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
   /* table */
   const cols=[["y","Year",r=>r.y],["base","Base pay",r=>r.base?r.base*rf(r.y):0,1],["gross","Gross",r=>yv(r,"gross"),1],["net","Take-home",r=>yv(r,"net"),1],
     ["kept","Kept",r=>r.full.net/r.full.gross,2],["fedp","Federal",r=>r.full.fed/r.full.gross,2],["ficap","FICA",r=>r.full.fica/r.full.gross,2],["statep","State + local",r=>r.full.state/r.full.gross,2],
@@ -1240,7 +1255,7 @@ function renderYoy(){
 document.addEventListener("click",e=>{
   const ob=e.target.closest("[data-open]");if(ob){state.year=+ob.dataset.open;setView("year");window.scrollTo(0,0);return}
   const th=e.target.closest("#yoyTbl th[data-sort]");if(th){const k=th.dataset.sort;const so=state.yoySort||{k:"y",d:-1};state.yoySort={k,d:so.k===k?-so.d:(k==="y"?-1:-1)};renderYoy();return}
-  const tr=e.target.closest("#yoyTbl tr[data-y]");if(tr){state.year=+tr.dataset.y;setView("year");window.scrollTo(0,0);return}
+  const tr=e.target.closest("#yoyTbl tr[data-y], #yoyBonusTbl tr[data-y]");if(tr){state.year=+tr.dataset.y;setView("year");window.scrollTo(0,0);return}
   const col=e.target.closest("#yoyView .col");if(col){const y=+col.dataset.y;state.yoySel=state.yoySel===y?null:y;renderYoy();return}
   if(e.target.closest("#yoyView .tog")){setTimeout(renderYoy,0);return}
   const rb=e.target.closest("#yoyReal [data-real]");if(rb){state.real=rb.dataset.real==="1";setOpen("real",state.real);renderYoy();return}
