@@ -325,6 +325,8 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
 "use strict";
 /* ---------- constants (2026 tax year) ---------- */
 const LIMS={
+  2020:{std:12400,br:[[9875,.10],[40125,.12],[85525,.22],[163300,.24],[207350,.32],[518400,.35],[Infinity,.37]],
+    k401:19500,c50:6500,c60:6500,total:57000,ssBase:137700,hsaSelf:3550,hsaFam:7100,hsaCatch:1000},
   2021:{std:12550,br:[[9950,.10],[40525,.12],[86375,.22],[164925,.24],[209425,.32],[523600,.35],[Infinity,.37]],
     k401:19500,c50:6500,c60:6500,total:58000,ssBase:142800,hsaSelf:3600,hsaFam:7200,hsaCatch:1000},
   2022:{std:12950,br:[[10275,.10],[41775,.12],[89075,.22],[170050,.24],[215950,.32],[539900,.35],[Infinity,.37]],
@@ -429,14 +431,33 @@ const isErRet=i=>i.sec==="memo"&&/401|403|PENSION|MATCH|HARBOR|PROFIT|RETIRE/i.t
 const isMatch=i=>i.sec==="memo"&&/MATCH/i.test(i.label);
 const isLife=i=>i.sec==="taxable"&&/LIFE|\bLF\b|GTL/i.test(i.label);
 
+/* ---------- employer groups: a name change with continuing YTD is the same employer ---------- */
+function empGroups(ys){
+  const g=new Map(),alias={};let prev=null;
+  for(const s of ys){
+    const name=s.employer||"";
+    if(!(name in alias)){
+      const cont=prev&&(prev.employer||"")!==name&&s.net&&prev.net&&s.net.ytd!=null&&prev.net.ytd!=null&&Math.abs(prev.net.ytd+(s.net.cur||0)-s.net.ytd)<0.02&&s.net.ytd>(s.net.cur||0)+0.01;
+      alias[name]=cont?alias[prev.employer||""]:name;
+      if(cont)s._renamedFrom=prev.employer;
+    }
+    g.set(s,alias[name]);prev=s;
+  }
+  return g;
+}
+
 /* ---------- year model ---------- */
 const isExtra=s=>s.kind==="Additional";
 function yearStubs(y){return sortStubs(state.stubs.filter(s=>s.payDate.slice(0,4)==String(y)))}
 function payDates(y){
   const ys=yearStubs(y).filter(s=>!isExtra(s));const anchor=ys.length?ys[0].payDate:(state.stubs[0]?state.stubs[0].payDate:null);if(!anchor)return[];
-  let d=anchor;while(Number(d.slice(0,4))>=y)d=addDays(d,-14);
-  while(Number(d.slice(0,4))<y)d=addDays(d,14);
-  const out=[];while(Number(d.slice(0,4))===y){out.push(d);d=addDays(d,14)}
+  let d=anchor;while(d>=y+"-01-01")d=addDays(d,-14);
+  const all=yearStubs(y-1).concat(ys,yearStubs(y+1)).filter(s=>!isExtra(s)).map(s=>s.payDate);
+  const dayDiff=(a,b)=>Math.round((dObj(a)-dObj(b))/864e5);
+  const out=[];for(;d<=(y+1)+"-01-07";d=addDays(d,14)){
+    const near=all.find(x=>Math.abs(dayDiff(x,d))<=3);const real=near||d;
+    if(Number(real.slice(0,4))===y&&!out.includes(real))out.push(real);
+  }
   const f=ys[0];if(f&&f.net&&f.net.cur!=null&&f.net.ytd!=null&&Math.abs(f.net.cur-f.net.ytd)<0.01&&f.net.cur>0)return out.filter(x=>x>=f.payDate);
   return out;
 }
@@ -450,13 +471,13 @@ function model(y){
   if(!ys.length)return{ys,pds,latest:null,remaining:0};
   const latest=ys[ys.length-1];const regs=ys.filter(s=>!isExtra(s));const reg=regs.length?regs[regs.length-1]:latest;
   const remaining=pds.filter(d=>d>latest.payDate).length;
-  const emps=[...new Set(ys.map(s=>s.employer||""))];
-  const lastByEmp=emps.map(e=>{const es=ys.filter(s=>(s.employer||"")===e);return{e,last:es[es.length-1],es}});
+  const grp=empGroups(ys);const emps=[...new Set(ys.map(s=>grp.get(s)))];
+  const lastByEmp=emps.map(e=>{const es=ys.filter(s=>grp.get(s)===e);const last=es[es.length-1];return{e:last.employer||e,last,es}});
   const val=(pred,field)=>{let y=0,c=0;
     for(const g of lastByEmp)for(const i of g.last.items)if(pred(i))y+=ytdOf(g.last,i,g.es);
     for(const i of reg.items)if(pred(i))c+=i.cur;
     return r2(field==="cur"?c:field==="ytd"?y:y+c*remaining)};
-  return{ys,pds,latest,reg,remaining,val,lastByEmp};
+  return{ys,pds,latest,reg,remaining,val,lastByEmp,grp};
 }
 
 /* ---------- parser ---------- */
@@ -502,7 +523,7 @@ function parseText(txt){
   const re=/(?:Pay|Check) Date:?/gi;while((m=re.exec(txt)))pdIdx.push(m.index);
   const rh=/#\d+\s*•\s*\d{1,2}\/\d{1,2}\/\d{4}\s*•/g;while((m=rh.exec(txt)))hdIdx.push(txt.lastIndexOf("\n",m.index)+1);
   const idx=hdIdx.length===pdIdx.length&&hdIdx.length?hdIdx:pdIdx;
-  const out=[];for(let k=0;k<idx.length;k++){const s=parseChunk(txt.slice(idx[k],idx[k+1]||txt.length));if(s)out.push(s)}
+  const out=[];for(let k=0;k<idx.length;k++){const ch=txt.slice(idx[k],idx[k+1]||txt.length);if(/Supplemental Earnings Statement/i.test(ch))continue;const s=parseChunk(ch);if(s)out.push(s)}
   return out;
 }
 function addStubs(list){
@@ -642,11 +663,13 @@ function runChecks(m,y){
     if(s.net&&s.net.cur!=null){const sum=(sec)=>s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0);
       const calc=r2(sum("earnings")-sum("pretax")-sum("posttax")-sum("taxes"));
       if(Math.abs(calc-s.net.cur)>0.02){netBad++;out.push(["bad",`${nice(s.payDate)}: net pay doesn't match`,`Earnings minus deductions and taxes is ${fmt(calc)}, but ${fmt(s.net.cur)} was deposited.`])}}
-    const emp=s.employer||"";const sameEmp=ys.slice(0,idx).filter(x=>(x.employer||"")===emp);
+    const emp=m.grp.get(s);const sameEmp=ys.slice(0,idx).filter(x=>m.grp.get(x)===emp);
     const prev=sameEmp[sameEmp.length-1];const before=ys[idx-1];
-    const newEmp=idx>0&&!prev&&before&&(before.employer||"")!==emp;
+    const newEmp=idx>0&&!prev&&before&&m.grp.get(before)!==emp;
+    if(s._renamedFrom&&before&&(before.employer||"")!==(s.employer||""))out.push(["info",`Employer name changed on ${nice(s.payDate)}`,`${s._renamedFrom} → ${s.employer}. Year-to-date totals carry on, so it's the same employer and one W-2.`]);
     const first=(idx===0&&m.pds[0]===s.payDate)||newEmp;
-    const prevOk=prev&&(addDays(prev.payDate,14)===s.payDate||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&(before.employer||"")!==emp));
+    const gap=prev?Math.round((dObj(s.payDate)-dObj(prev.payDate))/864e5):99;
+    const prevOk=prev&&((gap>=11&&gap<=17)||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&m.grp.get(before)!==emp));
     if(newEmp)out.push(["info",`New employer on ${nice(s.payDate)}`,`${s.employer||"Unnamed employer"}${before.employer?` (was ${before.employer})`:""}. Year-to-date totals restart, and you'll get a separate W-2 from each.`]);
     if(first||prevOk){for(const i of s.items){if(i.ytd==null)continue;ytdChecked++;
       const pi=prevOk?prev.items.find(j=>j.sec===i.sec&&j.label===i.label):null;const exp=r2((pi&&pi.ytd!=null?pi.ytd:0)+i.cur);
@@ -732,7 +755,7 @@ function renderW2(m,y){
 function bracketTax(t){let tax=0,lo=0;for(const[hi,r]of LIM.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax}
 function renderTax(m){
   const st=taxIn(state.year);const fs=m.latest.filing||"Single";$("fsLabel").textContent=`Filing as ${fs}`;
-  if(!/single/i.test(fs)){$("taxOut").innerHTML=`<p class="note">This estimate only handles the Single brackets. Your stub says ${esc(fs)}.</p>`;return}
+  if(!/single/i.test(fs)){$("taxOut").innerHTML=`<p class="note">This estimate only handles Single filing. Withholding for ${state.year} was set as ${esc(fs)}, and a joint return depends on a spouse's income too, so no estimate is shown.</p>`;setSum("tax",`No estimate (withholding set as ${esc(fs)})`);return}
   const wages=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj");
   const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
   const se=Math.max(0,+st.seProfit||0),oth=Math.max(0,+st.otherInc||0),est=Math.max(0,+st.estPaid||0);
@@ -770,7 +793,7 @@ function renderMeters(m){
   const gross=m.val(i=>i.sec==="earnings","cur");
   const kLines=[`${fmt0(kY)} so far`+(rothY?` (${fmt0(kY-rothY)} pre-tax + ${fmt0(rothY)} Roth)`:"")+` · ${fmt(kC)} per check (${gross?(kC/gross*100).toFixed(1):0}% of gross).`,
     m.remaining===0?(kY<kLim?`Year finished ${fmt0(kLim-kY)} under the limit.`:`Reached the limit.`):kP<kLim?`To max out, raise it to about <b class="num">${fmt0(need)}</b> per check for the ${m.remaining} paydays left.`:`On pace to reach the limit.`,
-    `Limit includes the ${fmt0(catchUp)} age catch-up.`+(kY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`+(loanY?` 401(k) loan repayments (${fmt0(loanY)}) aren't contributions and aren't counted here.`:"")];
+    (catchUp?`Limit includes the ${fmt0(catchUp)} age catch-up.`:`No catch-up yet; that starts the year you turn 50.`)+(kY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`+(loanY?` 401(k) loan repayments (${fmt0(loanY)}) aren't contributions and aren't counted here.`:"")];
   const hsaItems=m.latest.items.filter(isHSA);const fam=hsaItems.some(i=>/FAM/i.test(i.label));
   const hLim=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);
   const hY=m.val(isHSAall,"ytd"),hP=m.val(isHSAall,"proj"),hC=m.val(isHSA,"cur"),hEr=m.val(isHSAer,"ytd");
