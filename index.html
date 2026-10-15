@@ -259,6 +259,7 @@ table.rt{font-size:13px}table.rt th,table.rt td{padding:6px 5px;white-space:nowr
 .events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--muted)}
 .events b{color:var(--ink);font-weight:700;margin-right:6px}
 table.yt{font-size:13.5px}
+table.ytab{font-size:13px}table.ytab th,table.ytab td{padding:6px 7px}
 table.yt th[data-sort]{cursor:pointer;white-space:nowrap}
 table.yt th[aria-sort=ascending]::after{content:" ▲";font-size:9px}
 table.yt th[aria-sort=descending]::after{content:" ▼";font-size:9px}
@@ -310,14 +311,17 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
   <section class="panel" data-k="yoyGross">
     <div class="panel-head"><h2>Where each year&rsquo;s pay went</h2></div>
     <div class="chart" id="yoyGross"></div><div class="legend-row" id="yoyGrossLeg"></div><p class="yd" id="yoyGrossD"></p>
+    <div class="tbl-wrap"><table class="yt ytab" id="tbGross"></table></div>
   </section>
   <section class="panel" data-k="yoyComp">
     <div class="panel-head"><h2>Total compensation</h2></div>
     <div class="chart" id="yoyComp"></div><div class="legend-row" id="yoyCompLeg"></div><p class="yd" id="yoyCompD"></p>
+    <div class="tbl-wrap"><table class="yt ytab" id="tbComp"></table></div>
   </section>
   <section class="panel" data-k="yoyRate">
     <div class="panel-head"><h2>Base pay and raises</h2></div>
     <div class="chart" id="yoyRate"></div><div class="legend-row" id="yoyRateLeg"></div>
+    <div class="tbl-wrap"><table class="yt ytab" id="tbRate"></table></div>
     <div class="tbl-wrap"><table id="yoyRaises" class="rt"></table></div>
     <p class="note" style="margin:0">Raise compares each new base pay with the one before it. Prices is the change in the yearly average Consumer Price Index for the year of the raise. Real is the raise after inflation.</p>
     <ul class="events" id="yoyEvents"></ul>
@@ -326,22 +330,27 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
     <section class="panel" data-k="yoyTax">
       <div class="panel-head"><h2>Tax rates</h2></div>
       <div class="chart" id="yoyTax"></div><div class="legend-row" id="yoyTaxLeg"></div><p class="yd" id="yoyTaxD"></p>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbTax"></table></div>
     </section>
     <section class="panel" data-k="yoyTfd">
       <div class="panel-head"><h2>Tax Freedom Day</h2></div>
       <div class="chart" id="yoyTfd"></div><p class="yd" id="yoyTfdD"></p>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbTfd"></table></div>
     </section>
     <section class="panel" data-k="yoyHour">
       <div class="panel-head"><h2>Per hour</h2></div>
       <div class="chart" id="yoyHour"></div><div class="legend-row" id="yoyHourLeg"></div><p class="yd" id="yoyHourD"></p>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbHour"></table></div>
     </section>
     <section class="panel" data-k="yoy401">
       <div class="panel-head"><h2>401(k) by year</h2></div>
       <div class="chart" id="yoy401"></div><div class="legend-row" id="yoy401Leg"></div><p class="yd" id="yoy401D"></p>
+      <div class="tbl-wrap"><table class="yt ytab" id="tb401"></table></div>
     </section>
     <section class="panel" data-k="yoyHealth">
       <div class="panel-head"><h2>Health costs</h2></div>
       <div class="chart" id="yoyHealth"></div><div class="legend-row" id="yoyHealthLeg"></div><p class="yd" id="yoyHealthD"></p>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbHealth"></table></div>
     </section>
     <section class="panel" data-k="yoyExtra" style="grid-column:1/-1">
       <div class="panel-head"><h2>Bonuses and overtime</h2></div>
@@ -1153,6 +1162,14 @@ function lineChart(el,o){
     if(s.dots)s.pts.forEach(p=>{g+=`<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="${p[2]?3.2:2.6}" fill="${p[2]?"var(--surface)":`var(${s.c})`}" stroke="var(${s.c})" stroke-width="1.6"/>`})});
   el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||"")}">${g}</svg>`;
 }
+/* by-year table under a chart: cols = [header, value(row), kind, total] ; kind $ % $c n txt ; total "sum" or function(rows) */
+function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();
+  const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt0(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():v;
+  const hasT=cols.some(c=>c[3]);
+  el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
+    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?" (proj.)":r.partial?" (part)":""}</td>${cols.map(c=>`<td class="${c[2]==="txt"?"nt":"n"}">${f(c[2],c[1](r))}</td>`).join("")}</tr>`).join("")+
+    (hasT?`<tr class="total"><td>All</td>${cols.map(c=>`<td class="${c[2]==="txt"?"":"n"}">${c[3]==="sum"?f(c[2],rows.reduce((a,r)=>a+(+c[1](r)||0),0)):typeof c[3]==="function"?f(c[2],c[3](rows)):""}</td>`).join("")}</tr>`:"")+"</tbody>";
+}
 const legend=items=>items.map(([c,l,cls])=>`<span><i class="sw${cls?" "+cls:""}" style="background:var(${c})"></i>${l}</span>`).join("");
 const openBtn=y=>` <button class="linkbtn" data-open="${y}">Open ${y} →</button>`;
 
@@ -1305,6 +1322,21 @@ function renderYoy(){
   }
   const bT=S("bonus"),oT=S("ot");setSum("yoyExtra",`<strong>${fmt0(bT+oT)}</strong> total`);
   $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross: ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5&&sel.full.bonusNet>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept), ${fmt0(yv(sel,"bonus401"))} to 401(k), ${fmt0(yv(sel,"bonusTax"))} taxes · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
+  /* by-year tables under each chart */
+  {const g=r=>yv(r,"gross"),sum=k=>rs=>rs.reduce((a,r)=>a+yv(r,k),0),ofG=k=>rs=>sum(k)(rs)/sum("gross")(rs);
+    yearTable("tbGross",rows,[["Gross",g,"$","sum"]].concat(cats.map(([k,l])=>[l,r=>yv(r,k),"$","sum"])).concat([["Kept",r=>r.full.net/r.full.gross,"%",ofG("net")]]));
+    const cmp=r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther");
+    yearTable("tbComp",rows,[["Gross",g,"$","sum"],["Employer 401(k)",r=>yv(r,"er401"),"$","sum"],["Employer health",r=>yv(r,"erHealth"),"$","sum"],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Life, disability, other",r=>yv(r,"erOther"),"$","sum"],["Total comp",cmp,"$","sum"],["Employer adds",r=>(cmp(r)-g(r))/g(r),"%",rs=>{const G=sum("gross")(rs);return(rs.reduce((a,r)=>a+cmp(r),0)-G)/G}]]);
+    const byY=new Map();for(const r of ev.raises){const y=+r.d.slice(0,4);(byY.get(y)||byY.set(y,[]).get(y)).push(r)}
+    yearTable("tbRate",rows,[["Base pay",r=>r.base*rf(r.y),"$"],["vs last year",r=>{const p=rows.find(x=>x.y===r.y-1);return p&&p.base?r.base/p.base-1:null},"%"],[`In ${CPI_BASE} dollars`,r=>r.base*cpiOf(CPI_BASE)/cpiOf(r.y),"$"],["Base per hour",r=>r.base*rf(r.y)/2080,"$c"],["Raises",r=>(byY.get(r.y)||[]).map(x=>`${nice(x.d)} ${sgn(x.pct)}`).join(", ")||"—","txt"]]);
+    const tx=r=>yv(r,"fed")+yv(r,"fica")+yv(r,"state");
+    yearTable("tbTax",rows,[["Federal",r=>yv(r,"fed"),"$","sum"],["%",r=>r.full.fed/r.full.gross,"%",ofG("fed")],["SS + Medicare",r=>yv(r,"fica"),"$","sum"],["%",r=>r.full.fica/r.full.gross,"%",ofG("fica")],["State + local",r=>yv(r,"state"),"$","sum"],["%",r=>r.full.state/r.full.gross,"%",ofG("state")],["All taxes",tx,"$","sum"],["%",r=>tx(r)/g(r),"%",rs=>rs.reduce((a,r)=>a+tx(r),0)/sum("gross")(rs)]]);
+    yearTable("tbTfd",rows,[["Tax Freedom Day",r=>r.partial?null:dayLabel(r.y,tfdDay(r)),"txt"],["Days of pay for taxes",r=>r.partial?null:Math.ceil(tfdDay(r)),"n"],["Taxes",tx,"$","sum"],["Gross",g,"$","sum"]]);
+    yearTable("tbHour",rows,[["Paid hours",r=>r.hrs,"n","sum"],["Gross / hr",r=>r.hrs?g(r)/r.hrs:null,"$c"],["Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:null,"$c"],["Base / hr",r=>r.base?r.base*rf(r.y)/2080:null,"$c"],["Taxes / hr",r=>r.hrs?tx(r)/r.hrs:null,"$c"]]);
+    let run=0;const runMap=new Map(rows.map(r=>{run+=yv(r,"ret")+yv(r,"er401");return[r.y,run]}));
+    yearTable("tb401",rows,[["You",r=>yv(r,"ret"),"$","sum"],["% of pay",r=>r.full.ret/r.full.gross,"%",ofG("ret")],["Employer",r=>yv(r,"er401"),"$","sum"],["Total",r=>yv(r,"ret")+yv(r,"er401"),"$","sum"],["Your limit",r=>r.k401Lim*rf(r.y),"$"],["Limit used",r=>r.full.ret/r.k401Lim,"%"],["Running total",r=>runMap.get(r.y),"$"]]);
+    yearTable("tbHealth",rows,[["Insurance",r=>yv(r,"health"),"$","sum"],["HSA (you)",r=>yv(r,"hsa"),"$","sum"],["Health FSA",r=>yv(r,"fsa"),"$","sum"],["From your pay",r=>yv(r,"health")+yv(r,"hsa")+yv(r,"fsa"),"$","sum"],["% of gross",r=>(r.full.health+r.full.hsa+r.full.fsa)/r.full.gross,"%",rs=>(sum("health")(rs)+sum("hsa")(rs)+sum("fsa")(rs))/sum("gross")(rs)],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Employer premiums",r=>yv(r,"erHealth"),"$","sum"]]);
+  }
   /* table */
   const cols=[["y","Year",r=>r.y],["base","Base pay",r=>r.base?r.base*rf(r.y):0,1],["gross","Gross",r=>yv(r,"gross"),1],["net","Take-home",r=>yv(r,"net"),1],
     ["kept","Kept",r=>r.full.net/r.full.gross,2],["fedp","Federal",r=>r.full.fed/r.full.gross,2],["ficap","FICA",r=>r.full.fica/r.full.gross,2],["statep","State + local",r=>r.full.state/r.full.gross,2],
@@ -1326,7 +1358,7 @@ function renderYoy(){
 document.addEventListener("click",e=>{
   const ob=e.target.closest("[data-open]");if(ob){state.year=+ob.dataset.open;if(ob.dataset.key){state.checkKey=ob.dataset.key;state.mode="cur"}setView("year");window.scrollTo(0,0);return}
   const th=e.target.closest("#yoyTbl th[data-sort]");if(th){const k=th.dataset.sort;const so=state.yoySort||{k:"y",d:-1};state.yoySort={k,d:so.k===k?-so.d:(k==="y"?-1:-1)};renderYoy();return}
-  const tr=e.target.closest("#yoyTbl tr[data-y], #yoyBonusTbl tr[data-y]");if(tr){state.year=+tr.dataset.y;setView("year");window.scrollTo(0,0);return}
+  const tr=e.target.closest("#yoyTbl tr[data-y], #yoyBonusTbl tr[data-y], table.ytab tr[data-y]");if(tr){state.year=+tr.dataset.y;setView("year");window.scrollTo(0,0);return}
   const col=e.target.closest("#yoyView .col");if(col){const y=+col.dataset.y;state.yoySel=state.yoySel===y?null:y;renderYoy();return}
   if(e.target.closest("#yoyView .tog")){setTimeout(renderYoy,0);return}
   const rb=e.target.closest("#yoyReal [data-real]");if(rb){state.real=rb.dataset.real==="1";setOpen("real",state.real);renderYoy();return}
