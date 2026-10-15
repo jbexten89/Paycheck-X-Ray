@@ -263,6 +263,7 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
     <section class="panel" data-k="w2">
       <div class="panel-head"><h2>W-2 preview</h2><span class="muted">Tax year <span id="w2year"></span></span></div>
       <div class="tbl-wrap"><table id="w2"></table></div>
+      <p class="note" id="w2emp" hidden></p>
       <p class="note">Projected = latest year-to-date plus the latest check repeated for each payday left. HSA money your employer deposits directly is not on the stub, so Box 12 W may come in higher.</p>
     </section>
 
@@ -324,6 +325,8 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
 "use strict";
 /* ---------- constants (2026 tax year) ---------- */
 const LIMS={
+  2021:{std:12550,br:[[9950,.10],[40525,.12],[86375,.22],[164925,.24],[209425,.32],[523600,.35],[Infinity,.37]],
+    k401:19500,c50:6500,c60:6500,total:58000,ssBase:142800,hsaSelf:3600,hsaFam:7200,hsaCatch:1000},
   2022:{std:12950,br:[[10275,.10],[41775,.12],[89075,.22],[170050,.24],[215950,.32],[539900,.35],[Infinity,.37]],
     k401:20500,c50:6500,c60:6500,total:61000,ssBase:147000,hsaSelf:3650,hsaFam:7300,hsaCatch:1000},
   2023:{std:13850,br:[[11000,.10],[44725,.12],[95375,.22],[182100,.24],[231250,.32],[578125,.35],[Infinity,.37]],
@@ -433,7 +436,9 @@ function payDates(y){
   const ys=yearStubs(y).filter(s=>!isExtra(s));const anchor=ys.length?ys[0].payDate:(state.stubs[0]?state.stubs[0].payDate:null);if(!anchor)return[];
   let d=anchor;while(Number(d.slice(0,4))>=y)d=addDays(d,-14);
   while(Number(d.slice(0,4))<y)d=addDays(d,14);
-  const out=[];while(Number(d.slice(0,4))===y){out.push(d);d=addDays(d,14)}return out;
+  const out=[];while(Number(d.slice(0,4))===y){out.push(d);d=addDays(d,14)}
+  const f=ys[0];if(f&&f.net&&f.net.cur!=null&&f.net.ytd!=null&&Math.abs(f.net.cur-f.net.ytd)<0.01&&f.net.cur>0)return out.filter(x=>x>=f.payDate);
+  return out;
 }
 function prevLoaded(s,ys){const i=ys.indexOf(s);return i>0?ys[i-1]:null}
 function ytdOf(s,item,ys){
@@ -445,11 +450,13 @@ function model(y){
   if(!ys.length)return{ys,pds,latest:null,remaining:0};
   const latest=ys[ys.length-1];const regs=ys.filter(s=>!isExtra(s));const reg=regs.length?regs[regs.length-1]:latest;
   const remaining=pds.filter(d=>d>latest.payDate).length;
+  const emps=[...new Set(ys.map(s=>s.employer||""))];
+  const lastByEmp=emps.map(e=>{const es=ys.filter(s=>(s.employer||"")===e);return{e,last:es[es.length-1],es}});
   const val=(pred,field)=>{let y=0,c=0;
-    for(const i of latest.items)if(pred(i))y+=ytdOf(latest,i,ys);
+    for(const g of lastByEmp)for(const i of g.last.items)if(pred(i))y+=ytdOf(g.last,i,g.es);
     for(const i of reg.items)if(pred(i))c+=i.cur;
     return r2(field==="cur"?c:field==="ytd"?y:y+c*remaining)};
-  return{ys,pds,latest,reg,remaining,val};
+  return{ys,pds,latest,reg,remaining,val,lastByEmp};
 }
 
 /* ---------- parser ---------- */
@@ -468,6 +475,7 @@ function parseChunk(chunk){
   const fs=chunk.match(/Federal Filing Status:?[\s\S]{0,200}?\b(Single|Married[A-Za-z ]*?|Head of Household)\b/i);
   const kd=chunk.match(/•\s*\d{1,2}\/\d{1,2}\/\d{4}\s*•\s*([A-Za-z]+)/);
   const stub={payDate:toISO(pd[1]),period:pp?[toISO(pp[1]),toISO(pp[2])]:null,kind:kd&&/additional|bonus|off/i.test(kd[1])?"Additional":"Normal",payRate:rt?parseFloat(rt[1].replace(/,/g,"")):null,filing:fs?fs[1]:null,items:[],totals:{},net:null};
+  const em=chunk.match(/Employer Name:?[ \t]*([^\n\t]+?)(?:[ ]{2,}|\t|\n|$)/);if(em)stub.employer=em[1].trim();
   let sec=null,block=false,pL=[],pA=[],netA=[];
   const flush=()=>{if(sec&&sec!=="net"&&block){const n=pL.length;if(n&&pA.length>=n){const two=pA.length>=2*n;
       pL.forEach((l,k)=>{const cur=pA[k],ytd=two?pA[n+k]:null;if(l==="__total")stub.totals[sec]={cur,ytd};else stub.items.push({sec,label:l,cur,ytd})})}}
@@ -634,8 +642,12 @@ function runChecks(m,y){
     if(s.net&&s.net.cur!=null){const sum=(sec)=>s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0);
       const calc=r2(sum("earnings")-sum("pretax")-sum("posttax")-sum("taxes"));
       if(Math.abs(calc-s.net.cur)>0.02){netBad++;out.push(["bad",`${nice(s.payDate)}: net pay doesn't match`,`Earnings minus deductions and taxes is ${fmt(calc)}, but ${fmt(s.net.cur)} was deposited.`])}}
-    const prev=ys[idx-1];const first=idx===0&&m.pds[0]===s.payDate;
-    const prevOk=prev&&(addDays(prev.payDate,14)===s.payDate||prev.payDate===s.payDate);
+    const emp=s.employer||"";const sameEmp=ys.slice(0,idx).filter(x=>(x.employer||"")===emp);
+    const prev=sameEmp[sameEmp.length-1];const before=ys[idx-1];
+    const newEmp=idx>0&&!prev&&before&&(before.employer||"")!==emp;
+    const first=(idx===0&&m.pds[0]===s.payDate)||newEmp;
+    const prevOk=prev&&(addDays(prev.payDate,14)===s.payDate||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&(before.employer||"")!==emp));
+    if(newEmp)out.push(["info",`New employer on ${nice(s.payDate)}`,`${s.employer||"Unnamed employer"}${before.employer?` (was ${before.employer})`:""}. Year-to-date totals restart, and you'll get a separate W-2 from each.`]);
     if(first||prevOk){for(const i of s.items){if(i.ytd==null)continue;ytdChecked++;
       const pi=prevOk?prev.items.find(j=>j.sec===i.sec&&j.label===i.label):null;const exp=r2((pi&&pi.ytd!=null?pi.ytd:0)+i.cur);
       if(Math.abs(exp-i.ytd)>0.02){ytdBad++;out.push(["bad",`${nice(s.payDate)}: ${i.label} year-to-date jumped`,`Expected ${fmt(exp)} (previous YTD plus this check), stub shows ${fmt(i.ytd)}. Off by ${fmt(i.ytd-exp)}.`])}}}
@@ -664,13 +676,16 @@ function runChecks(m,y){
         const pctBased=/401|403|457|PENSION|MATCH|HARBOR/i.test(i.label);
         if(pctBased&&Math.abs(pi.cur/gr(pv)-i.cur/gr(s))<0.0015)continue;
         out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check.`+(pctBased?` Now ${(i.cur/gr(s)*100).toFixed(2)}% of gross.`:"")])}
+      const preSum=x=>x.items.filter(i=>i.sec==="pretax").reduce((a,i)=>a+i.cur,0);const preDiff=r2(preSum(s)-preSum(pv));
       if(Math.abs(gr(pv)-gr(s))<0.01)for(const i of s.items.filter(x=>x.sec==="taxes"&&!isSS(x)&&!isMedi(x))){const pi=pv.items.find(j=>j.sec==="taxes"&&j.label===i.label);
-        if(pi&&pi.cur>0&&Math.abs(pi.cur-i.cur)/pi.cur>0.01)out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check with the same gross pay. Payroll likely switched to new withholding tables.`])}
+        if(pi&&pi.cur>0&&Math.abs(pi.cur-i.cur)/pi.cur>0.01)out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check with the same gross pay. `+(Math.abs(preDiff)>0.01?`Pre-tax deductions ${preDiff>0?"rose":"fell"} by ${fmt(Math.abs(preDiff))}, which changes the taxable amount.`:`Payroll likely switched to new withholding tables.`)])}
       for(const pi of pv.items){if(!["pretax","posttax"].includes(pi.sec))continue;if(!s.items.some(j=>j.sec===pi.sec&&j.label===pi.label))out.push(["info",`${pi.label} stopped on ${nice(s.payDate)}`,`It was ${fmt(pi.cur)} per check before.`])}
     }
   });
+  if(m.lastByEmp&&m.lastByEmp.length>1){const ssAll=m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0);const mx=LIM.ssBase*.062;
+    if(ssAll>mx+0.05)out.push(["info","Extra Social Security withheld",`With ${m.lastByEmp.length} employers, ${fmt(ssAll)} of Social Security was withheld, ${fmt(ssAll-mx)} over the ${fmt(mx)} yearly maximum. You get the extra back as a credit on your federal return (Form 1040, Schedule 3).`]);}
   if(m.latest){const ssWproj=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
-    if(ssWproj>LIM.ssBase&&!capNoted)out.push(["info","You'll hit the Social Security cap",`Projected Social Security wages ${fmt0(ssWproj)} pass the ${fmt0(LIM.ssBase)} limit, so late-year checks should get bigger.`]);}
+    if(m.remaining>0&&ssWproj>LIM.ssBase&&!capNoted)out.push(["info","You'll hit the Social Security cap",`Projected Social Security wages ${fmt0(ssWproj)} pass the ${fmt0(LIM.ssBase)} limit, so late-year checks should get bigger.`]);}
   const n=ys.length;
   if(n){if(!totBad&&Object.keys(ys[0].totals||{}).length)out.push(["ok","Section totals add up",`Every earnings, deduction and tax section matches its total on all ${n} stub${n>1?"s":""}.`]);
     if(!netBad)out.push(["ok","Net pay matches the math",`Gross minus deductions and taxes equals the deposit on every stub.`]);
@@ -707,6 +722,7 @@ function renderW2(m,y){
       ["17","State income tax",m.val(i=>isStateLocal(i)&&/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)],
       ["19","Local / school district tax",m.val(i=>isStateLocal(i)&&!/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)]]};
   const a=box("ytd"),p=box("proj");
+  const wn=$("w2emp");if(wn){const n=m.lastByEmp?m.lastByEmp.length:1;wn.hidden=n<2;wn.textContent=n<2?"":`Combined from ${n} employers: ${m.lastByEmp.map(g=>g.e||"unnamed").join(" and ")}. You'll get a separate W-2 from each.`}
   setSum("w2",`Box 1 wages <strong>${fmt0(p[0][2])}</strong> · fed withheld ${fmt0(p[1][2])}`);
   $("w2").innerHTML=`<thead><tr><th>Box</th><th class="n">YTD</th><th class="n">Dec 31</th></tr></thead><tbody>`+
     a.map((r,k)=>r[2]||p[k][2]?`<tr><td><span class="box">${r[0]}</span>${r[1]}</td><td class="n">${fmt0(r[2])}</td><td class="n">${fmt0(p[k][2])}</td></tr>`:"").join("")+`</tbody>`;
@@ -723,11 +739,13 @@ function renderTax(m){
   const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*0.124+seBase*0.029:0;const halfSE=seTax/2;
   const agi=wages+oth+se-halfSE;const pre=Math.max(0,agi-LIM.std);
   const qbi=Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
-  const inc=bracketTax(taxable);const total=inc+seTax;const withheld=m.val(isFed,"proj")+est;const gap=total-withheld;
+  const inc=bracketTax(taxable);const total=inc+seTax;const withheld=m.val(isFed,"proj")+est;
+  const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*.062):0;
+  const gap=total-withheld-ssCredit;
   const per=m.remaining?gap/m.remaining:0;
   const rows=[[(m.remaining?"Projected W-2 wages":"W-2 wages")+" (Box 1)",wages],se?["Side business profit",se]:null,oth?["Other taxable income",oth]:null,se?["Half of self-employment tax",-halfSE]:null,
     ["Standard deduction",-LIM.std],qbi?["Qualified business income deduction",-qbi]:null,["Taxable income",taxable,1],["Income tax",inc],se?["Self-employment tax",seTax]:null,["Total federal tax",total,1],
-    ["Withheld by Dec 31"+(est?" + estimates":""),-withheld]].filter(Boolean);
+    ["Withheld by Dec 31"+(est?" + estimates":""),-withheld],ssCredit>0.5?["Extra Social Security credit",-ssCredit]:null].filter(Boolean);
   const owe=gap>0.5;
   setSum("tax",owe?`<span class="warn">${m.remaining?"Projected to owe":"Estimated owed"} <strong>${fmt0(gap)}</strong></span>`:`Projected refund <strong>${fmt0(-gap)}</strong>`);
   $("taxOut").innerHTML=`<div class="verdict ${owe?"owe":"refund"}"><span class="eyebrow">${m.remaining?(owe?"Projected to owe":"Projected refund"):(owe?`Estimated owed for ${state.year}`:`Estimated refund for ${state.year}`)}</span><span class="big">${fmt0(Math.abs(gap))}</span>
