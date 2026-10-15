@@ -279,7 +279,12 @@ tr.sel td{background:var(--soft)}
 body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:100;pointer-events:none}
 .mo-h{flex-wrap:wrap;gap:2px 6px}.mo-h .x3{white-space:nowrap}
 header.top{padding-top:18px}
-header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
+header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}
+/* sticky header: stays under the status bar, compacts once you scroll */
+/* the header sticks with a negative offset equal to the title's height, so the title scrolls away and the controls row stays pinned; nothing changes size, so the page never jumps */
+header.top{position:sticky;top:calc(env(safe-area-inset-top,0px) - var(--hdr-off,0px));z-index:60;background:var(--bg);box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax -1px);padding-bottom:10px;border-bottom:1px solid transparent}
+header.top.stuck{border-bottom-color:var(--line)}
+section.panel,#yoyView>section{scroll-margin-top:120px}</style>
 </head>
 <body>
 <div class="wrap">
@@ -1443,6 +1448,11 @@ window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:
 </script>
 <script src="ocr.js"></script>
 <script src="photo.js"></script>
+<script>(function(){const h=document.querySelector("header.top"),a=h&&h.querySelector(".row-actions");if(!h||!a)return;
+let off=0;const measure=()=>{off=Math.max(0,a.getBoundingClientRect().top-h.getBoundingClientRect().top-10);h.style.setProperty("--hdr-off",off+"px")};
+const upd=()=>h.classList.toggle("stuck",(window.scrollY||0)>off+4);
+measure();upd();window.addEventListener("scroll",upd,{passive:true});window.addEventListener("resize",()=>{measure();upd()});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{measure();upd()})})();</script>
 <script>(function(){const stop=e=>e.preventDefault();["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,{passive:false}));
 document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
 /* iPhone can still double-tap zoom on buttons; swallow the zoom but keep the second tap working as a normal tap */
