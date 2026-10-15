@@ -710,7 +710,7 @@ function runChecks(m,y){
     if(s._renamedFrom&&before&&(before.employer||"")!==(s.employer||""))out.push(["info",`Employer name changed on ${nice(s.payDate)}`,`${s._renamedFrom} → ${s.employer}. Year-to-date totals carry on, so it's the same employer and one W-2.`]);
     const first=(idx===0&&m.pds[0]===s.payDate)||newEmp;
     const gap=prev?Math.round((dObj(s.payDate)-dObj(prev.payDate))/864e5):99;
-    const prevOk=prev&&((gap>=11&&gap<=19)||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&m.grp.get(before)!==emp));
+    const prevOk=prev&&((gap>=6&&gap<=19)||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&m.grp.get(before)!==emp));
     if(newEmp)out.push(["info",`New employer on ${nice(s.payDate)}`,`${s.employer||"Unnamed employer"}${before.employer?` (was ${before.employer})`:""}. Year-to-date totals restart, and you'll get a separate W-2 from each.`]);
     if(first||prevOk){for(const i of s.items){if(i.ytd==null)continue;ytdChecked++;
       const pi=prevOk?prev.items.find(j=>j.sec===i.sec&&j.label===i.label):null;
