@@ -1,6 +1,6 @@
 {
   "name": "Paycheck X-Ray",
-  "short_name": "Pay X-Ray",
+  "short_name": "Paycheck X-Ray",
   "description": "See where every paycheck goes. Your data stays on your device.",
   "start_url": "./",
   "scope": "./",
