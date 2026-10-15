@@ -324,6 +324,8 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
 "use strict";
 /* ---------- constants (2026 tax year) ---------- */
 const LIMS={
+  2022:{std:12950,br:[[10275,.10],[41775,.12],[89075,.22],[170050,.24],[215950,.32],[539900,.35],[Infinity,.37]],
+    k401:20500,c50:6500,c60:6500,total:61000,ssBase:147000,hsaSelf:3650,hsaFam:7300,hsaCatch:1000},
   2023:{std:13850,br:[[11000,.10],[44725,.12],[95375,.22],[182100,.24],[231250,.32],[578125,.35],[Infinity,.37]],
     k401:22500,c50:7500,c60:7500,total:66000,ssBase:160200,hsaSelf:3850,hsaFam:7750,hsaCatch:1000},
   2024:{std:14600,br:[[11600,.10],[47150,.12],[100525,.22],[191950,.24],[243725,.32],[609350,.35],[Infinity,.37]],
@@ -625,7 +627,7 @@ function runChecks(m,y){
   const out=[];const ys=m.ys;const have=new Set(ys.filter(s=>!isExtra(s)).map(s=>s.payDate));
   const missPast=m.pds.filter(d=>d<=todayISO&&!have.has(d));
   if(missPast.length)out.push(["warn",`${missPast.length} paid stub${missPast.length>1?"s":""} not loaded`,`Missing: ${missPast.slice(0,6).map(nice).join(", ")}${missPast.length>6?` and ${missPast.length-6} more`:""}. Projections lean on the latest stub, so add the newest one first.`]);
-  let totBad=0,ytdBad=0,ficaBad=0,netBad=0,ytdChecked=0;
+  let totBad=0,ytdBad=0,ficaBad=0,netBad=0,ytdChecked=0,capNoted=false;
   ys.forEach((s,idx)=>{
     for(const[sec,t]of Object.entries(s.totals||{})){const sum=r2(s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0));
       if(t&&t.cur!=null&&Math.abs(sum-t.cur)>0.02){totBad++;out.push(["bad",`${nice(s.payDate)}: ${sec} lines don't add up`,`Lines total ${fmt(sum)}, the stub says ${fmt(t.cur)}. Either a line was misread or payroll's total is off.`])}}
@@ -641,6 +643,8 @@ function runChecks(m,y){
     const ssW=Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125);
     const ss=Y(isSS),md=Y(isMedi);
     if(ss&&ssW<=LIM.ssBase&&Math.abs(ss-ssW*.062)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security isn't 6.2%`,`Year-to-date Social Security wages ${fmt(ssW)} × 6.2% = ${fmt(ssW*.062)}, withheld ${fmt(ss)}.`])}
+    if(ss&&ssW>LIM.ssBase&&Math.abs(ss-LIM.ssBase*.062)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security over the cap`,`Wages passed the ${fmt0(LIM.ssBase)} cap, so withholding should stop at ${fmt(LIM.ssBase*.062)}. Year-to-date withheld: ${fmt(ss)}.`])}
+    if(ss&&ssW>LIM.ssBase&&!capNoted){capNoted=true;out.push(["info",`Hit the Social Security cap on ${nice(s.payDate)}`,`Wages passed ${fmt0(LIM.ssBase)}, so Social Security stopped at ${fmt(LIM.ssBase*.062)} for the year. Checks after this are bigger.`])}
     if(md&&ssW<=200000&&Math.abs(md-ssW*.0145)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Medicare isn't 1.45%`,`${fmt(ssW)} × 1.45% = ${fmt(ssW*.0145)}, withheld ${fmt(md)}.`])}
     if(isExtra(s)){
       const what=s.items.filter(i=>(i.sec==="earnings"||i.sec==="taxable")&&i.cur>0).map(i=>`${i.label} ${fmt(i.cur)}`).join(", ");
@@ -666,12 +670,12 @@ function runChecks(m,y){
     }
   });
   if(m.latest){const ssWproj=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
-    if(ssWproj>LIM.ssBase)out.push(["info","You'll hit the Social Security cap",`Projected Social Security wages ${fmt0(ssWproj)} pass the ${fmt0(LIM.ssBase)} limit, so late-year checks should get bigger.`]);}
+    if(ssWproj>LIM.ssBase&&!capNoted)out.push(["info","You'll hit the Social Security cap",`Projected Social Security wages ${fmt0(ssWproj)} pass the ${fmt0(LIM.ssBase)} limit, so late-year checks should get bigger.`]);}
   const n=ys.length;
   if(n){if(!totBad&&Object.keys(ys[0].totals||{}).length)out.push(["ok","Section totals add up",`Every earnings, deduction and tax section matches its total on all ${n} stub${n>1?"s":""}.`]);
     if(!netBad)out.push(["ok","Net pay matches the math",`Gross minus deductions and taxes equals the deposit on every stub.`]);
     if(!ytdBad&&ytdChecked)out.push(["ok","Year-to-date totals carry forward",`Each line's YTD equals the previous YTD plus the current check (${ytdChecked} lines checked).`]);
-    if(!ficaBad)out.push(["ok","FICA rates are right","Social Security is 6.2% and Medicare 1.45% of wages after insurance and HSA, as expected."]);}
+    if(!ficaBad)out.push(["ok","FICA rates are right","Social Security is 6.2% (up to the yearly cap) and Medicare 1.45% of wages after insurance and HSA, as expected."]);}
   const order={bad:0,warn:1,info:2,ok:3};out.sort((a,b)=>order[a[0]]-order[b[0]]);return out;
 }
 function renderChecks(m,y){
