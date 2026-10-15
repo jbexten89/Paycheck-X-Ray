@@ -269,7 +269,6 @@ table.yt tr.sel td:first-child{background:var(--soft)}
 table.yt td:first-child,table.yt th:first-child{position:sticky;left:0;background:var(--surface)}
 tr.click{cursor:pointer}
 tr.sel td{background:var(--soft)}
-#yoyRaises tr.sel td{background:var(--soft)}
 .rv-img{max-height:120px;border-radius:8px;border:1px solid var(--line);align-self:flex-start}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} [hidden]{display:none!important}
@@ -322,8 +321,7 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
     <div class="panel-head"><h2>Base pay and raises</h2></div>
     <div class="chart" id="yoyRate"></div><div class="legend-row" id="yoyRateLeg"></div>
     <div class="tbl-wrap"><table class="yt ytab" id="tbRate"></table></div>
-    <div class="tbl-wrap"><table id="yoyRaises" class="rt"></table></div>
-    <p class="note" style="margin:0">Raise compares each new base pay with the one before it. Prices is the change in the yearly average Consumer Price Index for the year of the raise. Real is the raise after inflation.</p>
+    <p class="note" style="margin:0">Raise is base pay at year end compared with the year before. Prices is the change in the yearly average Consumer Price Index. Real is the raise after inflation; green beat inflation, amber fell behind.</p>
     <ul class="events" id="yoyEvents"></ul>
   </section>
   <div class="grid2">
@@ -1164,10 +1162,11 @@ function lineChart(el,o){
 }
 /* by-year table under a chart: cols = [header, value(row), kind, total] ; kind $ % $c n txt ; total "sum" or function(rows) */
 function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();
-  const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt0(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():v;
+  const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt0(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):v;
+  const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):"n";
   const hasT=cols.some(c=>c[3]);
   el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
-    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?" (proj.)":r.partial?" (part)":""}</td>${cols.map(c=>`<td class="${c[2]==="txt"?"nt":"n"}">${f(c[2],c[1](r))}</td>`).join("")}</tr>`).join("")+
+    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?" (proj.)":r.partial?" (part)":""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
     (hasT?`<tr class="total"><td>All</td>${cols.map(c=>`<td class="${c[2]==="txt"?"":"n"}">${c[3]==="sum"?f(c[2],rows.reduce((a,r)=>a+(+c[1](r)||0),0)):typeof c[3]==="function"?f(c[2],c[3](rows)):""}</td>`).join("")}</tr>`:"")+"</tbody>";
 }
 const legend=items=>items.map(([c,l,cls])=>`<span><i class="sw${cls?" "+cls:""}" style="background:var(${c})"></i>${l}</span>`).join("");
@@ -1265,8 +1264,6 @@ function renderYoy(){
   }
   $("yoyRateLeg").innerHTML=legend([["--c-net","Base pay as paid"],["--c-ret",`Same pay in ${CPI_BASE} dollars`,"dash"]]);
   const R=ev.raises;
-  $("yoyRaises").innerHTML=R.length?`<thead><tr><th>Date</th><th class="n">Base pay</th><th class="n">Raise</th><th class="n">Prices</th><th class="n">Real</th></tr></thead><tbody>`+
-    [...R].reverse().map(r=>`<tr${state.yoySel===+r.d.slice(0,4)?' class="sel"':""}><td>${nice(r.d)}, ${r.d.slice(0,4)}</td><td class="n">${fmt0(r.to)}</td><td class="n">${sgn(r.pct)}</td><td class="n">${sgn(r.inf)}</td><td class="n ${r.real>=0?"up":"down"}">${sgn(r.real)}</td></tr>`).join("")+`</tbody>`:"";
   const ahead=R.filter(r=>r.real>=0).length;
   setSum("yoyRate",R.length?`${R.length} raises · ${ahead} beat inflation`:"");
   $("yoyEvents").innerHTML=ev.events.map(e=>`<li><b>${nice(e.d)}, ${e.d.slice(0,4)}</b> ${esc(e.t)}</li>`).join("");
@@ -1328,7 +1325,8 @@ function renderYoy(){
     const cmp=r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther");
     yearTable("tbComp",rows,[["Gross",g,"$","sum"],["Employer 401(k)",r=>yv(r,"er401"),"$","sum"],["Employer health",r=>yv(r,"erHealth"),"$","sum"],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Life, disability, other",r=>yv(r,"erOther"),"$","sum"],["Total comp",cmp,"$","sum"],["Employer adds",r=>(cmp(r)-g(r))/g(r),"%",rs=>{const G=sum("gross")(rs);return(rs.reduce((a,r)=>a+cmp(r),0)-G)/G}]]);
     const byY=new Map();for(const r of ev.raises){const y=+r.d.slice(0,4);(byY.get(y)||byY.set(y,[]).get(y)).push(r)}
-    yearTable("tbRate",rows,[["Base pay",r=>r.base*rf(r.y),"$"],["vs last year",r=>{const p=rows.find(x=>x.y===r.y-1);return p&&p.base?r.base/p.base-1:null},"%"],[`In ${CPI_BASE} dollars`,r=>r.base*cpiOf(CPI_BASE)/cpiOf(r.y),"$"],["Base per hour",r=>r.base*rf(r.y)/2080,"$c"],["Raises",r=>(byY.get(r.y)||[]).map(x=>`${nice(x.d)} ${sgn(x.pct)}`).join(", ")||"—","txt"]]);
+    const chg=r=>{const p=rows.find(x=>x.y===r.y-1);if(p&&p.base)return r.base/p.base-1;const f=r.m.ys.find(x=>!isExtra(x)&&annualBase(x)),b0=f&&annualBase(f);return b0&&Math.abs(r.base/b0-1)>0.0005?r.base/b0-1:null},infl=r=>cpiOf(r.y)/cpiOf(r.y-1)-1;
+    yearTable("tbRate",rows,[["Base pay",r=>r.base*rf(r.y),"$"],["Raise",chg,"pm"],["Prices",r=>chg(r)==null?null:infl(r),"pm"],["Real",r=>{const c=chg(r);return c==null?null:(1+c)/(1+infl(r))-1},"pmc"],[`In ${CPI_BASE} dollars`,r=>r.base*cpiOf(CPI_BASE)/cpiOf(r.y),"$"],["Per hour",r=>r.base*rf(r.y)/2080,"$c"],["Raise dates",r=>(byY.get(r.y)||[]).map(x=>`${nice(x.d)} ${sgn(x.pct)}`).join(", ")||"—","txt"]]);
     const tx=r=>yv(r,"fed")+yv(r,"fica")+yv(r,"state");
     yearTable("tbTax",rows,[["Federal",r=>yv(r,"fed"),"$","sum"],["%",r=>r.full.fed/r.full.gross,"%",ofG("fed")],["SS + Medicare",r=>yv(r,"fica"),"$","sum"],["%",r=>r.full.fica/r.full.gross,"%",ofG("fica")],["State + local",r=>yv(r,"state"),"$","sum"],["%",r=>r.full.state/r.full.gross,"%",ofG("state")],["All taxes",tx,"$","sum"],["%",r=>tx(r)/g(r),"%",rs=>rs.reduce((a,r)=>a+tx(r),0)/sum("gross")(rs)]]);
     yearTable("tbTfd",rows,[["Tax Freedom Day",r=>r.partial?null:dayLabel(r.y,tfdDay(r)),"txt"],["Days of pay for taxes",r=>r.partial?null:Math.ceil(tfdDay(r)),"n"],["Taxes",tx,"$","sum"],["Gross",g,"$","sum"]]);
