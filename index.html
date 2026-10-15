@@ -21,7 +21,7 @@
 :root{
   --bg:#07080A; --surface:#111317; --ink:#ECEEF0; --muted:#9BA1A8; --line:#23272D; --soft:#1A1D22;
   --accent:#3CC79A; --accent-ink:#04140E; --amber:#E3A04F; --amber-ink:#1A1004;
-  --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-fsa:#4FC3C7; --c-gross:#59616D; --c-bonus-wh:#7D6B2C; --c-other:#6B7280;
+  --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-fsa:#4FC3C7; --c-gross:#59616D; --c-loan:#3E7CB8; --c-child:#C2A37A; --c-bonus-wh:#7D6B2C; --c-other:#6B7280;
   --c-k-you:#5FA8F5; --c-k-roth:#7FD1F0; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
   --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2;
   --bad:#F0707C; --warn:#E3A04F; --good:#3CC79A; --info:#8FB3D9;
@@ -368,6 +368,13 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <div class="tbl-wrap"><table id="yoyBonusTbl" class="yt"></table></div>
       <p class="note" id="yoyBonusNote" style="margin:0"></p>
     </section>
+    <section class="panel" data-k="yoyObl" id="yoyOblPanel" style="grid-column:1/-1">
+      <div class="panel-head"><h2>401(k) loans and child support</h2></div>
+      <div class="tiles" id="yoyOblTiles"></div>
+      <div class="chart" id="yoyObl"></div><div class="legend-row" id="yoyOblLeg"></div><p class="yd" id="yoyOblD"></p>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbObl"></table></div>
+      <p class="note" style="margin:0">401(k) loan payments come out after tax and go back into your own 401(k) account, principal plus interest; the stubs don't show the split. Child support includes processing fees.</p>
+    </section>
   </div>
   <section class="panel" data-k="yoyTbl">
     <div class="panel-head"><h2>Every year</h2></div>
@@ -570,7 +577,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -612,6 +619,7 @@ const isDefer=i=>isPreRet(i)||isRoth(i);
 const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
 const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
 const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
+const isChild=i=>(i.sec==="pretax"||i.sec==="posttax")&&/CHILD|CHLD/i.test(i.label);
 const isFSA=i=>(i.sec==="pretax"||i.sec==="posttax")&&/\bFSA\b|FLEX SPEND/i.test(i.label);
 const isHSAall=i=>isHSA(i)||isHSAer(i);
 const isErRet=i=>i.sec==="memo"&&/401|403|PENSION|MATCH|HARBOR|PROFIT|RETIRE/i.test(i.label);
@@ -777,7 +785,7 @@ function renderCalendar(m,y){
 }
 
 /* ---------- render: breakdown ---------- */
-const CATS=[["net","Take-home pay","--c-net"],["fed","Federal income tax","--c-fed"],["fica","Social Security + Medicare","--c-fica"],["state","State + local tax","--c-state"],["ret","401(k)","--c-ret"],["health","Health insurance","--c-health"],["loan","401(k) loan repayment","--c-other"],["hsa","HSA","--c-er-hsa"],["fsa","Health FSA","--c-fsa"],["other","Other deductions","--c-other"]];
+const CATS=[["net","Take-home pay","--c-net"],["fed","Federal income tax","--c-fed"],["fica","Social Security + Medicare","--c-fica"],["state","State + local tax","--c-state"],["ret","401(k)","--c-ret"],["health","Health insurance","--c-health"],["loan","401(k) loan repayment","--c-loan"],["child","Child support","--c-child"],["hsa","HSA","--c-er-hsa"],["fsa","Health FSA","--c-fsa"],["other","Other deductions","--c-other"]];
 function breakdown(m,f){
   const gross=m.val(i=>i.sec==="earnings",f);
   const fed=m.val(isFed,f),fica=m.val(i=>isSS(i)||isMedi(i),f),st=m.val(isStateLocal,f),ret=m.val(isRet,f);
@@ -785,9 +793,10 @@ function breakdown(m,f){
   const fsa=m.val(isFSA,f);
   const hsa=m.val(isHSA,f);
   const loan=m.val(isLoan,f);
-  const other=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isLoan(i)&&!(/MED|DENT|VIS|HSA|FSA|HEALTH|INS/i.test(i.label)),f);
-  const net=r2(gross-fed-fica-st-ret-health-hsa-fsa-loan-other);
-  return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,fsa,loan,other}};
+  const child=m.val(isChild,f);
+  const other=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isLoan(i)&&!isChild(i)&&!(/MED|DENT|VIS|HSA|FSA|HEALTH|INS/i.test(i.label)),f);
+  const net=r2(gross-fed-fica-st-ret-health-hsa-fsa-loan-child-other);
+  return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,fsa,loan,child,other}};
 }
 function chosenCheck(m){const ys=m.ys;let s=ys.find(x=>skey(x)===state.checkKey);if(!s){s=m.reg;state.checkKey=skey(s)}state.checkDate=s.payDate;return s}
 function checkModel(m){const s=chosenCheck(m);return Object.assign({},m,{reg:s,latest:s,val:(p,f)=>f==="cur"?r2(s.items.filter(p).reduce((a,i)=>a+i.cur,0)):m.val(p,f)})}
@@ -1332,6 +1341,29 @@ function renderYoy(){
   }
   const bT=S("bonus"),oT=S("ot");setSum("yoyExtra",`<strong>${fmt0(bT+oT)}</strong> total`);
   $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross: ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5&&sel.full.bonusNet>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept), ${fmt0(yv(sel,"bonus401"))} to 401(k), ${fmt0(yv(sel,"bonusTax"))} taxes · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
+  /* 401(k) loans and child support */
+  {const has=rows.some(r=>r.full.loan>0.5||r.full.child>0.5);$("yoyOblPanel").hidden=!has;
+   if(has){
+    const all=sortStubs([...state.stubs]),grp=new Map();
+    const segs=[],cur={};
+    for(const s of all)for(const i of s.items){const base=isLoan(i)?"L:"+i.label:isChild(i)?"C":null;if(!base||!(i.cur>0))continue;
+      let g=cur[base];if(g&&(dObj(s.payDate)-dObj(g.last))/864e5>45&&base!=="C")g=null;
+      if(!g){g={k:base,label:i.label,first:s.payDate,last:s.payDate,total:0,lastAmt:0,fee:0};cur[base]=g;segs.push(g)}
+      g.last=s.payDate;g.total+=i.cur;if(base==="C"&&/F$|FEE/i.test(i.label))g.fee+=i.cur;else g.lastAmt=i.cur}
+    segs.forEach(g=>grp.set(g.k+"|"+g.first,g));if(cur.C)grp.set("C",cur.C);
+    const dl=d=>`${MON[+d.slice(5,7)-1]} ${d.slice(0,4)}`,lastPay=[...all].reverse().find(s=>!isExtra(s));
+    const active=g=>lastPay&&g.last>=lastPay.payDate;
+    const loans=segs.filter(g=>g.k[0]==="L").sort((a,b)=>a.first<b.first?-1:1),cs=cur.C;
+    $("yoyOblTiles").innerHTML=loans.map((g,n)=>`<div class="tile"><span class="tl">401(k) loan ${loans.length>1?n+1:""}</span><b>${fmt0(g.total)}</b><small>repaid ${dl(g.first)} – ${active(g)?"now":dl(g.last)} · ${fmt(g.lastAmt)} per check${active(g)?"":" · paid off"}</small></div>`).join("")+
+      (cs?`<div class="tile"><span class="tl">Child support</span><b>${fmt0(cs.total)}</b><small>${dl(cs.first)} – ${active(cs)?"now":dl(cs.last)} · last ${fmt(cs.lastAmt)} per check${cs.fee?` + fees (${fmt0(cs.fee)} total)`:""}${active(cs)?"":" · ended"}</small></div>`:"")+
+      `<div class="tile"><span class="tl">Together</span><b>${fmt0(loans.reduce((a,g)=>a+g.total,0)+(cs?cs.total:0))}</b><small>out of your checks since ${years[0]}</small></div>`;
+    barChart($("yoyObl"),{years:Y,proj,series:[{c:"--c-loan",vals:V("loan")},{c:"--c-child",vals:V("child")}],aria:"401(k) loan repayments and child support by year"});
+    $("yoyOblLeg").innerHTML=legend([["--c-loan","401(k) loan repayment"],["--c-child","Child support"]]);
+    $("yoyOblD").innerHTML=sel?`<b>${sel.y}</b> · 401(k) loan ${fmt0(yv(sel,"loan"))} · Child support ${fmt0(yv(sel,"child"))} · ${pc1(sel.full.loan+sel.full.child,sel.full.gross)} of gross`+openBtn(sel.y):"Tap a year for its numbers.";
+    const Sx=k=>rs=>rs.reduce((a,r)=>a+yv(r,k),0);
+    yearTable("tbObl",rows.filter(r=>r.full.loan+r.full.child>0.5),[["401(k) loan",r=>yv(r,"loan"),"$","sum"],["Child support",r=>yv(r,"child"),"$","sum"],["Total",r=>yv(r,"loan")+yv(r,"child"),"$","sum"],["% of gross",r=>(r.full.loan+r.full.child)/r.full.gross,"%",()=>(Sx("loan")(rows)+Sx("child")(rows))/Sx("gross")(rows)]]);
+    setSum("yoyObl",`<strong>${fmt0(S("loan")+S("child"))}</strong> since ${years[0]}`);
+   }}
   /* by-year tables under each chart */
   {const g=r=>yv(r,"gross"),sum=k=>rs=>rs.reduce((a,r)=>a+yv(r,k),0),ofG=k=>rs=>sum(k)(rs)/sum("gross")(rs);
     yearTable("tbGross",rows,[["Gross",g,"$","sum"]].concat(cats.map(([k,l])=>[l,r=>yv(r,k),"$","sum"])).concat([["Kept",r=>r.full.net/r.full.gross,"%",ofG("net")]]));
