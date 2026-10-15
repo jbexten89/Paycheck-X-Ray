@@ -1311,9 +1311,9 @@ function renderYoy(){
   {const ph=rows.filter(r=>r.hrs>0);const ix=new Map(rows.map((r,i)=>[r.y,i]));
     const pt=k=>ph.map(r=>[ix.get(r.y)+.5,yv(r,k)/r.hrs,r.proj]);
     lineChart($("yoyHour"),{x0:0,x1:rows.length,yMin:0,yFmt:v=>"$"+Math.round(v),ticks:rows.map((r,i)=>({x:i+.5,label:r.y,y:r.y})),cols:rows.map((r,i)=>({a:i,b:i+1,y:r.y})),
-      series:[{c:"--ink",pts:pt("gross"),dots:true},{c:"--c-net",pts:pt("net"),dots:true}],aria:"Gross and take-home pay per hour by year"});
-    $("yoyHourLeg").innerHTML=legend([["--ink","Gross per hour"],["--c-net","Take-home per hour"]]);
-    $("yoyHourD").innerHTML=sel&&sel.hrs?`<b>${sel.y}</b> · Gross $${(yv(sel,"gross")/sel.hrs).toFixed(2)} · Take-home $${(yv(sel,"net")/sel.hrs).toFixed(2)} · Base pay $${(sel.base*rf(sel.y)/2080).toFixed(2)} · ${Math.round(sel.hrs).toLocaleString()} paid hours`+openBtn(sel.y):"All pay, including bonuses and overtime, divided by paid hours (80 per two-week check).";
+      series:[{c:"--ink",pts:pt("gross"),dots:true},{c:"--c-ret",pts:ph.filter(r=>r.base).map(r=>[ix.get(r.y)+.5,r.base*rf(r.y)/2080,r.proj]),dots:true},{c:"--c-net",pts:pt("net"),dots:true}],aria:"Gross, base and take-home pay per hour by year"});
+    $("yoyHourLeg").innerHTML=legend([["--ink","Gross per hour"],["--c-ret","Base pay per hour"],["--c-net","Take-home per hour"]]);
+    $("yoyHourD").innerHTML=sel&&sel.hrs?`<b>${sel.y}</b> · Gross $${(yv(sel,"gross")/sel.hrs).toFixed(2)} · Take-home $${(yv(sel,"net")/sel.hrs).toFixed(2)} · Base pay $${(sel.base*rf(sel.y)/2080).toFixed(2)} · ${Math.round(sel.hrs).toLocaleString()} paid hours`+openBtn(sel.y):"Gross is all pay, including bonuses and overtime, divided by paid hours (80 per two-week check). Base is your pay rate alone: yearly base pay ÷ 2,080 hours.";
     const l=[...ph].reverse().find(r=>!r.proj);if(l)setSum("yoyHour",`<strong>$${(yv(l,"net")/l.hrs).toFixed(2)}</strong> take-home per hour in ${l.y}`);
   }
   /* 401k */
