@@ -281,9 +281,9 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area
 header.top{padding-top:18px}
 header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}
 /* sticky header: stays under the status bar, compacts once you scroll */
-/* the header sticks with a negative offset equal to the title's height, so the title scrolls away and the controls row stays pinned; nothing changes size, so the page never jumps */
-header.top{position:sticky;top:calc(env(safe-area-inset-top,0px) - var(--hdr-off,0px));z-index:60;background:var(--bg);box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax -1px);padding-bottom:10px;border-bottom:1px solid transparent}
-header.top.stuck{border-bottom-color:var(--line)}
+/* controls bar pins just below the status bar; the title above it scrolls away */
+.ctlbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:60;background:var(--bg);box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax -1px);margin-top:-10px;padding:8px 0;border-bottom:1px solid transparent}
+.ctlbar.stuck{border-bottom-color:var(--line)}
 section.panel,#yoyView>section{scroll-margin-top:120px}</style>
 </head>
 <body>
@@ -293,12 +293,14 @@ section.panel,#yoyView>section{scroll-margin-top:120px}</style>
       <span class="eyebrow">Bi-weekly pay stubs</span>
       <h1>Paycheck X-Ray</h1>
     </div>
+  </header>
+  <div class="ctlbar" id="ctlBar">
     <div class="row-actions">
       <label class="btn small" for="photoIn2" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">+ Stub photo<input id="photoIn2" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px"></label>
       <div class="seg" id="viewSeg" role="group" aria-label="View"><button data-view="year" aria-pressed="true">One year</button><button data-view="all" aria-pressed="false">All years</button></div>
       <label class="field" id="yearField" for="yearSel" style="flex-direction:row;align-items:center;gap:8px">Year <select id="yearSel"></select></label>
     </div>
-  </header>
+  </div>
 
   <section class="panel" id="emptyNote" hidden>
     <h2>Start with your stubs</h2>
@@ -1448,11 +1450,9 @@ window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:
 </script>
 <script src="ocr.js"></script>
 <script src="photo.js"></script>
-<script>(function(){const h=document.querySelector("header.top"),a=h&&h.querySelector(".row-actions");if(!h||!a)return;
-let off=0;const measure=()=>{off=Math.max(0,a.getBoundingClientRect().top-h.getBoundingClientRect().top-10);h.style.setProperty("--hdr-off",off+"px")};
-const upd=()=>h.classList.toggle("stuck",(window.scrollY||0)>off+4);
-measure();upd();window.addEventListener("scroll",upd,{passive:true});window.addEventListener("resize",()=>{measure();upd()});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{measure();upd()})})();</script>
+<script>(function(){const b=document.getElementById("ctlBar"),h=document.querySelector("header.top");if(!b||!h)return;
+const upd=()=>{const t=parseFloat(getComputedStyle(b).top)||0;b.classList.toggle("stuck",(window.scrollY||0)>0&&b.getBoundingClientRect().top<=t+0.5)};
+window.addEventListener("scroll",upd,{passive:true});window.addEventListener("resize",upd);upd()})();</script>
 <script>(function(){const stop=e=>e.preventDefault();["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,{passive:false}));
 document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
 /* iPhone can still double-tap zoom on buttons; swallow the zoom but keep the second tap working as a normal tap */
