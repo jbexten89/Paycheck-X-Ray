@@ -472,6 +472,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <div class="drop">
         <div class="tbl-wrap"><table id="stubTbl"></table></div>
         <div class="row-actions">
+          <button class="btn small" id="saveBackup">Save backup file</button>
           <button class="btn ghost small" id="copyBackup">Copy backup</button>
           <button class="btn ghost small danger" id="clearAll">Clear all stubs</button>
         </div>
@@ -1426,6 +1427,19 @@ $("stubTbl").addEventListener("click",e=>{const b=e.target.closest("[data-del]")
 let clearArmed=false;
 $("clearAll").addEventListener("click",()=>{if(!clearArmed){clearArmed=true;$("clearAll").textContent="Confirm clear";return}
   clearArmed=false;$("clearAll").textContent="Clear all stubs";state.stubs=[];save();render();toast("All stubs cleared.")});
+$("saveBackup").addEventListener("click",async()=>{
+  if(!state.stubs.length){toast("No stubs to back up yet.",true);return}
+  const json=JSON.stringify({stubs:state.stubs,settings:state.settings,savedAt:new Date().toISOString(),app:"Paycheck X-Ray"});
+  const name=`paycheck-xray-backup-${todayISO}.txt`;const yrs=[...new Set(state.stubs.map(s=>s.payDate.slice(0,4)))].sort();
+  const msg=`${state.stubs.length} stubs, ${yrs[0]}–${yrs[yrs.length-1]}`;
+  let file=null;try{file=new File([json],name,{type:"text/plain"})}catch(e){}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:"Paycheck X-Ray backup"});toast(`Backup ready: ${name} (${msg}). Load it later with Choose text file.`);return}
+    catch(e){if(e&&e.name==="AbortError"){toast("Backup not saved.");return}}}
+  try{const url=URL.createObjectURL(new Blob([json],{type:"text/plain"}));const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast(`Saved ${name} (${msg}). Load it later with Choose text file.`)}
+  catch(e){toast("Couldn't save a file here. Use Copy backup instead.",true)}
+});
 $("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:state.stubs,settings:state.settings});const out=$("backupOut");
   const fallback=()=>{out.hidden=false;out.value=json;out.focus();out.select();toast("Select-all is ready. Copy this text and keep it somewhere safe.")};
   try{navigator.clipboard.writeText(json).then(()=>{out.hidden=true;toast("Backup copied. Paste it into the box above to restore.")},fallback)}catch(e){fallback()}});
