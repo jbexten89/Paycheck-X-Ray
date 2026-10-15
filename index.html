@@ -210,7 +210,8 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 @media (max-width:430px){.ctlbar .seg button{padding:6px 9px}.ctlbar .row-actions{gap:6px}}
 .yearnav .btn:disabled{opacity:.35;cursor:default}
 /* one paycheck */
-.chkbar{display:flex;gap:8px;align-items:stretch}
+.chkbar{display:flex;gap:8px;align-items:stretch;position:sticky;top:calc(env(safe-area-inset-top,0px) + 22px + var(--ctl-h,56px));z-index:50;background:var(--surface);margin:0 -18px;padding:6px 18px;border-bottom:1px solid transparent}
+.chkbar.stuck{border-bottom-color:var(--line)}
 .chkbar select{flex:1;min-width:0}
 .chkbar .btn:disabled{opacity:.35;cursor:default}
 .pd.have,.pd.bon,.pd.ext{cursor:pointer}
@@ -1551,8 +1552,11 @@ window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:
 </script>
 <script src="ocr.js"></script>
 <script src="photo.js"></script>
-<script>(function(){const b=document.getElementById("ctlBar"),h=document.querySelector("header.top");if(!b||!h)return;
-const upd=()=>{const t=parseFloat(getComputedStyle(b).top)||0;b.classList.toggle("stuck",(window.scrollY||0)>0&&b.getBoundingClientRect().top<=t+0.5)};
+<script>(function(){const b=document.getElementById("ctlBar"),h=document.querySelector("header.top"),c=document.getElementById("chkBar");if(!b||!h)return;
+const setH=()=>document.documentElement.style.setProperty("--ctl-h",Math.round(b.getBoundingClientRect().height)+"px");setH();
+if(window.ResizeObserver)new ResizeObserver(setH).observe(b);
+const upd=()=>{const t=parseFloat(getComputedStyle(b).top)||0;b.classList.toggle("stuck",(window.scrollY||0)>0&&b.getBoundingClientRect().top<=t+0.5);
+  if(c&&!c.hidden){const ct=parseFloat(getComputedStyle(c).top)||0;c.classList.toggle("stuck",c.getBoundingClientRect().top<=ct+0.5&&(window.scrollY||0)>0)}};
 window.addEventListener("scroll",upd,{passive:true});window.addEventListener("resize",upd);upd()})();</script>
 <script>(function(){const stop=e=>e.preventDefault();["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,{passive:false}));
 document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
