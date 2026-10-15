@@ -210,7 +210,8 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 @media (max-width:430px){.ctlbar .seg button{padding:6px 9px}.ctlbar .row-actions{gap:6px}}
 .yearnav .btn:disabled{opacity:.35;cursor:default}
 /* one paycheck */
-.chkbar{display:flex;gap:8px;align-items:stretch;margin-top:8px}
+.chkbar{display:flex;gap:5px;align-items:stretch;margin-top:8px}
+.chkbar .btn{flex:none;width:var(--yr-btn-w,52px)}
 .chkbar select{flex:1;min-width:0}
 .chkbar .btn:disabled{opacity:.35;cursor:default}
 .pd.have,.pd.bon,.pd.ext{cursor:pointer}
@@ -1552,8 +1553,9 @@ window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:
 <script src="ocr.js"></script>
 <script src="photo.js"></script>
 <script>(function(){const b=document.getElementById("ctlBar"),h=document.querySelector("header.top"),c=document.getElementById("chkBar");if(!b||!h)return;
-const setH=()=>document.documentElement.style.setProperty("--ctl-h",Math.round(b.getBoundingClientRect().height)+"px");setH();
-if(window.ResizeObserver)new ResizeObserver(setH).observe(b);
+const yp=document.getElementById("yearPrev");
+const setH=()=>{const r=document.documentElement.style;r.setProperty("--ctl-h",Math.round(b.getBoundingClientRect().height)+"px");const w=yp&&yp.getBoundingClientRect().width;if(w)r.setProperty("--yr-btn-w",w+"px")};setH();
+if(window.ResizeObserver){const ro=new ResizeObserver(setH);ro.observe(b);if(yp)ro.observe(yp)}
 const upd=()=>{const t=parseFloat(getComputedStyle(b).top)||0;b.classList.toggle("stuck",(window.scrollY||0)>0&&b.getBoundingClientRect().top<=t+0.5);
 };
 window.addEventListener("scroll",upd,{passive:true});window.addEventListener("resize",upd);upd()})();</script>
