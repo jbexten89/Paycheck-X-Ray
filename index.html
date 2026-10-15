@@ -686,7 +686,8 @@ function runChecks(m,y){
     const prevOk=prev&&((gap>=11&&gap<=17)||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&m.grp.get(before)!==emp));
     if(newEmp)out.push(["info",`New employer on ${nice(s.payDate)}`,`${s.employer||"Unnamed employer"}${before.employer?` (was ${before.employer})`:""}. Year-to-date totals restart, and you'll get a separate W-2 from each.`]);
     if(first||prevOk){for(const i of s.items){if(i.ytd==null)continue;ytdChecked++;
-      const pi=prevOk?prev.items.find(j=>j.sec===i.sec&&j.label===i.label):null;const exp=r2((pi&&pi.ytd!=null?pi.ytd:0)+i.cur);
+      const pi=prevOk?prev.items.find(j=>j.sec===i.sec&&j.label===i.label):null;
+      if(s.conversion&&!pi){ytdChecked--;continue}const exp=r2((pi&&pi.ytd!=null?pi.ytd:0)+i.cur);
       if(Math.abs(exp-i.ytd)>0.02){ytdBad++;out.push(["bad",`${nice(s.payDate)}: ${i.label} year-to-date jumped`,`Expected ${fmt(exp)} (previous YTD plus this check), stub shows ${fmt(i.ytd)}. Off by ${fmt(i.ytd-exp)}.`])}}}
     const Y=(p)=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);
     const ssW=Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125);
@@ -710,7 +711,10 @@ function runChecks(m,y){
       return;
     }
     const regsBefore=ys.slice(0,idx).filter(x=>!isExtra(x));const pv=regsBefore[regsBefore.length-1];
-    if(pv){
+    if(s.conversion){const opened=s.items.filter(i=>!(pv&&pv.items.some(j=>j.sec===i.sec&&j.label===i.label))&&Math.abs((i.ytd||0)-i.cur)>0.004);
+      out.push(["info",`Payroll system changed on ${nice(s.payDate)}`,`Line names changed, and some earlier amounts appear only in year-to-date totals from here on`+(opened.length?`: ${opened.map(i=>`${i.label} ${fmt(r2(i.ytd-i.cur))}`).join(", ")}.`:".")])}
+    if(s.note)out.push(["info",`${nice(s.payDate)}: ${s.noteTitle||"Note"}`,s.note]);
+    if(pv&&!s.conversion){
       const gr=x=>x.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0)||1;
       if(pv.payRate&&s.payRate&&Math.abs(pv.payRate-s.payRate)>0.005)out.push(["info",`Pay rate changed on ${nice(s.payDate)}`,`${fmt(pv.payRate)} → ${fmt(s.payRate)} per period (${((s.payRate/pv.payRate-1)*100).toFixed(1)}%).`]);
       for(const i of s.items){if(!["pretax","posttax","memo","taxable"].includes(i.sec))continue;const pi=pv.items.find(j=>j.sec===i.sec&&j.label===i.label);
