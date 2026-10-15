@@ -742,7 +742,7 @@ function runChecks(m,y){
       out.push(["info",`Payroll system changed on ${nice(s.payDate)}`,`Line names changed, and some earlier amounts appear only in year-to-date totals from here on`+(opened.length?`: ${opened.map(i=>`${i.label} ${fmt(r2(i.ytd-i.cur))}`).join(", ")}.`:".")])}
     if(s.note)out.push(["info",`${nice(s.payDate)}: ${s.noteTitle||"Note"}`,s.note]);
     if(pv&&!s.conversion){
-      const gr=x=>x.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0)||1;
+      const gr=x=>x.items.filter(i=>i.sec==="earnings"&&!/NON PENS/i.test(i.label)).reduce((a,i)=>a+i.cur,0)||1;
       if(pv.payRate&&s.payRate&&Math.abs(pv.payRate-s.payRate)>0.005)out.push(["info",`Pay rate changed on ${nice(s.payDate)}`,`${fmt(pv.payRate)} → ${fmt(s.payRate)} per period (${((s.payRate/pv.payRate-1)*100).toFixed(1)}%).`]);
       for(const i of s.items){if(!["pretax","posttax","memo","taxable"].includes(i.sec))continue;const pi=pv.items.find(j=>j.sec===i.sec&&j.label===i.label);
         if(!pi||(pi.cur===0&&pi.ytd===0)){if(i.cur>0)out.push(["info",i.sec==="memo"?`Employer added ${i.label} on ${nice(s.payDate)}`:`New line on ${nice(s.payDate)}: ${i.label}`,`${fmt(i.cur)} this check.`]);continue}
