@@ -203,6 +203,9 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .rv .note2{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
 .rv-prog{height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
 .rv-prog div{height:100%;background:var(--accent);width:0}
+.yearnav{display:inline-flex;align-items:center;gap:6px}
+.yearnav .btn{font-size:18px;line-height:1;padding:6px 12px}
+.yearnav .btn:disabled{opacity:.35;cursor:default}
 /* one paycheck */
 .chkbar{display:flex;gap:8px;align-items:center}
 .chkbar select{flex:1;min-width:0}
@@ -304,9 +307,8 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
   </header>
   <div class="ctlbar" id="ctlBar">
     <div class="row-actions">
-      <label class="btn small" for="photoIn2" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">+ Stub photo<input id="photoIn2" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px"></label>
       <div class="seg" id="viewSeg" role="group" aria-label="View"><button data-view="year" aria-pressed="true">One year</button><button data-view="all" aria-pressed="false">All years</button></div>
-      <label class="field" id="yearField" for="yearSel" style="flex-direction:row;align-items:center;gap:8px">Year <select id="yearSel"></select></label>
+      <div class="yearnav" id="yearField"><button type="button" class="btn ghost small" id="yearPrev" aria-label="Previous year">‹</button><select id="yearSel" aria-label="Year"></select><button type="button" class="btn ghost small" id="yearNext" aria-label="Next year">›</button></div>
     </div>
   </div>
 
@@ -1462,6 +1464,7 @@ function render(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
   $("yearSel").innerHTML=(years.length?years:[state.year]).map(y=>`<option${y===state.year?" selected":""}>${y}</option>`).join("");
+  {const i=years.indexOf(state.year);$("yearPrev").disabled=i<=0;$("yearNext").disabled=i<0||i>=years.length-1}
   const y=state.year;LIM=limFor(y);SSR=LIM.ssRate||.062;const m=model(y);
   renderStubs();
   const panels=document.querySelectorAll(".wrap > section.panel:not(:last-child):not(#emptyNote), .wrap > .grid2");
@@ -1524,6 +1527,8 @@ $("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:s
   try{navigator.clipboard.writeText(json).then(()=>{out.hidden=true;toast("Backup copied. Paste it into the box above to restore.")},fallback)}catch(e){fallback()}});
 $("m-cur").closest(".seg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;state.mode=b.dataset.mode;render()});
 $("yearSel").addEventListener("change",e=>{state.year=Number(e.target.value);state.checkKey=null;render()});
+const stepYear=d=>{const ys=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort((a,b)=>a-b);const n=ys[ys.indexOf(state.year)+d];if(n){state.year=n;state.checkKey=null;render()}};
+$("yearPrev").addEventListener("click",()=>stepYear(-1));$("yearNext").addEventListener("click",()=>stepYear(1));
 $("checkSel").addEventListener("change",e=>{state.checkKey=e.target.value;render()});
 const stepCheck=d=>{const ys=yearStubs(state.year);const i=ys.findIndex(x=>skey(x)===state.checkKey);const n=ys[i+d];if(n){state.checkKey=skey(n);render()}};
 $("chkPrev").addEventListener("click",()=>stepCheck(-1));$("chkNext").addEventListener("click",()=>stepCheck(1));
