@@ -1163,8 +1163,10 @@ function yoyRow(y){
   if(m.pds.length===27)notes.push("27 paydays");
   if((lim.ssRate||.062)<.062)notes.push(`Social Security at ${(lim.ssRate*100).toFixed(1)}%`);
   if(m.ys.length>regs.length)notes.push(`${m.ys.length-regs.length} extra check${m.ys.length-regs.length>1?"s":""}`);
-  const bn={bonusNet:0,bonusTax:0,bonus401:0,bonusEst:false,bonusDates:[]};
+  const bn={bonus:0,bonusNet:0,bonusTax:0,bonus401:0,bonusEst:false,bonusDates:[],bonusSkipped:0};
   for(const s of m.ys){const e=s.items.filter(i=>i.sec==="earnings"),be=e.filter(isBonusE).reduce((a,i)=>a+i.cur,0);if(!(be>0.004))continue;
+    if(isExtra(s)&&s.net&&Math.abs(s.net.cur||0)<0.005){bn.bonusSkipped+=be;continue}
+    bn.bonus+=be;
     const eT=e.reduce((a,i)=>a+i.cur,0)||be,sh=be/eT,sum=p=>s.items.filter(p).reduce((a,i)=>a+i.cur,0);
     bn.bonusNet+=(s.net&&s.net.cur!=null?s.net.cur:0)*sh;bn.bonusTax+=sum(i=>i.sec==="taxes")*sh;bn.bonus401+=sum(isRet)*sh;
     if(!isExtra(s))bn.bonusEst=true;if(be>=500)bn.bonusDates.push(s.payDate)}
@@ -1374,13 +1376,13 @@ function renderYoy(){
   /* extras */
   const bOther=r=>Math.max(0,yv(r,"bonus")-yv(r,"bonusNet")-yv(r,"bonusTax")-yv(r,"bonus401"));const hasBO=rows.some(r=>bOther(r)>1);
   barChart($("yoyExtra"),{years:Y,proj,series:[{c:"--c-k-p45",vals:V("bonusNet")},{c:"--c-ret",vals:V("bonus401")},{c:"--c-fed",vals:V("bonusTax")}].concat(hasBO?[{c:"--c-other",vals:rows.map(bOther)}]:[]).concat([{c:"--c-fica",vals:V("ot")}]),aria:"Bonuses split into net, 401(k) and taxes, plus overtime, by year"});
-  $("yoyExtraLeg").innerHTML=legend([["--c-k-p45","Bonus you kept (net)"],["--c-ret","Bonus to 401(k)"],["--c-fed","Bonus taxes"]].concat(hasBO?[["--c-other","Gift card and other"]]:[]).concat([["--c-fica","Overtime"]]));
+  $("yoyExtraLeg").innerHTML=legend([["--c-k-p45","Bonus you kept (net)"],["--c-ret","Bonus to 401(k)"],["--c-fed","Bonus taxes"]].concat(hasBO?[["--c-other","Other deductions"]]:[]).concat([["--c-fica","Overtime"]]));
   {const br=[...rows].reverse();const bg=r=>yv(r,"bonus"),Tb=k=>rows.reduce((a,r)=>a+yv(r,k),0),gT=Tb("bonus"),nT=Tb("bonusNet");
     const dts=r=>r.full.bonusDates.map(d=>nice(d)).join(", ");
     $("yoyBonusTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Bonus gross</th><th class="n">Bonus net</th><th class="n">Overtime</th><th class="n">Kept</th><th class="n">401(k)</th><th class="n">Taxes</th><th class="n">Bonus + OT</th><th class="n">% of gross</th><th>Paid</th></tr></thead><tbody>`+
       br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?"*":""}</td><td class="n">${fmt0(bg(r))}</td><td class="n">${fmt0(yv(r,"bonusNet"))}${r.full.bonusEst?"†":""}</td><td class="n">${fmt0(yv(r,"ot"))}</td><td class="n">${r.full.bonus>0.5&&r.full.bonusNet>0.5?pc1(r.full.bonusNet,r.full.bonus):"—"}</td><td class="n">${fmt0(yv(r,"bonus401"))}</td><td class="n">${fmt0(yv(r,"bonusTax"))}</td><td class="n">${fmt0(bg(r)+yv(r,"ot"))}</td><td class="n">${pc1(r.full.bonus+r.full.ot,r.full.gross)}</td><td class="nt">${dts(r)}</td></tr>`).join("")+
       `<tr class="total"><td>All</td><td class="n">${fmt0(gT)}</td><td class="n">${fmt0(nT)}</td><td class="n">${fmt0(Tb("ot"))}</td><td class="n">${pc1(nT,gT)}</td><td class="n">${fmt0(Tb("bonus401"))}</td><td class="n">${fmt0(Tb("bonusTax"))}</td><td class="n">${fmt0(gT+Tb("ot"))}</td><td class="n">${pc1(gT+Tb("ot"),rows.reduce((a,r)=>a+yv(r,"gross"),0))}</td><td></td></tr></tbody>`;
-    $("yoyBonusNote").textContent=`Bonus net is what was deposited from the bonus. Bonuses paid on their own check use that check's actual deposit; when a check mixed a bonus with other pay, its taxes, 401(k) and deposit are split in proportion to the bonus share.${rows.some(r=>r.full.bonusEst)?" † Includes a bonus paid on a regular check, split that way.":""} Gift cards and tax gross-ups count in gross but deposit nothing. Overtime is shown gross; it's paid on regular checks with everything else. Paid lists bonus dates of $500 or more. Tap a row to open that year.`;
+    $("yoyBonusNote").textContent=`Bonus net is what was deposited from the bonus. Bonuses paid on their own check use that check's actual deposit; when a check mixed a bonus with other pay, its taxes, 401(k) and deposit are split in proportion to the bonus share.${rows.some(r=>r.full.bonusEst)?" † Includes a bonus paid on a regular check, split that way.":""} Extra checks that deposited nothing (tax gross-ups and gift cards) are left out of the bonus figures${rows.some(r=>r.full.bonusSkipped>0.5)?` (${fmt0(rows.reduce((a,r)=>a+r.full.bonusSkipped,0))} in all)`:""}; they still count in gross pay. Overtime is shown gross; it's paid on regular checks with everything else. Paid lists bonus dates of $500 or more. Tap a row to open that year.`;
   }
   const bT=S("bonus"),oT=S("ot");setSum("yoyExtra",`<strong>${fmt0(bT+oT)}</strong> total`);
   $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross: ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5&&sel.full.bonusNet>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept), ${fmt0(yv(sel,"bonus401"))} to 401(k), ${fmt0(yv(sel,"bonusTax"))} taxes · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
