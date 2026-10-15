@@ -1,0 +1,14 @@
+{
+  "name": "Paycheck X-Ray",
+  "short_name": "Paycheck X-Ray",
+  "description": "See where every paycheck goes. Your data stays on your device.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07080A",
+  "theme_color": "#07080A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

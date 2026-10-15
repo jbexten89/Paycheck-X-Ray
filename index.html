@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paycheck X-Ray</title>
+<meta name="description" content="Reads a year of bi-weekly pay stubs: where the gross went, payroll error checks, W-2 preview, withholding gap, 401(k) and HSA pace. Data stays in your browser.">
+<meta name="theme-color" content="#07080A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Paycheck X-Ray">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap">
+<style>
+/* Layout: one working column of stacked panels, pairs side by side on wide screens. Pay calendar on top, then where the money went, then checks, W-2, taxes, savings, and the stub inbox. */
+/* Palette: near-black ground, charcoal panels, mint-green primary, amber for warnings. Dark by design. */
+:root{
+  --bg:#07080A; --surface:#111317; --ink:#ECEEF0; --muted:#9BA1A8; --line:#23272D; --soft:#1A1D22;
+  --accent:#3CC79A; --accent-ink:#04140E; --amber:#E3A04F; --amber-ink:#1A1004;
+  --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-other:#6B7280;
+  --c-k-you:#5FA8F5; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
+  --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2;
+  --bad:#F0707C; --warn:#E3A04F; --good:#3CC79A; --info:#8FB3D9;
+  --f-display:"Nunito Sans","Avenir Next",Avenir,system-ui,sans-serif;
+  --f-body:"Nunito Sans","Avenir Next",Avenir,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"Nunito Sans","Avenir Next",Avenir,system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);font-stretch:88%;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(28px,6vw,40px);font-weight:800;line-height:1.05}
+h2{font-size:19px;font-weight:700}
+.eyebrow{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.num,td.n,th.n{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.top .meta{display:flex;flex-direction:column;gap:2px;min-width:0}
+select,input,textarea,button{font:inherit;color:inherit}
+select,input[type=number]{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.grid2{display:grid;grid-template-columns:1fr;gap:18px}
+@media (min-width:880px){.grid2{grid-template-columns:1fr 1fr}}
+button{cursor:pointer}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:9px 14px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,label.drop:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;padding:2px;gap:2px;background:var(--bg);flex-wrap:wrap}
+.seg button{border:0;background:transparent;padding:6px 11px;border-radius:7px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+
+/* calendar */
+.months{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media (min-width:640px){.months{grid-template-columns:repeat(6,1fr)}}
+@media (min-width:980px){.months{grid-template-columns:repeat(12,1fr)}}
+.mo{border:1px solid var(--line);border-radius:8px;padding:7px 7px 8px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.mo.three{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.mo-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.mo-h .x3{font-size:10px;color:var(--accent);letter-spacing:.02em}
+.pds{display:flex;gap:4px;flex-wrap:wrap}
+.pd{font-family:var(--f-num);font-size:12px;min-width:26px;text-align:center;border-radius:5px;padding:2px 0;border:1.5px solid var(--line);color:var(--muted)}
+.pd.have{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.pd.miss{border-style:dashed;border-color:var(--bad);color:var(--bad)}
+.pd.next{border-color:var(--ink);color:var(--ink)}
+.legend-row{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+.legend-row span{display:inline-flex;align-items:center;gap:6px}
+.legend-row .pd{min-width:18px;height:14px;padding:0}
+
+/* breakdown */
+.bar{display:flex;height:34px;border-radius:7px;overflow:hidden;background:var(--soft)}
+.bar div{height:100%;min-width:2px}
+.bd-list{display:grid;grid-template-columns:1fr;gap:0}
+.bd-row{display:grid;grid-template-columns:14px 1fr auto auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--soft)}
+.bd-row:last-child{border-bottom:0}
+.sw{width:12px;height:12px;border-radius:3px}
+.bd-row .num{text-align:right}
+.bd-row .pct{color:var(--muted);min-width:52px}
+.bd-sub{font-size:12.5px;color:var(--muted)}
+.er{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:16px;margin-top:4px}
+.er-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.er-head h3{font-size:16px;font-weight:800}
+.er-head .num{font-size:20px;font-weight:800}
+.bd-row.sub{grid-template-columns:14px 1fr auto auto;padding:3px 0;border-bottom:0;font-size:13px;color:var(--muted)}
+.bd-row.grp{border-bottom:0;padding-bottom:2px}
+.er-group{border-bottom:1px solid var(--soft);padding-bottom:6px}
+.er-group:last-of-type{border-bottom:0}
+.tc{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;background:var(--soft);border-radius:10px;padding:12px 14px}
+.tc b{font-size:24px;font-weight:800}
+.tc small{color:var(--muted);font-size:12.5px;display:block}
+.k401{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:16px}
+.k401 .er-head .num{font-size:24px}
+.k401 table td:first-child{display:flex;align-items:center;gap:10px}
+.k401 tr.you td{font-weight:700}
+.k401 th,.k401 td{padding-inline:6px}
+.k401 td.n:last-child,.k401 th.n:last-child{color:var(--accent)}
+.statline{display:flex;flex-wrap:wrap;gap:10px 28px}
+.stat{display:flex;flex-direction:column;gap:1px}
+.stat b{font-family:var(--f-num);font-size:24px;font-weight:800;letter-spacing:-.01em}
+.stat small{color:var(--muted);font-size:12.5px}
+
+/* checks */
+.checks{display:flex;flex-direction:column;gap:8px;list-style:none;margin:0;padding:0}
+.ck{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:9px 10px;border-radius:8px;background:var(--bg)}
+.chip{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:5px;border:1.5px solid currentColor;white-space:nowrap;margin-top:1px}
+.chip.bad{color:var(--bad)} .chip.warn{color:var(--warn)} .chip.ok{color:var(--good)} .chip.info{color:var(--info)}
+.ck b{font-weight:600}
+.ck p{margin:2px 0 0;font-size:13.5px;color:var(--muted)}
+
+/* tables */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--soft);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.n,th.n{text-align:right;white-space:nowrap}
+td .box{font-family:var(--f-num);font-size:12px;color:var(--muted);margin-right:6px}
+tr.total td{font-weight:700;border-top:1.5px solid var(--line)}
+
+/* tax */
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+.field input{width:100%;color:var(--ink)}
+.verdict{border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;border:1.5px solid var(--line)}
+.verdict.owe{background:var(--amber);border-color:var(--amber);color:var(--amber-ink)}
+.verdict.owe .eyebrow,.verdict.owe .note{color:var(--amber-ink)}
+.verdict.refund{border-color:var(--good)}
+.verdict .big{font-family:var(--f-num);font-size:30px;font-weight:800;letter-spacing:-.02em}
+.verdict.refund .big{color:var(--good)}
+
+/* meters */
+.meter{display:flex;flex-direction:column;gap:6px}
+.meter-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px}
+.track{position:relative;height:14px;background:var(--soft);border-radius:7px;overflow:hidden}
+.track .ytd{position:absolute;inset:0 auto 0 0;background:var(--c-ret)}
+.track .proj{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--c-ret) 35%,transparent)}
+.track.hsa .ytd{background:var(--c-health)} .track.hsa .proj{background:color-mix(in srgb,var(--c-health) 35%,transparent)}
+.meter small{color:var(--muted);font-size:12.5px}
+
+/* inbox */
+.drop{display:flex;flex-direction:column;gap:8px}
+textarea{width:100%;min-height:110px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--f-num);font-size:12.5px;resize:vertical}
+.row-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label.file{display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:14px}
+label.file input{position:absolute;opacity:0;width:1px;height:1px}
+.toast{font-size:13.5px;padding:8px 12px;border-radius:8px;background:var(--bg);border-left:3px solid var(--accent)}
+.toast.err{border-left-color:var(--bad)}
+ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:3px}
+.note{font-size:12.5px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.bar div{transition:width .35s ease}}
+
+/* collapsible panels */
+.tog{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;border-radius:6px}
+.tog:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.chev{width:12px;height:12px;flex:none;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.chev{transition:transform .18s ease}}
+.collapsed .tog .chev,.er.collapsed .er-tog .chev,.er-group:not(.open) .grp .chev{transform:rotate(-90deg)}
+.panel.collapsed>.pbody{display:none}
+.panel.collapsed .panel-head>:not(h2):not(.sum){display:none}
+.panel:not(.collapsed) .sum{display:none}
+.pbody{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sum{color:var(--muted);font-size:13.5px}
+.sum strong{color:var(--ink);font-weight:800}
+.sum .warn{color:var(--amber)}
+.er-tog{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;width:100%;border-radius:6px}
+.er-tog:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.er-tog h3{display:inline-flex;align-items:center;gap:8px}
+.er.collapsed .er-body{display:none}
+.er-body{display:flex;flex-direction:column;gap:12px}
+.bd-row.grp.can{cursor:pointer;border-radius:6px}
+.bd-row.grp.can:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bd-row.grp .lbl{display:inline-flex;align-items:center;gap:6px}
+.er-group:not(.open) .bd-row.sub{display:none}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} [hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="meta">
+      <span class="eyebrow">Bi-weekly pay stubs</span>
+      <h1>Paycheck X-Ray</h1>
+    </div>
+    <div class="row-actions">
+      <label class="field" for="yearSel" style="flex-direction:row;align-items:center;gap:8px">Year <select id="yearSel"></select></label>
+    </div>
+  </header>
+
+  <section class="panel" id="emptyNote" hidden>
+    <h2>Start with your stubs</h2>
+    <p class="muted" style="margin:0">Nothing is stored yet. Paste a statement or a backup into <b>Add stubs</b> below. Everything you add stays in this browser on this device and is never sent anywhere.</p>
+  </section>
+
+  <section class="panel" data-k="cal" id="calPanel">
+    <div class="panel-head">
+      <h2>Pay calendar</h2>
+      <span class="muted" id="calSummary"></span>
+    </div>
+    <div class="months" id="months"></div>
+    <div class="legend-row">
+      <span><i class="pd have"></i> Stub loaded</span>
+      <span><i class="pd miss"></i> Paid, stub missing</span>
+      <span><i class="pd next"></i> Next payday</span>
+      <span><i class="pd"></i> Upcoming</span>
+    </div>
+  </section>
+
+  <section class="panel" data-k="gross">
+    <div class="panel-head">
+      <h2>Where the gross went</h2>
+      <div class="seg" role="group" aria-label="Period">
+        <button id="m-cur" data-mode="cur" aria-pressed="false">Latest check</button>
+        <button id="m-ytd" data-mode="ytd" aria-pressed="true">Year to date</button>
+        <button id="m-proj" data-mode="proj" aria-pressed="false">Full year</button>
+      </div>
+    </div>
+    <div class="statline" id="bdStats"></div>
+    <div class="bar" id="bar" role="img"></div>
+    <div class="bd-list" id="bdList"></div>
+    <div class="er" id="erBlock"></div>
+  </section>
+
+  <section class="panel" data-k="checks">
+    <div class="panel-head"><h2>Stub checks</h2><span class="muted" id="ckSummary"></span></div>
+    <ul class="checks" id="checks"></ul>
+  </section>
+
+  <div class="grid2">
+    <section class="panel" data-k="w2">
+      <div class="panel-head"><h2>W-2 preview</h2><span class="muted">Tax year <span id="w2year"></span></span></div>
+      <div class="tbl-wrap"><table id="w2"></table></div>
+      <p class="note">Projected = latest year-to-date plus the latest check repeated for each payday left. HSA money your employer deposits directly is not on the stub, so Box 12 W may come in higher.</p>
+    </section>
+
+    <section class="panel" data-k="tax">
+      <div class="panel-head"><h2>Federal withholding check</h2><span class="muted" id="fsLabel"></span></div>
+      <div class="fields">
+        <label class="field" for="seProfit">Side business net profit
+          <input id="seProfit" type="number" inputmode="decimal" step="100" min="0" value="0"></label>
+        <label class="field" for="otherInc">Other taxable income
+          <input id="otherInc" type="number" inputmode="decimal" step="100" min="0" value="0"></label>
+        <label class="field" for="estPaid">Estimated payments made
+          <input id="estPaid" type="number" inputmode="decimal" step="100" min="0" value="0"></label>
+      </div>
+      <div id="taxOut"></div>
+    </section>
+  </div>
+
+  <section class="panel" data-k="savings">
+    <div class="panel-head"><h2>Savings pace</h2>
+      <label class="field" for="age" style="flex-direction:row;align-items:center;gap:8px">Age at Dec 31 <input id="age" type="number" min="18" max="99" value="40" style="width:72px"></label>
+    </div>
+    <div class="grid2" id="meters"></div>
+  </section>
+
+  <section class="panel" data-k="add">
+    <div class="panel-head"><h2>Add stubs</h2><span class="muted" id="stubCount"></span></div>
+    <div class="grid2">
+      <div class="drop">
+        <ol class="how">
+          <li>Open a statement in the pay portal (Statement tab).</li>
+          <li>Press Ctrl+A, then Ctrl+C.</li>
+          <li>Paste below. Several statements in one paste is fine.</li>
+        </ol>
+        <label for="pasteBox" class="eyebrow">Statement text</label>
+        <textarea id="pasteBox" placeholder="Paste statement text here, or a backup you copied from this page"></textarea>
+        <div class="row-actions">
+          <button class="btn" id="readBtn">Read stubs</button>
+          <label class="file" for="pdfIn">Choose PDFs<input id="pdfIn" type="file" accept="application/pdf" multiple></label>
+        </div>
+        <div id="toast" hidden></div>
+        <p class="note">Everything stays in this browser on this device. Account and routing numbers are never read or kept. PDFs need a text layer, so use the portal's Print → Save as PDF. Photos of stubs can't be read here.</p>
+      </div>
+      <div class="drop">
+        <div class="tbl-wrap"><table id="stubTbl"></table></div>
+        <div class="row-actions">
+          <button class="btn ghost small" id="copyBackup">Copy backup</button>
+          <button class="btn ghost small danger" id="clearAll">Clear all stubs</button>
+        </div>
+        <textarea id="backupOut" hidden readonly></textarea>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- constants (2026 tax year) ---------- */
+const LIM={std:16100,br:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]],
+  k401:24500,c50:8000,c60:11250,ssBase:184500,hsaSelf:4400,hsaFam:8750,hsaCatch:1000};
+const KEY="pxr.v1";
+
+/* ---------- no built-in data: stubs live only in this browser ---------- */
+const SEED_VERSION=0;
+const SEED=[];
+
+
+/* ---------- state ---------- */
+let state={stubs:[],settings:{age:40,seProfit:0,otherInc:0,estPaid:0},mode:"ytd",year:null};
+const skey=s=>s.payDate+(s.kind==="Additional"?"b":"a");
+const sortStubs=a=>a.sort((x,y)=>skey(x)<skey(y)?-1:skey(x)>skey(y)?1:0);
+function load(){
+  let stored=null;try{const r=localStorage.getItem(KEY);if(r)stored=JSON.parse(r)}catch(e){}
+  if(stored&&Array.isArray(stored.stubs)){state.stubs=stored.stubs;Object.assign(state.settings,stored.settings||{})}
+  if((state.settings.seedVersion||0)<SEED_VERSION){
+    const have=new Set(state.stubs.map(skey));
+    for(const s of SEED)if(!have.has(skey(s)))state.stubs.push(JSON.parse(JSON.stringify(s)));
+    state.settings.seedVersion=SEED_VERSION;sortStubs(state.stubs);save();
+  }
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({stubs:state.stubs,settings:state.settings}))}catch(e){}}
+
+/* ---------- utils ---------- */
+const $=id=>document.getElementById(id);
+const r2=n=>Math.round(n*100)/100;
+const fmt=n=>(n<0?"−":"")+"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt0=n=>(n<0?"−":"")+"$"+Math.abs(Math.round(n)).toLocaleString("en-US");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const toISO=s=>{const[m,d,y]=s.split("/").map(Number);return y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0")};
+const dObj=iso=>{const[y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d)};
+const isoOf=dt=>dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");
+const addDays=(iso,n)=>{const d=dObj(iso);d.setDate(d.getDate()+n);return isoOf(d)};
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const nice=iso=>{const d=dObj(iso);return MON[d.getMonth()]+" "+d.getDate()};
+const todayISO=isoOf(new Date());
+
+/* ---------- collapsible UI ---------- */
+const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const UI_DEFAULT={cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
+const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
+function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
+function applyPanel(sec,open){sec.classList.toggle("collapsed",!open);const t=sec.querySelector(".tog");if(t)t.setAttribute("aria-expanded",String(open))}
+function initPanels(){
+  document.querySelectorAll("section.panel[data-k]").forEach(sec=>{
+    const k=sec.dataset.k,head=sec.querySelector(".panel-head"),h2=head.querySelector("h2");
+    const body=document.createElement("div");body.className="pbody";body.id="pb-"+k;
+    [...sec.children].filter(c=>c!==head).forEach(c=>body.appendChild(c));sec.appendChild(body);
+    const t=document.createElement("button");t.type="button";t.className="tog";t.setAttribute("aria-controls",body.id);
+    t.innerHTML=CHEV+"<span>"+h2.innerHTML+"</span>";h2.innerHTML="";h2.appendChild(t);
+    const sum=document.createElement("span");sum.className="sum";sum.id="sum-"+k;head.appendChild(sum);
+    applyPanel(sec,isOpen(k));
+    t.addEventListener("click",()=>{const open=sec.classList.contains("collapsed");applyPanel(sec,open);setOpen(k,open)});
+  });
+  document.addEventListener("click",e=>{
+    const et=e.target.closest(".er-tog");if(et){const box=et.closest(".er");const open=box.classList.contains("collapsed");box.classList.toggle("collapsed",!open);et.setAttribute("aria-expanded",String(open));setOpen("employer",open);return}
+    const g=e.target.closest(".bd-row.grp.can");if(g)toggleGroup(g);
+  });
+  document.addEventListener("keydown",e=>{const g=e.target.closest&&e.target.closest(".bd-row.grp.can");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();toggleGroup(g)}});
+}
+function toggleGroup(g){const w=g.closest(".er-group");const open=!w.classList.contains("open");w.classList.toggle("open",open);g.setAttribute("aria-expanded",String(open));setOpen(g.dataset.g,open)}
+function grpRow(key,color,name,amt,pct,hasSubs){
+  const open=hasSubs&&isOpen(key);
+  return`<div class="er-group${open?" open":""}"><div class="bd-row grp${hasSubs?" can":""}"${hasSubs?` role="button" tabindex="0" aria-expanded="${open}" data-g="${key}"`:""}><span class="sw" style="background:var(${color})"></span><span class="lbl">${name}${hasSubs?CHEV:""}</span><span class="num">${amt}</span><span class="num pct">${pct}</span></div>`;
+}
+const setSum=(k,h)=>{const e=$("sum-"+k);if(e)e.innerHTML=h};
+
+/* ---------- classifiers ---------- */
+const isFed=i=>i.sec==="taxes"&&/\bFED|FEDERAL|\bFIT\b/i.test(i.label);
+const isSS=i=>i.sec==="taxes"&&/SOC|OASDI|\bSS\b|SOCIAL/i.test(i.label);
+const isMedi=i=>i.sec==="taxes"&&/\bMED|MEDICARE/i.test(i.label);
+const isStateLocal=i=>i.sec==="taxes"&&!isFed(i)&&!isSS(i)&&!isMedi(i);
+const isRet=i=>(i.sec==="pretax"||i.sec==="posttax")&&/401|403|457|ROTH|RETIRE/i.test(i.label);
+const isPreRet=i=>i.sec==="pretax"&&/401|403|457|RETIRE/i.test(i.label)&&!/ROTH/i.test(i.label);
+const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
+const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
+const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
+const isHSAall=i=>isHSA(i)||isHSAer(i);
+const isErRet=i=>i.sec==="memo"&&/401|403|PENSION|MATCH|HARBOR|PROFIT|RETIRE/i.test(i.label);
+const isMatch=i=>i.sec==="memo"&&/MATCH/i.test(i.label);
+const isLife=i=>i.sec==="taxable"&&/LIFE|\bLF\b|GTL/i.test(i.label);
+
+/* ---------- year model ---------- */
+const isExtra=s=>s.kind==="Additional";
+function yearStubs(y){return sortStubs(state.stubs.filter(s=>s.payDate.slice(0,4)==String(y)))}
+function payDates(y){
+  const ys=yearStubs(y).filter(s=>!isExtra(s));const anchor=ys.length?ys[0].payDate:(state.stubs[0]?state.stubs[0].payDate:null);if(!anchor)return[];
+  let d=anchor;while(Number(d.slice(0,4))>=y)d=addDays(d,-14);
+  while(Number(d.slice(0,4))<y)d=addDays(d,14);
+  const out=[];while(Number(d.slice(0,4))===y){out.push(d);d=addDays(d,14)}return out;
+}
+function prevLoaded(s,ys){const i=ys.indexOf(s);return i>0?ys[i-1]:null}
+function ytdOf(s,item,ys){
+  if(item.ytd!=null)return item.ytd;
+  let t=0;for(const x of ys){if(x.payDate>s.payDate)break;const m=x.items.find(j=>j.sec===item.sec&&j.label===item.label);if(m)t+=m.cur}return t;
+}
+function model(y){
+  const ys=yearStubs(y),pds=payDates(y);
+  if(!ys.length)return{ys,pds,latest:null,remaining:0};
+  const latest=ys[ys.length-1];const regs=ys.filter(s=>!isExtra(s));const reg=regs.length?regs[regs.length-1]:latest;
+  const remaining=pds.filter(d=>d>latest.payDate).length;
+  const val=(pred,field)=>{let y=0,c=0;
+    for(const i of latest.items)if(pred(i))y+=ytdOf(latest,i,ys);
+    for(const i of reg.items)if(pred(i))c+=i.cur;
+    return r2(field==="cur"?c:field==="ytd"?y:y+c*remaining)};
+  return{ys,pds,latest,reg,remaining,val};
+}
+
+/* ---------- parser ---------- */
+const MONEY=/\(?-?\$\s?-?[\d,]+\.\d{2}\)?/g;
+const money=s=>{const neg=/^\(|-/.test(s.trim());const v=parseFloat(s.replace(/[^\d.]/g,""));return neg?-v:v};
+const SECTIONS=[["earnings",/^earnings\b/i],["taxable",/^taxable benefits\b/i],["memo",/^memo info/i],["pretax",/^pre-?\s?tax deductions\b/i],["posttax",/^(post|after)-?\s?tax deductions\b/i],["taxes",/^taxes\b/i],["net",/^net pay\b/i]];
+function lineLabel(line){
+  const i=line.search(/\(?-?\$/);let s=(i<0?line:line.slice(0,i)).replace(/\t/g," ").replace(/\s+/g," ").trim();
+  const nums=[];let m;while((m=s.match(/\s*([\d,]+\.\d+)$/))){nums.unshift(parseFloat(m[1].replace(/,/g,"")));s=s.slice(0,s.length-m[0].length).trim()}
+  if(/^[\d,.\s\-\/]*$/.test(s))s="";return{label:s,nums};
+}
+function parseChunk(chunk){
+  const pd=chunk.match(/(?:Pay|Check) Date:?[\s\S]{0,300}?(\d{1,2}\/\d{1,2}\/\d{4})/i);if(!pd)return null;
+  const pp=chunk.match(/Pay Period:?[\s\S]{0,300}?(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  const rt=chunk.match(/Pay Rate:?[\s\S]{0,300}?\$\s?([\d,]+\.\d{2})/i);
+  const fs=chunk.match(/Federal Filing Status:?[\s\S]{0,200}?\b(Single|Married[A-Za-z ]*?|Head of Household)\b/i);
+  const kd=chunk.match(/•\s*\d{1,2}\/\d{1,2}\/\d{4}\s*•\s*([A-Za-z]+)/);
+  const stub={payDate:toISO(pd[1]),period:pp?[toISO(pp[1]),toISO(pp[2])]:null,kind:kd&&/additional|bonus|off/i.test(kd[1])?"Additional":"Normal",payRate:rt?parseFloat(rt[1].replace(/,/g,"")):null,filing:fs?fs[1]:null,items:[],totals:{},net:null};
+  let sec=null,block=false,pL=[],pA=[],netA=[];
+  const flush=()=>{if(sec&&sec!=="net"&&block){const n=pL.length;if(n&&pA.length>=n){const two=pA.length>=2*n;
+      pL.forEach((l,k)=>{const cur=pA[k],ytd=two?pA[n+k]:null;if(l==="__total")stub.totals[sec]={cur,ytd};else stub.items.push({sec,label:l,cur,ytd})})}}
+    pL=[];pA=[];block=false};
+  for(const raw of chunk.split(/\r?\n/)){
+    const line=raw.replace(/ /g," ");if(!line.trim())continue;
+    const amts=(line.match(MONEY)||[]).map(money);const{label,nums}=lineLabel(line);
+    const hdr=label&&SECTIONS.find(([,re])=>re.test(label));
+    if(hdr){flush();sec=hdr[0];
+      if(sec==="net"){netA.push(...amts);continue}
+      if(amts.length)stub.totals[sec]={cur:amts[0],ytd:amts.length>1?amts[amts.length-1]:null};else{block=true;pL.push("__total")}
+      continue}
+    if(!sec)continue;
+    if(sec==="net"){netA.push(...amts);continue}
+    if(block){if(label)pL.push(label);pA.push(...amts);continue}
+    if(label&&amts.length){const it={sec,label,cur:amts[0],ytd:amts.length>1?amts[amts.length-1]:null};if(nums.length&&sec==="earnings")it.hours=nums[0];stub.items.push(it)}
+  }
+  flush();
+  if(netA.length)stub.net={cur:netA[0],ytd:netA.length>1?netA[netA.length-1]:null};
+  return stub.items.length?stub:null;
+}
+function parseText(txt){
+  const pdIdx=[],hdIdx=[];let m;
+  const re=/(?:Pay|Check) Date:?/gi;while((m=re.exec(txt)))pdIdx.push(m.index);
+  const rh=/#\d+\s*•\s*\d{1,2}\/\d{1,2}\/\d{4}\s*•/g;while((m=rh.exec(txt)))hdIdx.push(txt.lastIndexOf("\n",m.index)+1);
+  const idx=hdIdx.length===pdIdx.length&&hdIdx.length?hdIdx:pdIdx;
+  const out=[];for(let k=0;k<idx.length;k++){const s=parseChunk(txt.slice(idx[k],idx[k+1]||txt.length));if(s)out.push(s)}
+  return out;
+}
+function addStubs(list){
+  let added=0,replaced=0;
+  for(const s of list){if(!s.kind)s.kind="Normal";const i=state.stubs.findIndex(x=>skey(x)===skey(s));if(i>=0){state.stubs[i]=s;replaced++}else{state.stubs.push(s);added++}}
+  sortStubs(state.stubs);
+  if(list.length)state.year=Number(list[list.length-1].payDate.slice(0,4));
+  save();render();return{added,replaced};
+}
+
+/* ---------- pdf ---------- */
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+let pdfReady=null;
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("Could not load "+src));document.head.appendChild(s)})}
+function loadPdf(){if(!pdfReady)pdfReady=loadScript(PDFJS+"pdf.min.js").then(()=>loadScript(PDFJS+"pdf.worker.min.js")).then(()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js"});return pdfReady}
+async function pdfToText(file){
+  await loadPdf();const doc=await window.pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let out="";
+  for(let p=1;p<=doc.numPages;p++){const tc=await(await doc.getPage(p)).getTextContent();
+    const its=tc.items.filter(t=>t.str&&t.str.trim()).map(t=>({s:t.str,x:t.transform[4],y:t.transform[5],w:t.width||0})).sort((a,b)=>b.y-a.y||a.x-b.x);
+    const rows=[];for(const t of its){const r=rows[rows.length-1];if(r&&Math.abs(r.y-t.y)<=3)r.items.push(t);else rows.push({y:t.y,items:[t]})}
+    for(const r of rows){r.items.sort((a,b)=>a.x-b.x);let line="",end=null;for(const t of r.items){line+=(end==null?"":(t.x-end>6?"\t":" "))+t.s;end=t.x+t.w}out+=line+"\n"}}
+  return out;
+}
+
+/* ---------- render: calendar ---------- */
+function renderCalendar(m,y){
+  const have=new Set(m.ys.filter(s=>!isExtra(s)).map(s=>s.payDate));const extra=new Set(m.ys.filter(isExtra).map(s=>s.payDate));const next=m.pds.find(d=>d>todayISO);
+  const byMonth=Array.from({length:12},()=>[]);m.pds.forEach(d=>byMonth[dObj(d).getMonth()].push(d));
+  $("months").innerHTML=byMonth.map((ds,mi)=>{
+    const pills=ds.map(d=>{const cls=have.has(d)?"have":d<=todayISO?"miss":d===next?"next":"";
+      const t=have.has(d)?"stub loaded":d<=todayISO?"paid, stub missing":d===next?"next payday":"upcoming";
+      const plus=extra.has(d);
+      return `<span class="pd ${cls}" title="${nice(d)}, ${y}: ${t}${plus?" plus an extra check":""}">${dObj(d).getDate()}${plus?"+":""}</span>`}).join("");
+    return `<div class="mo${ds.length===3?" three":""}"><div class="mo-h"><span>${MON[mi]}</span>${ds.length===3?'<span class="x3">3 checks</span>':""}</div><div class="pds">${pills}</div></div>`}).join("");
+  const miss=m.pds.filter(d=>d<=todayISO&&!have.has(d)).length;const threes=byMonth.map((d,i)=>d.length===3?MON[i]:null).filter(Boolean);
+  setSum("cal",`<strong>${have.size}/${m.pds.length}</strong> stubs`+(miss?` · <span class="warn">${miss} missing</span>`:"")+(next?` · next payday ${nice(next)}`:""));
+  $("calSummary").textContent=`${have.size} of ${m.pds.length} stubs loaded`+(extra.size?` + ${extra.size} extra`:"")+(miss?` · ${miss} missing`:"")+(threes.length?` · 3-check months: ${threes.join(", ")}`:"");
+}
+
+/* ---------- render: breakdown ---------- */
+const CATS=[["net","Take-home pay","--c-net"],["fed","Federal income tax","--c-fed"],["fica","Social Security + Medicare","--c-fica"],["state","State + local tax","--c-state"],["ret","401(k)","--c-ret"],["health","Health insurance","--c-health"],["hsa","HSA","--c-er-hsa"],["other","Other deductions","--c-other"]];
+function breakdown(m,f){
+  const gross=m.val(i=>i.sec==="earnings",f);
+  const fed=m.val(isFed,f),fica=m.val(i=>isSS(i)||isMedi(i),f),st=m.val(isStateLocal,f),ret=m.val(isRet,f);
+  const health=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&(/MED|DENT|VIS|FSA|HEALTH|INS/i.test(i.label)),f);
+  const hsa=m.val(isHSA,f);
+  const other=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!(/MED|DENT|VIS|HSA|FSA|HEALTH|INS/i.test(i.label)),f);
+  const net=r2(gross-fed-fica-st-ret-health-hsa-other);
+  return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,other}};
+}
+function renderBreakdown(m){
+  const f=state.mode;["cur","ytd","proj"].forEach(k=>$("m-"+k).setAttribute("aria-pressed",String(k===f)));
+  const b=breakdown(m,f);const g=b.gross||1;
+  const shown=CATS.filter(([k])=>b.parts[k]>0.004);
+  $("bar").innerHTML=shown.map(([k,l,c])=>`<div style="width:${(b.parts[k]/g*100).toFixed(3)}%;background:var(${c})" title="${l}: ${fmt(b.parts[k])}"></div>`).join("");
+  $("bar").setAttribute("aria-label",shown.map(([k,l])=>`${l} ${Math.round(b.parts[k]/g*100)}%`).join(", "));
+  const SUBP={health:i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&/MED|DENT|VIS|FSA|HEALTH|INS/i.test(i.label),
+    fica:i=>isSS(i)||isMedi(i),state:isStateLocal};
+  const subName=i=>isSS(i)?"Social Security (6.2%)":isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b/i.test(i.label)?"School district tax":i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
+  const subs=k=>{if(!SUBP[k])return"";
+    const lines=m.latest.items.filter(SUBP[k])
+      .map(i=>({n:subName(i),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+    return lines.length>1?lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.n)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${(x.v/g*100).toFixed(1)}%</span></div>`).join(""):""};
+  $("bdList").innerHTML=shown.map(([k,l,c])=>{const sb=subs(k);return grpRow("ee-"+k,c,l,fmt(b.parts[k]),(b.parts[k]/g*100).toFixed(1)+"%",!!sb)+sb+"</div>"}).join("");
+  setSum("gross",`<strong>${fmt0(b.parts.net)}</strong> take-home of ${fmt0(b.gross)} · ${f==="cur"?"latest check":f==="ytd"?"so far":"full year"}`);
+  const label=f==="cur"?`Check of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:`Projected through Dec 31 (${m.remaining} paydays left)`;
+  const totalTax=b.parts.fed+b.parts.fica+b.parts.state;
+  $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>gross pay</small></div>
+    <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
+    <div class="stat"><small>All taxes</small><b>${(totalTax/g*100).toFixed(1)}%</b><small>${fmt0(totalTax)}</small></div>
+    <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small></div>`;
+  const er=m.val(i=>i.sec==="memo",f),erRet=m.val(isErRet,f);
+  renderEmployer(m,f,b.gross,er);
+  void erRet;
+}
+
+/* ---------- render: employer-paid ---------- */
+const ER_GROUPS=[
+  ["ret","Retirement","--c-er-ret",i=>isErRet(i)],
+  ["med","Health coverage","--c-er-med",i=>i.sec==="memo"&&/MEDICAL|DENTAL|VISION/i.test(i.label)],
+  ["hsa","HSA deposit","--c-er-hsa",i=>isHSAer(i)],
+  ["life","Life + disability","--c-er-life",i=>i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!/MEDICAL|DENTAL|VISION/i.test(i.label)]];
+function erName(l){
+  const map=[[/401K\s*MATCH/i,"401(k) match"],[/PENSION\s*45/i,"Pension 45+"],[/SAFE\s*HARBOR/i,"Safe harbor"],[/MEDICAL/i,"Medical"],[/DENTAL/i,"Dental"],[/VISION/i,"Vision"],
+    [/AD&D/i,"AD&D"],[/BASIC\s*LIFE/i,"Basic life"],[/LTD/i,"Long-term disability"],[/STD/i,"Short-term disability"],[/HSA/i,"HSA deposit"]];
+  for(const[re,n]of map)if(re.test(l))return n;return l.replace(/\bER\b|\bCOST\b/gi,"").trim();
+}
+function renderEmployer(m,f,gross,er){
+  const box=$("erBlock");if(!(er>0)){box.innerHTML="";return}
+  const memo=m.latest.items.filter(i=>i.sec==="memo");
+  const groups=ER_GROUPS.map(([k,name,c,pred])=>{
+    const lines=memo.filter(pred).map(i=>({name:erName(i.label),v:m.val(j=>j.sec==="memo"&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+    return{k,name,c,v:r2(lines.reduce((a,x)=>a+x.v,0)),lines}}).filter(g=>g.v>0.004);
+  const pct=v=>(v/er*100).toFixed(1)+"%";
+  const eo=isOpen("employer");box.classList.toggle("collapsed",!eo);
+  box.innerHTML=`<button type="button" class="er-tog" aria-expanded="${eo}"><h3>${CHEV}Employer</h3><span class="num" style="font-size:20px;font-weight:800">${fmt(er)}</span></button>
+    <div class="er-body"><p class="bd-sub" style="margin:-6px 0 0">Paid by your employer on top of your gross. None of it shows up in your deposit.</p>
+    <div class="bar" role="img" aria-label="${groups.map(g=>`${g.name} ${Math.round(g.v/er*100)}%`).join(", ")}">${groups.map(g=>`<div style="width:${(g.v/er*100).toFixed(3)}%;background:var(${g.c})" title="${g.name}: ${fmt(g.v)}"></div>`).join("")}</div>
+    <div class="bd-list">${groups.map(g=>`${grpRow("er-"+g.k,g.c,g.name,fmt(g.v),pct(g.v),g.lines.length>1)}
+      ${g.lines.length>1?g.lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.name)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${pct(x.v)}</span></div>`).join(""):""}</div>`).join("")}</div>
+    </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt0(gross)} + employer ${fmt0(er)}</small></div><b class="num">${fmt0(gross+er)}</b></div>`;
+}
+
+/* ---------- 401(k) total: you + employer ---------- */
+let k401Sum=0;
+function k401Total(m,catchUp){
+  const parts=[{name:"You (pre-tax deferral)",c:"--c-k-you",pred:isPreRet,you:true}];
+  const kc=["--c-k-match","--c-k-p45","--c-k-sh","--c-other"];let n=0;
+  for(const i of m.latest.items.filter(isErRet)){parts.push({name:erName(i.label),c:kc[Math.min(n++,3)],pred:j=>j.sec==="memo"&&j.label===i.label})}
+  parts.forEach(p=>{p.y=m.val(p.pred,"ytd");p.p=m.val(p.pred,"proj")});
+  const shown=parts.filter(p=>p.p>0.004);
+  const tY=r2(shown.reduce((a,p)=>a+p.y,0)),tP=r2(shown.reduce((a,p)=>a+p.p,0));
+  const erY=r2(tY-shown[0].y),erP=r2(tP-shown[0].p);
+  const lim=72000+catchUp;k401Sum=tP;const gP=m.val(i=>i.sec==="earnings","proj")||1;const pc=v=>(v/gP*100).toFixed(1)+"%";
+  return`<div class="k401"><div class="er-head"><h3>401(k) total, you + employer</h3><span class="num">${fmt0(tP)}</span></div>
+    <p class="bd-sub" style="margin:-6px 0 0">Projected for ${m.latest.payDate.slice(0,4)}: ${fmt0(shown[0].p)} from you and ${fmt0(erP)} from your employer. Your employer puts in about $${(erP/shown[0].p).toFixed(2)} for every $1 you do.</p>
+    <div class="bar" role="img" aria-label="${shown.map(p=>`${p.name} ${Math.round(p.p/tP*100)}%`).join(", ")}">${shown.map(p=>`<div style="width:${(p.p/tP*100).toFixed(3)}%;background:var(${p.c})" title="${p.name}: ${fmt(p.p)}"></div>`).join("")}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Source</th><th class="n">YTD</th><th class="n">Dec 31</th><th class="n">% of pay</th></tr></thead><tbody>
+      ${shown.map(p=>`<tr${p.you?' class="you"':""}><td><span class="sw" style="background:var(${p.c})"></span>${esc(p.name)}</td><td class="n">${fmt0(p.y)}</td><td class="n">${fmt0(p.p)}</td><td class="n">${pc(p.p)}</td></tr>`).join("")}
+      <tr><td><span class="sw" style="background:transparent"></span>Employer subtotal</td><td class="n">${fmt0(erY)}</td><td class="n">${fmt0(erP)}</td><td class="n">${pc(erP)}</td></tr>
+      <tr class="total"><td><span class="sw" style="background:transparent"></span>Total into your 401(k)</td><td class="n">${fmt0(tY)}</td><td class="n">${fmt0(tP)}</td><td class="n">${pc(tP)}</td></tr>
+    </tbody></table></div>
+    <small class="bd-sub">The IRS cap on everything going into the plan this year is ${fmt0(lim)} ($72,000 plus your ${fmt0(catchUp)} catch-up). You're projected to use ${Math.round(tP/lim*100)}% of it. % of pay is each amount divided by projected ${m.latest.payDate.slice(0,4)} gross pay of ${fmt0(gP)}.</small></div>`;
+}
+
+/* ---------- render: checks ---------- */
+function runChecks(m,y){
+  const out=[];const ys=m.ys;const have=new Set(ys.filter(s=>!isExtra(s)).map(s=>s.payDate));
+  const missPast=m.pds.filter(d=>d<=todayISO&&!have.has(d));
+  if(missPast.length)out.push(["warn",`${missPast.length} paid stub${missPast.length>1?"s":""} not loaded`,`Missing: ${missPast.slice(0,6).map(nice).join(", ")}${missPast.length>6?` and ${missPast.length-6} more`:""}. Projections lean on the latest stub, so add the newest one first.`]);
+  let totBad=0,ytdBad=0,ficaBad=0,netBad=0,ytdChecked=0;
+  ys.forEach((s,idx)=>{
+    for(const[sec,t]of Object.entries(s.totals||{})){const sum=r2(s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0));
+      if(t&&t.cur!=null&&Math.abs(sum-t.cur)>0.02){totBad++;out.push(["bad",`${nice(s.payDate)}: ${sec} lines don't add up`,`Lines total ${fmt(sum)}, the stub says ${fmt(t.cur)}. Either a line was misread or payroll's total is off.`])}}
+    if(s.net&&s.net.cur!=null){const sum=(sec)=>s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0);
+      const calc=r2(sum("earnings")-sum("pretax")-sum("posttax")-sum("taxes"));
+      if(Math.abs(calc-s.net.cur)>0.02){netBad++;out.push(["bad",`${nice(s.payDate)}: net pay doesn't match`,`Earnings minus deductions and taxes is ${fmt(calc)}, but ${fmt(s.net.cur)} was deposited.`])}}
+    const prev=ys[idx-1];const first=idx===0&&m.pds[0]===s.payDate;
+    const prevOk=prev&&(addDays(prev.payDate,14)===s.payDate||prev.payDate===s.payDate);
+    if(first||prevOk){for(const i of s.items){if(i.ytd==null)continue;ytdChecked++;
+      const pi=prevOk?prev.items.find(j=>j.sec===i.sec&&j.label===i.label):null;const exp=r2((pi&&pi.ytd!=null?pi.ytd:0)+i.cur);
+      if(Math.abs(exp-i.ytd)>0.02){ytdBad++;out.push(["bad",`${nice(s.payDate)}: ${i.label} year-to-date jumped`,`Expected ${fmt(exp)} (previous YTD plus this check), stub shows ${fmt(i.ytd)}. Off by ${fmt(i.ytd-exp)}.`])}}}
+    const Y=(p)=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);
+    const ssW=Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125);
+    const ss=Y(isSS),md=Y(isMedi);
+    if(ss&&ssW<=LIM.ssBase&&Math.abs(ss-ssW*.062)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security isn't 6.2%`,`Year-to-date Social Security wages ${fmt(ssW)} × 6.2% = ${fmt(ssW*.062)}, withheld ${fmt(ss)}.`])}
+    if(md&&ssW<=200000&&Math.abs(md-ssW*.0145)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Medicare isn't 1.45%`,`${fmt(ssW)} × 1.45% = ${fmt(ssW*.0145)}, withheld ${fmt(md)}.`])}
+    if(isExtra(s)){
+      const what=s.items.filter(i=>(i.sec==="earnings"||i.sec==="taxable")&&i.cur>0).map(i=>`${i.label} ${fmt(i.cur)}`).join(", ");
+      const tax=s.items.filter(i=>i.sec==="taxes").reduce((a,i)=>a+i.cur,0);
+      out.push(["info",`Extra check on ${nice(s.payDate)}`,`${what}. Taxes ${fmt(tax)}, deposit ${s.net?fmt(s.net.cur):"—"}.`+(/GIFT|GU\b/i.test(what)?" A taxable gift card with a tax gross-up: the company covered the tax, and the card's value counts as W-2 wages.":"")]);
+      return;
+    }
+    const regsBefore=ys.slice(0,idx).filter(x=>!isExtra(x));const pv=regsBefore[regsBefore.length-1];
+    if(pv){
+      const gr=x=>x.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0)||1;
+      if(pv.payRate&&s.payRate&&Math.abs(pv.payRate-s.payRate)>0.005)out.push(["info",`Pay rate changed on ${nice(s.payDate)}`,`${fmt(pv.payRate)} → ${fmt(s.payRate)} per period (${((s.payRate/pv.payRate-1)*100).toFixed(1)}%).`]);
+      for(const i of s.items){if(!["pretax","posttax","memo","taxable"].includes(i.sec))continue;const pi=pv.items.find(j=>j.sec===i.sec&&j.label===i.label);
+        if(!pi||(pi.cur===0&&pi.ytd===0)){if(i.cur>0)out.push(["info",i.sec==="memo"?`Employer added ${i.label} on ${nice(s.payDate)}`:`New line on ${nice(s.payDate)}: ${i.label}`,`${fmt(i.cur)} this check.`]);continue}
+        if(Math.abs(pi.cur-i.cur)<=0.01)continue;
+        if(i.cur===0&&i.sec!=="pretax")continue;
+        if(pi.cur===0&&i.cur>0&&i.sec!=="pretax")continue;
+        const pctBased=/401|403|457|PENSION|MATCH|HARBOR/i.test(i.label);
+        if(pctBased&&Math.abs(pi.cur/gr(pv)-i.cur/gr(s))<0.0015)continue;
+        out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check.`+(pctBased?` Now ${(i.cur/gr(s)*100).toFixed(2)}% of gross.`:"")])}
+      if(Math.abs(gr(pv)-gr(s))<0.01)for(const i of s.items.filter(x=>x.sec==="taxes"&&!isSS(x)&&!isMedi(x))){const pi=pv.items.find(j=>j.sec==="taxes"&&j.label===i.label);
+        if(pi&&pi.cur>0&&Math.abs(pi.cur-i.cur)/pi.cur>0.01)out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check with the same gross pay. Payroll likely switched to new withholding tables.`])}
+      for(const pi of pv.items){if(!["pretax","posttax"].includes(pi.sec))continue;if(!s.items.some(j=>j.sec===pi.sec&&j.label===pi.label))out.push(["info",`${pi.label} stopped on ${nice(s.payDate)}`,`It was ${fmt(pi.cur)} per check before.`])}
+    }
+  });
+  if(m.latest){const ssWproj=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
+    if(ssWproj>LIM.ssBase)out.push(["info","You'll hit the Social Security cap",`Projected Social Security wages ${fmt0(ssWproj)} pass the ${fmt0(LIM.ssBase)} limit, so late-year checks should get bigger.`]);}
+  const n=ys.length;
+  if(n){if(!totBad&&Object.keys(ys[0].totals||{}).length)out.push(["ok","Section totals add up",`Every earnings, deduction and tax section matches its total on all ${n} stub${n>1?"s":""}.`]);
+    if(!netBad)out.push(["ok","Net pay matches the math",`Gross minus deductions and taxes equals the deposit on every stub.`]);
+    if(!ytdBad&&ytdChecked)out.push(["ok","Year-to-date totals carry forward",`Each line's YTD equals the previous YTD plus the current check (${ytdChecked} lines checked).`]);
+    if(!ficaBad)out.push(["ok","FICA rates are right","Social Security is 6.2% and Medicare 1.45% of wages after insurance and HSA, as expected."]);}
+  const order={bad:0,warn:1,info:2,ok:3};out.sort((a,b)=>order[a[0]]-order[b[0]]);return out;
+}
+function renderChecks(m,y){
+  const cs=runChecks(m,y);const lab={bad:"Problem",warn:"Gap",info:"Change",ok:"OK"};
+  $("checks").innerHTML=cs.map(([s,t,d])=>`<li class="ck"><span class="chip ${s}">${lab[s]}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join("");
+  const bad=cs.filter(c=>c[0]==="bad").length,gap=cs.filter(c=>c[0]==="warn").length;
+  setSum("checks",bad||gap?`<span class="warn">${bad?`${bad} problem${bad>1?"s":""}`:""}${bad&&gap?" · ":""}${gap?`${gap} gap${gap>1?"s":""}`:""}</span>`:`No payroll errors · ${cs.filter(c=>c[0]==="info").length} changes noted`);
+  const sig=cs.filter(c=>c[0]==="bad"||c[0]==="warn").map(c=>c[1]).join("|");
+  if(sig&&ui.checksSig!==sig){ui.checksSig=sig;setOpen("checks",true);const sec=document.querySelector('section[data-k="checks"]');if(sec)applyPanel(sec,true)}
+  $("ckSummary").textContent=bad?`${bad} problem${bad>1?"s":""} found`:"No payroll errors found";
+}
+
+/* ---------- render: W-2 ---------- */
+function renderW2(m,y){
+  $("w2year").textContent=y;
+  const box=(f)=>{const earn=m.val(i=>i.sec==="earnings"||i.sec==="taxable",f);
+    return[
+      ["1","Wages, tips, other comp",earn-m.val(i=>i.sec==="pretax",f)],
+      ["2","Federal income tax withheld",m.val(isFed,f)],
+      ["3","Social Security wages",earn-m.val(isSec125,f)],
+      ["4","Social Security tax withheld",m.val(isSS,f)],
+      ["5","Medicare wages",earn-m.val(isSec125,f)],
+      ["6","Medicare tax withheld",m.val(isMedi,f)],
+      ["12 C","Group-term life over $50k",m.val(isLife,f)],
+      ["12 D","401(k) deferrals",m.val(isPreRet,f)],
+      ["12 W","HSA (you + employer)",m.val(isHSAall,f)],
+      ["12 DD","Health coverage cost",m.val(i=>/MEDICAL|DENTAL|VISION/i.test(i.label)&&(i.sec==="memo"||i.sec==="pretax"),f)],
+      ["17","State income tax",m.val(i=>isStateLocal(i)&&/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)],
+      ["19","Local / school district tax",m.val(i=>isStateLocal(i)&&!/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)]]};
+  const a=box("ytd"),p=box("proj");
+  setSum("w2",`Box 1 wages <strong>${fmt0(p[0][2])}</strong> · fed withheld ${fmt0(p[1][2])}`);
+  $("w2").innerHTML=`<thead><tr><th>Box</th><th class="n">YTD</th><th class="n">Dec 31</th></tr></thead><tbody>`+
+    a.map((r,k)=>r[2]||p[k][2]?`<tr><td><span class="box">${r[0]}</span>${r[1]}</td><td class="n">${fmt0(r[2])}</td><td class="n">${fmt0(p[k][2])}</td></tr>`:"").join("")+`</tbody>`;
+}
+
+/* ---------- render: tax ---------- */
+function bracketTax(t){let tax=0,lo=0;for(const[hi,r]of LIM.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax}
+function renderTax(m){
+  const st=state.settings;const fs=m.latest.filing||"Single";$("fsLabel").textContent=`Filing as ${fs}`;
+  if(!/single/i.test(fs)){$("taxOut").innerHTML=`<p class="note">This estimate only handles the Single brackets. Your stub says ${esc(fs)}.</p>`;return}
+  const wages=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj");
+  const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
+  const se=Math.max(0,+st.seProfit||0),oth=Math.max(0,+st.otherInc||0),est=Math.max(0,+st.estPaid||0);
+  const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*0.124+seBase*0.029:0;const halfSE=seTax/2;
+  const agi=wages+oth+se-halfSE;const pre=Math.max(0,agi-LIM.std);
+  const qbi=Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
+  const inc=bracketTax(taxable);const total=inc+seTax;const withheld=m.val(isFed,"proj")+est;const gap=total-withheld;
+  const per=m.remaining?gap/m.remaining:0;
+  const rows=[["Projected W-2 wages (Box 1)",wages],se?["Side business profit",se]:null,oth?["Other taxable income",oth]:null,se?["Half of self-employment tax",-halfSE]:null,
+    ["Standard deduction",-LIM.std],qbi?["Qualified business income deduction",-qbi]:null,["Taxable income",taxable,1],["Income tax",inc],se?["Self-employment tax",seTax]:null,["Total federal tax",total,1],
+    ["Withheld by Dec 31"+(est?" + estimates":""),-withheld]].filter(Boolean);
+  const owe=gap>0.5;
+  setSum("tax",owe?`<span class="warn">Projected to owe <strong>${fmt0(gap)}</strong></span>`:`Projected refund <strong>${fmt0(-gap)}</strong>`);
+  $("taxOut").innerHTML=`<div class="verdict ${owe?"owe":"refund"}"><span class="eyebrow">${owe?"Projected to owe":"Projected refund"}</span><span class="big">${fmt0(Math.abs(gap))}</span>
+    <span class="note">${owe?(m.remaining?`Adding about <b class="num">${fmt0(Math.ceil(per))}</b> per check on W-4 line 4(c) for the ${m.remaining} paydays left would close it.`:"No paydays left this year to adjust.")+(gap<1000?" Owing under $1,000 generally avoids an underpayment penalty.":""):"Withholding covers the estimate."}</span></div>
+    <div class="tbl-wrap"><table><tbody>${rows.map(r=>`<tr${r[2]?' class="total"':""}><td>${r[0]}</td><td class="n">${fmt0(r[1])}</td></tr>`).join("")}</tbody></table></div>
+    <p class="note">Estimate using 2026 Single brackets and the standard deduction. It assumes the latest check repeats, ignores credits and itemizing, and treats side-business profit as qualified business income.</p>`;
+}
+
+/* ---------- render: meters ---------- */
+function meter(cls,title,ytd,proj,limit,lines){
+  const pct=v=>Math.min(100,v/limit*100).toFixed(2);
+  return`<div class="meter"><div class="meter-top"><b>${title}</b><span class="num">${fmt0(proj)} of ${fmt0(limit)}</span></div>
+    <div class="track ${cls}" role="img" aria-label="${title}: ${fmt0(ytd)} so far, ${fmt0(proj)} projected, limit ${fmt0(limit)}"><div class="proj" style="width:${pct(proj)}%"></div><div class="ytd" style="width:${pct(ytd)}%"></div></div>
+    ${lines.map(l=>`<small>${l}</small>`).join("")}</div>`;
+}
+function renderMeters(m){
+  const age=+state.settings.age||0;const catchUp=age>=60&&age<=63?LIM.c60:age>=50?LIM.c50:0;const kLim=LIM.k401+catchUp;
+  const kY=m.val(isPreRet,"ytd"),kP=m.val(isPreRet,"proj"),kC=m.val(isPreRet,"cur");
+  const need=m.remaining?Math.max(0,(kLim-kY)/m.remaining):0;
+  const mY=m.val(isMatch,"ytd");const erP=m.val(isErRet,"proj");
+  const gross=m.val(i=>i.sec==="earnings","cur");
+  const kLines=[`${fmt0(kY)} so far · ${fmt(kC)} per check (${gross?(kC/gross*100).toFixed(1):0}% of gross).`,
+    kP<kLim?`To max out, raise it to about <b class="num">${fmt0(need)}</b> per check for the ${m.remaining} paydays left.`:`On pace to reach the limit.`,
+    `Limit includes the ${fmt0(catchUp)} age catch-up.`+(kY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`];
+  const hsaItems=m.latest.items.filter(isHSA);const fam=hsaItems.some(i=>/FAM/i.test(i.label));
+  const hLim=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);
+  const hY=m.val(isHSAall,"ytd"),hP=m.val(isHSAall,"proj"),hC=m.val(isHSA,"cur"),hEr=m.val(isHSAer,"ytd");
+  const hNeed=m.remaining?Math.max(0,(hLim-hY)/m.remaining):0;
+  const extraPer=m.remaining?(hLim-hP)/m.remaining:0;
+  const hLines=[`${fmt0(hY)} so far: ${fmt0(hY-hEr)} from you (${fmt(hC)} per check) and ${fmt0(hEr)} from your employer.`,
+    hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it by about ${fmt0(-extraPer)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. Adding about <b class="num">${fmt0(extraPer)}</b> per check (about <b class="num">${fmt0(hC+extraPer)}</b> total) would fill it.`:`On pace to hit the limit exactly.`,
+    `${fam?"Family":"Self-only"} limit${age>=55?" plus the age-55 catch-up":""}. Employer deposits count toward it.`];
+  $("meters").innerHTML=meter("","401(k), your contributions",kY,kP,kLim,kLines)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines):"")+k401Total(m,catchUp);
+  setSum("savings",`401(k) <strong>${fmt0(k401Sum)}</strong> total`+(hsaItems.length?` · HSA `+(hP>hLim+0.5?`<span class="warn">${fmt0(hP-hLim)} over</span>`:`<strong>${fmt0(Math.max(0,hLim-hP))}</strong> room left`):""));
+}
+
+/* ---------- render: stub table ---------- */
+let armed=null;
+function renderStubs(){
+  const ys=[...state.stubs].sort((a,b)=>a.payDate<b.payDate?1:-1);
+  $("stubCount").textContent=`${state.stubs.length} stored`;setSum("add",`${state.stubs.length} stubs stored`);
+  $("stubTbl").innerHTML=`<thead><tr><th>Pay date</th><th class="n">Gross</th><th class="n">Net</th><th></th></tr></thead><tbody>`+
+    ys.map(s=>{const g=s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0);
+      return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}</td><td class="n">${fmt(g)}</td><td class="n">${s.net?fmt(s.net.cur):"—"}</td>
+      <td class="n"><button class="btn ghost small${armed===s.payDate?" danger":""}" data-del="${s.payDate}">${armed===s.payDate?"Confirm":"Remove"}</button></td></tr>`}).join("")+`</tbody>`;
+}
+
+/* ---------- main render ---------- */
+function render(){
+  const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
+  if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
+  $("yearSel").innerHTML=(years.length?years:[state.year]).map(y=>`<option${y===state.year?" selected":""}>${y}</option>`).join("");
+  const y=state.year;const m=model(y);
+  renderStubs();
+  const panels=document.querySelectorAll(".wrap > section.panel:not(:last-child):not(#emptyNote), .wrap > .grid2");
+  const addSec=document.querySelector('section[data-k="add"]');
+  if(!m.latest){panels.forEach(p=>p.hidden=true);$("emptyNote").hidden=false;if(addSec)applyPanel(addSec,true);return}
+  $("emptyNote").hidden=true;
+  panels.forEach(p=>p.hidden=false);
+  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y);renderW2(m,y);renderTax(m);renderMeters(m);
+}
+
+/* ---------- events ---------- */
+function toast(msg,err){const t=$("toast");t.hidden=false;t.className="toast"+(err?" err":"");t.textContent=msg}
+$("readBtn").addEventListener("click",()=>{
+  const txt=$("pasteBox").value.trim();if(!txt){toast("Paste a statement first.",true);return}
+  if(/^[\[{]/.test(txt)){try{const o=JSON.parse(txt);const list=Array.isArray(o)?o:o.stubs;if(!Array.isArray(list))throw 0;
+      if(o.settings)Object.assign(state.settings,o.settings);syncInputs();const r=addStubs(list);toast(`Restored ${r.added+r.replaced} stubs from backup.`);$("pasteBox").value="";return}catch(e){toast("That looks like a backup but couldn't be read.",true);return}}
+  const list=parseText(txt);
+  if(!list.length){toast("No statement found. Make sure the text includes the Pay Date line and the Earnings and Taxes tables.",true);return}
+  const r=addStubs(list);$("pasteBox").value="";
+  toast(`Read ${list.length} stub${list.length>1?"s":""}: ${list.map(s=>nice(s.payDate)).join(", ")}.`+(r.replaced?` ${r.replaced} replaced an existing copy.`:"")+" See Stub checks above.");
+});
+$("pdfIn").addEventListener("change",async e=>{
+  const files=[...e.target.files];if(!files.length)return;toast(`Reading ${files.length} PDF${files.length>1?"s":""}…`);
+  const all=[];const fails=[];
+  for(const f of files){try{const list=parseText(await pdfToText(f));if(list.length)all.push(...list);else fails.push(f.name)}catch(err){fails.push(f.name)}}
+  e.target.value="";
+  if(all.length){addStubs(all);toast(`Read ${all.length} stub${all.length>1?"s":""} from PDF.`+(fails.length?` Couldn't read: ${fails.join(", ")}.`:""),!!fails.length)}
+  else toast(`Couldn't find statement text in ${fails.join(", ")}. A scanned or photographed PDF has no text layer; print the statement to PDF from the portal instead.`,true);
+});
+$("stubTbl").addEventListener("click",e=>{const b=e.target.closest("[data-del]");if(!b)return;const d=b.dataset.del;
+  if(armed===d){state.stubs=state.stubs.filter(s=>s.payDate!==d);armed=null;save();render();toast(`Removed ${nice(d)}.`)}else{armed=d;renderStubs()}});
+let clearArmed=false;
+$("clearAll").addEventListener("click",()=>{if(!clearArmed){clearArmed=true;$("clearAll").textContent="Confirm clear";return}
+  clearArmed=false;$("clearAll").textContent="Clear all stubs";state.stubs=[];save();render();toast("All stubs cleared.")});
+$("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:state.stubs,settings:state.settings});const out=$("backupOut");
+  const fallback=()=>{out.hidden=false;out.value=json;out.focus();out.select();toast("Select-all is ready. Copy this text and keep it somewhere safe.")};
+  try{navigator.clipboard.writeText(json).then(()=>{out.hidden=true;toast("Backup copied. Paste it into the box above to restore.")},fallback)}catch(e){fallback()}});
+document.querySelector(".seg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;state.mode=b.dataset.mode;render()});
+$("yearSel").addEventListener("change",e=>{state.year=Number(e.target.value);render()});
+function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=state.settings.seProfit;$("otherInc").value=state.settings.otherInc;$("estPaid").value=state.settings.estPaid}
+[["age","age"],["seProfit","seProfit"],["otherInc","otherInc"],["estPaid","estPaid"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{state.settings[k]=Number(e.target.value)||0;save();render()}));
+
+initPanels();load();syncInputs();render();
+window.__pxr={parseText,model,breakdown};
+})();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}</script>
+</body>
+</html>

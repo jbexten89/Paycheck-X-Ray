@@ -1,0 +1,4 @@
+# Never commit pay data or backups
+*.pdf
+*backup*.json
+stubs/
