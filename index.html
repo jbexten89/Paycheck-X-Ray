@@ -260,6 +260,10 @@ table.rt{font-size:13px}table.rt th,table.rt td{padding:6px 5px;white-space:nowr
 .events b{color:var(--ink);font-weight:700;margin-right:6px}
 table.yt{font-size:13.5px}
 table.ytab{font-size:13px}table.ytab th,table.ytab td{padding:6px 7px}
+table.ytab th{white-space:normal;max-width:84px;vertical-align:bottom;line-height:1.25}
+table.yt.ytab td.nt{color:var(--ink);font-size:13px}
+@media (max-width:520px){table.ytab th,table.ytab td{padding:6px 5px}table.ytab{font-size:12.5px}}
+.pj{display:block;font-size:10.5px;color:var(--muted);line-height:1.1}
 table.yt th[data-sort]{cursor:pointer;white-space:nowrap}
 table.yt th[aria-sort=ascending]::after{content:" ▲";font-size:9px}
 table.yt th[aria-sort=descending]::after{content:" ▼";font-size:9px}
@@ -1166,7 +1170,7 @@ function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows]
   const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):"n";
   const hasT=cols.some(c=>c[3]);
   el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
-    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?" (proj.)":r.partial?" (part)":""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
+    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
     (hasT?`<tr class="total"><td>All</td>${cols.map(c=>`<td class="${c[2]==="txt"?"":"n"}">${c[3]==="sum"?f(c[2],rows.reduce((a,r)=>a+(+c[1](r)||0),0)):typeof c[3]==="function"?f(c[2],c[3](rows)):""}</td>`).join("")}</tr>`:"")+"</tbody>";
 }
 const legend=items=>items.map(([c,l,cls])=>`<span><i class="sw${cls?" "+cls:""}" style="background:var(${c})"></i>${l}</span>`).join("");
@@ -1282,7 +1286,7 @@ function renderYoy(){
     lineChart($("yoyTfd"),{x0:0,x1:rows.length,yFmt:n=>dayLabel(2021,n),ticks:rows.map((r,i)=>({x:i+.5,label:r.y,y:r.y})),cols:rows.map((r,i)=>({a:i,b:i+1,y:r.y})),
       series:[{c:"--c-fed",pts:tf.map(r=>[ix.get(r.y)+.5,tfdDay(r),r.proj]),dots:true}],aria:"Tax Freedom Day by year"});
     const t=sel&&!sel.partial?tfdDay(sel):null;
-    $("yoyTfdD").innerHTML=sel&&t!=null?`<b>${sel.y}</b> · ${dayLabel(sel.y,t)}: the first ${Math.ceil(t)} days of pay covered that year's federal, Social Security, Medicare, state and local taxes`+openBtn(sel.y):"The day each year when your pay had covered that year's taxes. Lower is better.";
+    $("yoyTfdD").innerHTML=sel&&t!=null?`<b>${sel.y}</b> · ${dayLabel(sel.y,t)}: the first ${Math.ceil(t)} days of pay covered that year's federal, Social Security, Medicare, state and local taxes`+openBtn(sel.y):"The day each year when your pay had covered that year's taxes. Lower is better. Days is how many days of the year's pay went to taxes.";
     const d=tf.filter(r=>!r.proj).map(r=>({y:r.y,n:tfdDay(r)}));if(d.length){const e=d.reduce((a,b)=>b.n<a.n?b:a),l=d.reduce((a,b)=>b.n>a.n?b:a);setSum("yoyTfd",`${dayLabel(e.y,e.n)} (${e.y}) to ${dayLabel(l.y,l.n)} (${l.y})`)}
   }
   /* per hour */
@@ -1329,7 +1333,7 @@ function renderYoy(){
     yearTable("tbRate",rows,[["Base pay",r=>r.base*rf(r.y),"$"],["Raise",chg,"pm"],["Prices",r=>chg(r)==null?null:infl(r),"pm"],["Real",r=>{const c=chg(r);return c==null?null:(1+c)/(1+infl(r))-1},"pmc"],[`In ${CPI_BASE} dollars`,r=>r.base*cpiOf(CPI_BASE)/cpiOf(r.y),"$"],["Per hour",r=>r.base*rf(r.y)/2080,"$c"],["Raise dates",r=>(byY.get(r.y)||[]).map(x=>`${nice(x.d)} ${sgn(x.pct)}`).join(", ")||"—","txt"]]);
     const tx=r=>yv(r,"fed")+yv(r,"fica")+yv(r,"state");
     yearTable("tbTax",rows,[["Federal",r=>yv(r,"fed"),"$","sum"],["%",r=>r.full.fed/r.full.gross,"%",ofG("fed")],["SS + Medicare",r=>yv(r,"fica"),"$","sum"],["%",r=>r.full.fica/r.full.gross,"%",ofG("fica")],["State + local",r=>yv(r,"state"),"$","sum"],["%",r=>r.full.state/r.full.gross,"%",ofG("state")],["All taxes",tx,"$","sum"],["%",r=>tx(r)/g(r),"%",rs=>rs.reduce((a,r)=>a+tx(r),0)/sum("gross")(rs)]]);
-    yearTable("tbTfd",rows,[["Tax Freedom Day",r=>r.partial?null:dayLabel(r.y,tfdDay(r)),"txt"],["Days of pay for taxes",r=>r.partial?null:Math.ceil(tfdDay(r)),"n"],["Taxes",tx,"$","sum"],["Gross",g,"$","sum"]]);
+    yearTable("tbTfd",rows,[["Date",r=>r.partial?null:dayLabel(r.y,tfdDay(r)),"txt"],["Days",r=>r.partial?null:Math.ceil(tfdDay(r)),"n"],["Taxes",tx,"$","sum"],["Gross",g,"$","sum"]]);
     yearTable("tbHour",rows,[["Paid hours",r=>r.hrs,"n","sum"],["Gross / hr",r=>r.hrs?g(r)/r.hrs:null,"$c"],["Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:null,"$c"],["Base / hr",r=>r.base?r.base*rf(r.y)/2080:null,"$c"],["Taxes / hr",r=>r.hrs?tx(r)/r.hrs:null,"$c"]]);
     let run=0;const runMap=new Map(rows.map(r=>{run+=yv(r,"ret")+yv(r,"er401");return[r.y,run]}));
     yearTable("tb401",rows,[["You",r=>yv(r,"ret"),"$","sum"],["% of pay",r=>r.full.ret/r.full.gross,"%",ofG("ret")],["Employer",r=>yv(r,"er401"),"$","sum"],["Total",r=>yv(r,"ret")+yv(r,"er401"),"$","sum"],["Your limit",r=>r.k401Lim*rf(r.y),"$"],["Limit used",r=>r.full.ret/r.k401Lim,"%"],["Running total",r=>runMap.get(r.y),"$"]]);
