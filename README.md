@@ -21,6 +21,7 @@ Don't commit stubs, PDFs, or backups to this repo. `.gitignore` blocks the commo
 - **Paste**: open a statement in your pay portal, press Ctrl+A then Ctrl+C, and paste it into **Add stubs**. Several statements in one paste is fine.
 - **PDF**: use the portal's Print → Save as PDF, then choose the file. Scanned or photographed PDFs can't be read.
 - **Photo**: tap **+ Stub photo** and take a picture of the statement, or pick one from your library. Text recognition runs on your device with [tesseract.js](https://github.com/naptha/tesseract.js), and the photo is never uploaded. The first time, it downloads the recognition engine (about 15 MB), which is cached after that. Photos are matched against the previous stub you saved: every line's year-to-date has to equal last year-to-date plus this check, and each section has to add up. A review screen shows what was read and highlights anything it couldn't confirm. You can edit numbers, name new lines, and add a missing line before saving.
+- **Text file**: tap **Choose text file** to load a backup file (.txt or .json) or a saved copy of statement text.
 - **Backup**: **Copy backup** puts all your stubs and settings on the clipboard as text. Paste that text into **Add stubs** on any device to restore.
 
 ## Home screen (iPhone)

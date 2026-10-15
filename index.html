@@ -381,6 +381,7 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
         <div class="row-actions">
           <button class="btn" id="readBtn">Read stubs</button>
           <label class="file" for="pdfIn">Choose PDFs<input id="pdfIn" type="file" accept="application/pdf" multiple></label>
+          <label class="file" for="txtIn">Choose text file<input id="txtIn" type="file" accept=".txt,.json,text/plain,application/json" multiple></label>
           <label class="file" for="photoIn">Photo of a stub<input id="photoIn" type="file" accept="image/*"></label>
         </div>
         <div id="toast" hidden></div>
@@ -1173,14 +1174,19 @@ function render(){
 
 /* ---------- events ---------- */
 function toast(msg,err){const t=$("toast");t.hidden=false;t.className="toast"+(err?" err":"");t.textContent=msg}
-$("readBtn").addEventListener("click",()=>{
-  const txt=$("pasteBox").value.trim();if(!txt){toast("Paste a statement first.",true);return}
+function readText(txt,src){
+  txt=txt.replace(/^\uFEFF/,"").trim();if(!txt){toast(src?`${src} is empty.`:"Paste a statement first.",true);return}
   if(/^[\[{]/.test(txt)){try{const o=JSON.parse(txt);const list=Array.isArray(o)?o:o.stubs;if(!Array.isArray(list))throw 0;
       if(o.settings)Object.assign(state.settings,o.settings);syncInputs();const r=addStubs(list);toast(`Restored ${r.added+r.replaced} stubs from backup.`);$("pasteBox").value="";return}catch(e){toast("That looks like a backup but couldn't be read.",true);return}}
   const list=parseText(txt);
   if(!list.length){toast("No statement found. Make sure the text includes the Pay Date line and the Earnings and Taxes tables.",true);return}
   const r=addStubs(list);$("pasteBox").value="";
-  toast(`Read ${list.length} stub${list.length>1?"s":""}: ${list.map(s=>nice(s.payDate)).join(", ")}.`+(r.replaced?` ${r.replaced} replaced an existing copy.`:"")+" See Stub checks above.");
+  toast(`Read ${list.length} stub${list.length>1?"s":""}${src?" from "+src:""}: ${list.map(s=>nice(s.payDate)).join(", ")}.`+(r.replaced?` ${r.replaced} replaced an existing copy.`:"")+" See Stub checks above.");
+}
+$("readBtn").addEventListener("click",()=>readText($("pasteBox").value));
+$("txtIn").addEventListener("change",async e=>{
+  const files=[...e.target.files];e.target.value="";if(!files.length)return;
+  for(const f of files){let t;try{t=await(f.text?f.text():new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(f)}))}catch(err){toast(`Couldn't open ${f.name}.`,true);continue}readText(t,f.name)}
 });
 $("pdfIn").addEventListener("change",async e=>{
   const files=[...e.target.files];if(!files.length)return;toast(`Reading ${files.length} PDF${files.length>1?"s":""}…`);
