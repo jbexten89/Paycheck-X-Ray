@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Paycheck X-Ray</title>
 <meta name="description" content="Reads a year of bi-weekly pay stubs: where the gross went, payroll error checks, W-2 preview, withholding gap, 401(k) and HSA pace. Data stays in your browser.">
 <meta name="theme-color" content="#07080A">
@@ -43,6 +43,9 @@ h2{font-size:19px;font-weight:700}
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
 .top .meta{display:flex;flex-direction:column;gap:2px;min-width:0}
 select,input,textarea,button{font:inherit;color:inherit}
+/* no zooming: block double-tap zoom, and keep form fields at 16px so iPhone doesn't zoom when one is tapped */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@media (pointer:coarse){input,select,textarea{font-size:16px!important}}
 select,input[type=number]{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .panel-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
@@ -1392,6 +1395,8 @@ window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:
 </script>
 <script src="ocr.js"></script>
 <script src="photo.js"></script>
+<script>(function(){const stop=e=>e.preventDefault();["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,{passive:false}));
+document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});})();</script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{r.update();document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")r.update()})}).catch(()=>{});let reloaded=false;const hadCtl=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!reloaded&&hadCtl&&!(document.activeElement&&/TEXTAREA|INPUT/.test(document.activeElement.tagName))){reloaded=true;location.reload()}})})}</script>
 </body>
 </html>
