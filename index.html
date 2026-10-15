@@ -1538,11 +1538,21 @@ $("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:s
   const fallback=()=>{out.hidden=false;out.value=json;out.focus();out.select();toast("Select-all is ready. Copy this text and keep it somewhere safe.")};
   try{navigator.clipboard.writeText(json).then(()=>{out.hidden=true;toast("Backup copied. Paste it into the box above to restore.")},fallback)}catch(e){fallback()}});
 $("m-cur").closest(".seg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;state.mode=b.dataset.mode;render()});
-$("yearSel").addEventListener("change",e=>{state.year=Number(e.target.value);state.checkKey=null;render()});
-const stepYear=d=>{const ys=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort((a,b)=>a-b);const n=ys[ys.indexOf(state.year)+d];if(n){state.year=n;state.checkKey=null;render()}};
+$("yearSel").addEventListener("change",e=>{keepPos(()=>{state.year=Number(e.target.value);state.checkKey=null;render()})});
+const stepYear=d=>{const ys=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort((a,b)=>a-b);const n=ys[ys.indexOf(state.year)+d];if(n)keepPos(()=>{state.year=n;state.checkKey=null;render()})};
 $("yearPrev").addEventListener("click",()=>stepYear(-1));$("yearNext").addEventListener("click",()=>stepYear(1));
-$("checkSel").addEventListener("change",e=>{state.checkKey=e.target.value;render()});
-const stepCheck=d=>{const ys=yearStubs(state.year);const i=ys.findIndex(x=>skey(x)===state.checkKey);const n=ys[i+d];if(n){state.checkKey=skey(n);render()}};
+/* keep the screen still: anchor on what's just under the pinned bar, re-render, then put it back at the same height */
+function keepPos(fn){
+  const bar=$("ctlBar"),top=bar?bar.getBoundingClientRect().bottom+8:80,x=Math.round(window.innerWidth/2);
+  let el=document.elementFromPoint(x,Math.min(top+40,window.innerHeight-1));
+  const pick=e=>{while(e&&e!==document.body){if(e.id&&!e.closest("#ctlBar"))return e;if(e.matches&&e.matches("section.panel"))return e;e=e.parentElement}return null};
+  let a=pick(el);const y0=window.scrollY,t0=a?a.getBoundingClientRect().top:0;
+  fn();
+  if(a&&(!a.isConnected||!a.getClientRects().length))a=null;
+  if(a){const d=a.getBoundingClientRect().top-t0;if(Math.abs(d)>0.5)window.scrollTo(0,window.scrollY+d)}else window.scrollTo(0,y0);
+}
+$("checkSel").addEventListener("change",e=>{keepPos(()=>{state.checkKey=e.target.value;render()})});
+const stepCheck=d=>{const ys=yearStubs(state.year);const i=ys.findIndex(x=>skey(x)===state.checkKey);const n=ys[i+d];if(n)keepPos(()=>{state.checkKey=skey(n);render()})};
 $("chkPrev").addEventListener("click",()=>stepCheck(-1));$("chkNext").addEventListener("click",()=>stepCheck(1));
 const pickDay=d=>{const ys=yearStubs(state.year);const s=ys.find(x=>x.payDate===d&&!isExtra(x))||ys.find(x=>x.payDate===d);if(!s)return;
   state.checkKey=skey(s);state.mode="cur";render();const sec=document.querySelector('section[data-k="gross"]');if(sec){applyPanel(sec,true);setOpen("gross",true);sec.scrollIntoView({behavior:"smooth",block:"start"})}};
