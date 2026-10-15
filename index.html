@@ -208,7 +208,9 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .chkbar select{flex:1;min-width:0}
 .chkbar .btn{font-size:18px;line-height:1;padding:6px 12px}
 .chkbar .btn:disabled{opacity:.35;cursor:default}
-.pd.have,.pd.xtra{cursor:pointer}
+.pd.have,.pd.bon,.pd.ext{cursor:pointer}
+.pd.bon{background:var(--c-k-p45);border-color:var(--c-k-p45);color:#1A1404;font-weight:700}
+.pd.ext{border-color:var(--c-k-p45);color:var(--c-k-p45)}
 .pd.on{outline:2px solid var(--ink);outline-offset:1px}
 .sd{border-top:1px solid var(--line);padding-top:12px}
 .sd summary{cursor:pointer;font-weight:700;font-size:15px}
@@ -367,7 +369,9 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
       <span><i class="pd miss"></i> Paid, stub missing</span>
       <span><i class="pd next"></i> Next payday</span>
       <span><i class="pd"></i> Upcoming</span>
-      <span>Tap a loaded payday to open that check</span>
+      <span><i class="pd bon"></i> Bonus check</span>
+      <span><i class="pd ext"></i> Other extra check</span>
+      <span>Tap any check to open it</span>
     </div>
   </section>
 
@@ -730,19 +734,26 @@ async function pdfToText(file){
 }
 
 /* ---------- render: calendar ---------- */
+const isBonusCheck=s=>s.items.some(i=>i.sec==="earnings"&&isBonusE(i)&&i.cur>=500);
 function renderCalendar(m,y){
   const have=new Set(m.ys.filter(s=>!isExtra(s)).map(s=>s.payDate));const extra=new Set(m.ys.filter(isExtra).map(s=>s.payDate));const next=m.pds.find(d=>d>todayISO);
   const byMonth=Array.from({length:12},()=>[]);m.pds.forEach(d=>byMonth[dObj(d).getMonth()].push(d));
+  const xByMonth=Array.from({length:12},()=>[]);m.ys.filter(isExtra).forEach(s=>xByMonth[dObj(s.payDate).getMonth()].push(s));
+  const selKey=state.mode==="cur"?state.checkKey:null;
   $("months").innerHTML=byMonth.map((ds,mi)=>{
-    const pills=ds.map(d=>{const cls=have.has(d)?"have":d<=todayISO?"miss":d===next?"next":"";
+    const items=ds.map(d=>({d,x:null})).concat(xByMonth[mi].map(s=>({d:s.payDate,x:s}))).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.x?1:-1);
+    const pills=items.map(({d,x})=>{
+      if(x){const bon=isBonusCheck(x);const amt=x.net&&x.net.cur!=null?fmt(x.net.cur):"—";
+        return `<span class="pd ${bon?"bon":"ext"}${selKey===skey(x)?" on":""}" role="button" tabindex="0" data-key="${esc(skey(x))}" title="${nice(d)}, ${y}: ${bon?"bonus check":"extra check"}, ${amt} deposited">${dObj(d).getDate()}</span>`}
+      const cls=have.has(d)?"have":d<=todayISO?"miss":d===next?"next":"";
       const t=have.has(d)?"stub loaded":d<=todayISO?"paid, stub missing":d===next?"next payday":"upcoming";
-      const plus=extra.has(d);
-      const sel=state.mode==="cur"&&state.checkDate===d;
-      return `<span class="pd ${cls}${sel?" on":""}"${have.has(d)?` role="button" tabindex="0" data-chk="${d}"`:""} title="${nice(d)}, ${y}: ${t}${plus?" plus an extra check":""}">${dObj(d).getDate()}${plus?"+":""}</span>`}).join("");
+      const rs=m.ys.find(s=>s.payDate===d&&!isExtra(s)),sel=!!(selKey&&rs&&selKey===skey(rs));
+      return `<span class="pd ${cls}${sel?" on":""}"${have.has(d)?` role="button" tabindex="0" data-chk="${d}"`:""} title="${nice(d)}, ${y}: ${t}">${dObj(d).getDate()}</span>`}).join("");
     return `<div class="mo${ds.length===3?" three":""}"><div class="mo-h"><span>${MON[mi]}</span>${ds.length===3?'<span class="x3">3 checks</span>':""}</div><div class="pds">${pills}</div></div>`}).join("");
   const miss=m.pds.filter(d=>d<=todayISO&&!have.has(d)).length;const threes=byMonth.map((d,i)=>d.length===3?MON[i]:null).filter(Boolean);
   setSum("cal",`<strong>${have.size}/${m.pds.length}</strong> stubs`+(miss?` · <span class="warn">${miss} missing</span>`:"")+(next?` · next payday ${nice(next)}`:""));
-  $("calSummary").textContent=`${have.size} of ${m.pds.length} stubs loaded`+(extra.size?` + ${extra.size} extra`:"")+(miss?` · ${miss} missing`:"")+(threes.length?` · 3-check months: ${threes.join(", ")}`:"");
+  const xs=m.ys.filter(isExtra),nb=xs.filter(isBonusCheck).length,no=xs.length-nb;
+  $("calSummary").textContent=`${have.size} of ${m.pds.length} stubs loaded`+(nb?` + ${nb} bonus check${nb>1?"s":""}`:"")+(no?` + ${no} other extra`:"")+(miss?` · ${miss} missing`:"")+(threes.length?` · 3-check months: ${threes.join(", ")}`:"");
 }
 
 /* ---------- render: breakdown ---------- */
@@ -764,7 +775,7 @@ const SECN=[["earnings","Earnings"],["taxable","Taxable benefits (not paid in ca
 function renderCheckUI(m){
   const cur=state.mode==="cur";$("chkBar").hidden=!cur;$("stubDetail").hidden=!cur;if(!cur)return;
   const ys=m.ys,s=chosenCheck(m),i=ys.indexOf(s);
-  $("checkSel").innerHTML=[...ys].reverse().map(x=>`<option value="${esc(skey(x))}"${x===s?" selected":""}>${nice(x.payDate)}${isExtra(x)?" · extra check":""} · ${x.net&&x.net.cur!=null?fmt(x.net.cur):"—"}</option>`).join("");
+  $("checkSel").innerHTML=[...ys].reverse().map(x=>`<option value="${esc(skey(x))}"${x===s?" selected":""}>${nice(x.payDate)}${isExtra(x)?(isBonusCheck(x)?" · bonus check":" · extra check"):""} · ${x.net&&x.net.cur!=null?fmt(x.net.cur):"—"}</option>`).join("");
   $("chkPrev").disabled=i<=0;$("chkNext").disabled=i>=ys.length-1;
   const regs=ys.filter(x=>!isExtra(x));let pv=isExtra(s)?null:regs[regs.indexOf(s)-1]||null;
   const pv0=pv;if(pv&&!s.items.some(x=>{const q=pv.items.find(j=>j.sec===x.sec&&j.label===x.label);return Math.abs(x.cur-(q?q.cur:0))>=0.005}))pv=null;
@@ -800,7 +811,7 @@ function renderBreakdown(m){
     return lines.length>1?lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.n)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${(x.v/g*100).toFixed(1)}%</span></div>`).join(""):""};
   $("bdList").innerHTML=shown.map(([k,l,c])=>{const sb=subs(k);return grpRow("ee-"+k,c,l,fmt(b.parts[k]),(b.parts[k]/g*100).toFixed(1)+"%",!!sb)+sb+"</div>"}).join("");
   setSum("gross",`<strong>${fmt0(b.parts.net)}</strong> take-home of ${fmt0(b.gross)} · ${f==="cur"?`check of ${nice(m.reg.payDate)}`:f==="ytd"?"so far":m.partial?`through ${nice(m.latest.payDate)}`:"full year"}`);
-  const label=f==="cur"?`${isExtra(m.reg)?"Extra check":"Check"} of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:(m.partial?`Through ${nice(m.latest.payDate)} (rest of year not loaded)`:m.remaining?`Projected through Dec 31 (${m.remaining} paydays left)`:`Full year ${state.year}`);
+  const label=f==="cur"?`${isExtra(m.reg)?(isBonusCheck(m.reg)?"Bonus check":"Extra check"):"Check"} of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:(m.partial?`Through ${nice(m.latest.payDate)} (rest of year not loaded)`:m.remaining?`Projected through Dec 31 (${m.remaining} paydays left)`:`Full year ${state.year}`);
   const totalTax=b.parts.fed+b.parts.fica+b.parts.state;
   $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>gross pay</small></div>
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
@@ -1382,8 +1393,9 @@ const stepCheck=d=>{const ys=yearStubs(state.year);const i=ys.findIndex(x=>skey(
 $("chkPrev").addEventListener("click",()=>stepCheck(-1));$("chkNext").addEventListener("click",()=>stepCheck(1));
 const pickDay=d=>{const ys=yearStubs(state.year);const s=ys.find(x=>x.payDate===d&&!isExtra(x))||ys.find(x=>x.payDate===d);if(!s)return;
   state.checkKey=skey(s);state.mode="cur";render();const sec=document.querySelector('section[data-k="gross"]');if(sec){applyPanel(sec,true);setOpen("gross",true);sec.scrollIntoView({behavior:"smooth",block:"start"})}};
-$("months").addEventListener("click",e=>{const p=e.target.closest("[data-chk]");if(p)pickDay(p.dataset.chk)});
-$("months").addEventListener("keydown",e=>{const p=e.target.closest("[data-chk]");if(p&&(e.key==="Enter"||e.key===" ")){e.preventDefault();pickDay(p.dataset.chk)}});
+const pickPill=p=>{if(p.dataset.key){state.checkKey=p.dataset.key;state.mode="cur";render();const sec=document.querySelector('section[data-k="gross"]');if(sec){applyPanel(sec,true);setOpen("gross",true);sec.scrollIntoView({behavior:"smooth",block:"start"})}}else pickDay(p.dataset.chk)};
+$("months").addEventListener("click",e=>{const p=e.target.closest("[data-chk],[data-key]");if(p)pickPill(p)});
+$("months").addEventListener("keydown",e=>{const p=e.target.closest("[data-chk],[data-key]");if(p&&(e.key==="Enter"||e.key===" ")){e.preventDefault();pickPill(p)}});
 function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=state.settings.seProfit;$("otherInc").value=state.settings.otherInc;$("estPaid").value=state.settings.estPaid}
 $("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();render()});
 ["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();render()}));
