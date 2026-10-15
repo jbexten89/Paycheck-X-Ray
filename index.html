@@ -325,6 +325,8 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}</style>
 "use strict";
 /* ---------- constants (2026 tax year) ---------- */
 const LIMS={
+  2019:{std:12200,br:[[9700,.10],[39475,.12],[84200,.22],[160725,.24],[204100,.32],[510300,.35],[Infinity,.37]],
+    k401:19000,c50:6000,c60:6000,total:56000,ssBase:132900,hsaSelf:3500,hsaFam:7000,hsaCatch:1000},
   2020:{std:12400,br:[[9875,.10],[40125,.12],[85525,.22],[163300,.24],[207350,.32],[518400,.35],[Infinity,.37]],
     k401:19500,c50:6500,c60:6500,total:57000,ssBase:137700,hsaSelf:3550,hsaFam:7100,hsaCatch:1000},
   2021:{std:12550,br:[[9950,.10],[40525,.12],[86375,.22],[164925,.24],[209425,.32],[523600,.35],[Infinity,.37]],
@@ -515,6 +517,7 @@ function parseChunk(chunk){
     if(label&&amts.length){const it={sec,label,cur:amts[0],ytd:amts.length>1?amts[amts.length-1]:null};if(nums.length&&sec==="earnings")it.hours=nums[0];stub.items.push(it)}
   }
   flush();
+  const merged=[];for(const it of stub.items){const mm=merged.find(x=>x.sec===it.sec&&x.label===it.label);if(mm){mm.cur=r2(mm.cur+it.cur);if(mm.ytd==null)mm.ytd=it.ytd}else merged.push(it)}stub.items=merged;
   if(netA.length)stub.net={cur:netA[0],ytd:netA.length>1?netA[netA.length-1]:null};
   return stub.items.length?stub:null;
 }
@@ -583,7 +586,7 @@ function renderBreakdown(m){
   $("bar").setAttribute("aria-label",shown.map(([k,l])=>`${l} ${Math.round(b.parts[k]/g*100)}%`).join(", "));
   const SUBP={health:i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&/MED|DENT|VIS|FSA|HEALTH|INS/i.test(i.label),
     fica:i=>isSS(i)||isMedi(i),state:isStateLocal,ret:isRet};
-  const subName=i=>isRoth(i)?"Roth 401(k)":isPreRet(i)?"Pre-tax 401(k)":isSS(i)?"Social Security (6.2%)":isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b/i.test(i.label)?"School district tax":i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
+  const subName=i=>isRoth(i)?"Roth 401(k)":isPreRet(i)?"Pre-tax 401(k)":isSS(i)?"Social Security (6.2%)":isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b|SdW/i.test(i.label)?(()=>{const n=i.label.replace(/\s*(Schl|School|Sd)\b.*$|\s*SdW.*$/i,"").trim();return n?`School district tax (${n.charAt(0)+n.slice(1).toLowerCase()})`:"School district tax"})():i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
   const subs=k=>{if(!SUBP[k])return"";
     const lines=m.latest.items.filter(SUBP[k])
       .map(i=>({n:subName(i),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
@@ -707,6 +710,9 @@ function runChecks(m,y){
   });
   if(m.lastByEmp&&m.lastByEmp.length>1){const ssAll=m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0);const mx=LIM.ssBase*.062;
     if(ssAll>mx+0.05)out.push(["info","Extra Social Security withheld",`With ${m.lastByEmp.length} employers, ${fmt(ssAll)} of Social Security was withheld, ${fmt(ssAll-mx)} over the ${fmt(mx)} yearly maximum. You get the extra back as a credit on your federal return (Form 1040, Schedule 3).`]);}
+  if(m.latest){const hsaIt=m.latest.items.filter(isHSA);if(hsaIt.length){const fam=hsaIt.some(i=>/FAM/i.test(i.label));const age=ageFor(y);
+      const hl=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);const ht=m.val(isHSAall,m.remaining?"proj":"ytd");
+      if(ht>hl+0.5)out.push(["warn",m.remaining?"HSA on pace to go over the limit":"HSA went over the limit",`You and your employer ${m.remaining?"are on pace to put in":"put in"} ${fmt(ht)} against the ${fmt0(hl)} ${fam?"family":"self-only"} limit, ${fmt(ht-hl)} over. `+(m.remaining?"Lower your HSA deduction before year end.":"Extra contributions have to be withdrawn by the tax-filing deadline, or they cost 6% a year until they are. Check with your HSA provider or that year's Form 8889.")])}}
   if(m.latest){const ssWproj=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
     if(m.remaining>0&&ssWproj>LIM.ssBase&&!capNoted)out.push(["info","You'll hit the Social Security cap",`Projected Social Security wages ${fmt0(ssWproj)} pass the ${fmt0(LIM.ssBase)} limit, so late-year checks should get bigger.`]);}
   const n=ys.length;
@@ -717,10 +723,10 @@ function runChecks(m,y){
   const order={bad:0,warn:1,info:2,ok:3};out.sort((a,b)=>order[a[0]]-order[b[0]]);return out;
 }
 function renderChecks(m,y){
-  const cs=runChecks(m,y);const lab={bad:"Problem",warn:"Gap",info:"Change",ok:"OK"};
+  const cs=runChecks(m,y);const lab={bad:"Problem",warn:"Check",info:"Change",ok:"OK"};
   $("checks").innerHTML=cs.map(([s,t,d])=>`<li class="ck"><span class="chip ${s}">${lab[s]}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join("");
   const bad=cs.filter(c=>c[0]==="bad").length,gap=cs.filter(c=>c[0]==="warn").length;
-  setSum("checks",bad||gap?`<span class="warn">${bad?`${bad} problem${bad>1?"s":""}`:""}${bad&&gap?" · ":""}${gap?`${gap} gap${gap>1?"s":""}`:""}</span>`:`No payroll errors · ${cs.filter(c=>c[0]==="info").length} changes noted`);
+  setSum("checks",bad||gap?`<span class="warn">${bad?`${bad} problem${bad>1?"s":""}`:""}${bad&&gap?" · ":""}${gap?`${gap} to check`:""}</span>`:`No payroll errors · ${cs.filter(c=>c[0]==="info").length} changes noted`);
   const sig=cs.filter(c=>c[0]==="bad"||c[0]==="warn").map(c=>c[1]).join("|");
   if(sig&&ui.checksSig!==sig){ui.checksSig=sig;setOpen("checks",true);const sec=document.querySelector('section[data-k="checks"]');if(sec)applyPanel(sec,true)}
   $("ckSummary").textContent=bad?`${bad} problem${bad>1?"s":""} found`:"No payroll errors found";
@@ -786,20 +792,21 @@ function meter(cls,title,ytd,proj,limit,lines){
 }
 function renderMeters(m){
   const age=ageFor(state.year);const catchUp=age>=60&&age<=63?LIM.c60:age>=50?LIM.c50:0;const kLim=LIM.k401+catchUp;
-  const kY=m.val(isDefer,"ytd"),kP=m.val(isDefer,"proj"),kC=m.val(isDefer,"cur");
+  const nReg=m.ys.filter(s=>!isExtra(s)).length||1;
+  const kY=m.val(isDefer,"ytd"),kP=m.val(isDefer,"proj"),kC=m.remaining?m.val(isDefer,"cur"):r2(kY/nReg);
   const rothY=m.val(isRoth,"ytd"),loanY=m.val(isLoan,"ytd");
   const need=m.remaining?Math.max(0,(kLim-kY)/m.remaining):0;
   const mY=m.val(isMatch,"ytd");const erP=m.val(isErRet,"proj");
-  const gross=m.val(i=>i.sec==="earnings","cur");
-  const kLines=[`${fmt0(kY)} so far`+(rothY?` (${fmt0(kY-rothY)} pre-tax + ${fmt0(rothY)} Roth)`:"")+` · ${fmt(kC)} per check (${gross?(kC/gross*100).toFixed(1):0}% of gross).`,
+  const gross=m.remaining?m.val(i=>i.sec==="earnings","cur"):r2(m.val(i=>i.sec==="earnings","ytd")/nReg);const perLbl=m.remaining?"per check":"per check on average";
+  const kLines=[`${fmt0(kY)} so far`+(rothY?` (${fmt0(kY-rothY)} pre-tax + ${fmt0(rothY)} Roth)`:"")+` · ${fmt(kC)} ${perLbl} (${gross?(kC/gross*100).toFixed(1):0}% of gross).`,
     m.remaining===0?(kY<kLim?`Year finished ${fmt0(kLim-kY)} under the limit.`:`Reached the limit.`):kP<kLim?`To max out, raise it to about <b class="num">${fmt0(need)}</b> per check for the ${m.remaining} paydays left.`:`On pace to reach the limit.`,
     (catchUp?`Limit includes the ${fmt0(catchUp)} age catch-up.`:`No catch-up yet; that starts the year you turn 50.`)+(kY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`+(loanY?` 401(k) loan repayments (${fmt0(loanY)}) aren't contributions and aren't counted here.`:"")];
   const hsaItems=m.latest.items.filter(isHSA);const fam=hsaItems.some(i=>/FAM/i.test(i.label));
   const hLim=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);
-  const hY=m.val(isHSAall,"ytd"),hP=m.val(isHSAall,"proj"),hC=m.val(isHSA,"cur"),hEr=m.val(isHSAer,"ytd");
+  const hY=m.val(isHSAall,"ytd"),hP=m.val(isHSAall,"proj"),hEr=m.val(isHSAer,"ytd"),hC=m.remaining?m.val(isHSA,"cur"):r2((hY-hEr)/nReg);
   const hNeed=m.remaining?Math.max(0,(hLim-hY)/m.remaining):0;
   const extraPer=m.remaining?(hLim-hP)/m.remaining:0;
-  const hLines=[`${fmt0(hY)} so far: ${fmt0(hY-hEr)} from you (${fmt(hC)} per check) and ${fmt0(hEr)} from your employer.`,
+  const hLines=[`${fmt0(hY)} so far: ${fmt0(hY-hEr)} from you (${fmt(hC)} ${perLbl}) and ${fmt0(hEr)} from your employer.`,
     m.remaining===0?(hY>hLim+0.5?`<b>Year finished ${fmt0(hY-hLim)} over the limit.</b>`:(hLim-hY>1?`Year finished ${fmt0(hLim-hY)} under the limit.`:`Hit the limit exactly.`)):hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it by about ${fmt0(-extraPer)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. Adding about <b class="num">${fmt0(extraPer)}</b> per check (about <b class="num">${fmt0(hC+extraPer)}</b> total) would fill it.`:`On pace to hit the limit exactly.`,
     `${fam?"Family":"Self-only"} limit${age>=55?" plus the age-55 catch-up":""}. Employer deposits count toward it.`];
   $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines):"")+k401Total(m,catchUp);
