@@ -281,6 +281,11 @@ table.rt{font-size:13px}table.rt th,table.rt td{padding:6px 5px;white-space:nowr
 table.yt{font-size:13.5px}
 table.ytab{font-size:13px}table.ytab th,table.ytab td{padding:6px 7px}
 table.ytab th{white-space:normal;max-width:84px;vertical-align:bottom;line-height:1.25}
+#yoyBonusTbl tr.bsub td{font-size:12.5px;color:var(--muted);background:color-mix(in srgb,var(--soft) 55%,transparent);padding-top:5px;padding-bottom:5px}
+#yoyBonusTbl tr.bsub td:first-child{padding-left:26px;color:var(--ink)}
+#yoyBonusTbl .xchev{display:inline-flex;width:14px;margin-right:4px;vertical-align:middle;color:var(--muted)}
+#yoyBonusTbl .xchev .chev{transform:rotate(-90deg)}@media (prefers-reduced-motion:no-preference){#yoyBonusTbl .xchev .chev{transition:transform .15s}}
+#yoyBonusTbl tr.open .xchev .chev{transform:none}
 table.yt.ytab td.nt{color:var(--ink);font-size:13px}
 @media (max-width:520px){table.ytab th,table.ytab td{padding:6px 5px}table.ytab{font-size:12.5px}}
 .pj{display:block;font-size:10.5px;color:var(--muted);line-height:1.1}
@@ -1163,12 +1168,14 @@ function yoyRow(y){
   if(m.pds.length===27)notes.push("27 paydays");
   if((lim.ssRate||.062)<.062)notes.push(`Social Security at ${(lim.ssRate*100).toFixed(1)}%`);
   if(m.ys.length>regs.length)notes.push(`${m.ys.length-regs.length} extra check${m.ys.length-regs.length>1?"s":""}`);
-  const bn={bonus:0,bonusNet:0,bonusTax:0,bonus401:0,bonusEst:false,bonusDates:[],bonusSkipped:0};
+  const bn={bonus:0,bonusNet:0,bonusTax:0,bonus401:0,bonusEst:false,bonusDates:[],bonusSkipped:0,bonusItems:[]};
   for(const s of m.ys){const e=s.items.filter(i=>i.sec==="earnings"),be=e.filter(isBonusE).reduce((a,i)=>a+i.cur,0);if(!(be>0.004))continue;
     if(isExtra(s)&&s.net&&Math.abs(s.net.cur||0)<0.005){bn.bonusSkipped+=be;continue}
     bn.bonus+=be;
     const eT=e.reduce((a,i)=>a+i.cur,0)||be,sh=be/eT,sum=p=>s.items.filter(p).reduce((a,i)=>a+i.cur,0);
-    bn.bonusNet+=(s.net&&s.net.cur!=null?s.net.cur:0)*sh;bn.bonusTax+=sum(i=>i.sec==="taxes")*sh;bn.bonus401+=sum(isRet)*sh;
+    const it={d:s.payDate,gross:be,net:(s.net&&s.net.cur!=null?s.net.cur:0)*sh,tax:sum(i=>i.sec==="taxes")*sh,k:sum(isRet)*sh,est:!isExtra(s),
+      what:[...new Set(e.filter(i=>isBonusE(i)&&i.cur>0).map(i=>i.label))].join(", ")};bn.bonusItems.push(it);
+    bn.bonusNet+=it.net;bn.bonusTax+=it.tax;bn.bonus401+=it.k;
     if(!isExtra(s))bn.bonusEst=true;if(be>=500)bn.bonusDates.push(s.payDate)}
   const pto={};for(const s of m.ys)for(const[t,o]of Object.entries(stubPto(s))){const p=pto[t]||(pto[t]={h:0,d:0});p.h+=o.h;p.d+=o.d}
   const hrs=regs.reduce((a,s)=>a+stubHours(s),0)+(f==="proj"?m.remaining*(isSemi(m.reg)?2080/24:80):0);
@@ -1380,9 +1387,11 @@ function renderYoy(){
   {const br=[...rows].reverse();const bg=r=>yv(r,"bonus"),Tb=k=>rows.reduce((a,r)=>a+yv(r,k),0),gT=Tb("bonus"),nT=Tb("bonusNet");
     const dts=r=>r.full.bonusDates.map(d=>nice(d)).join(", ");
     $("yoyBonusTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Bonus gross</th><th class="n">Bonus net</th><th class="n">Overtime</th><th class="n">Kept</th><th class="n">401(k)</th><th class="n">Taxes</th><th class="n">Bonus + OT</th><th class="n">% of gross</th><th>Paid</th></tr></thead><tbody>`+
-      br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.proj?"*":""}</td><td class="n">${fmt0(bg(r))}</td><td class="n">${fmt0(yv(r,"bonusNet"))}${r.full.bonusEst?"†":""}</td><td class="n">${fmt0(yv(r,"ot"))}</td><td class="n">${r.full.bonus>0.5&&r.full.bonusNet>0.5?pc1(r.full.bonusNet,r.full.bonus):"—"}</td><td class="n">${fmt0(yv(r,"bonus401"))}</td><td class="n">${fmt0(yv(r,"bonusTax"))}</td><td class="n">${fmt0(bg(r)+yv(r,"ot"))}</td><td class="n">${pc1(r.full.bonus+r.full.ot,r.full.gross)}</td><td class="nt">${dts(r)}</td></tr>`).join("")+
+      br.map(r=>{const its=r.full.bonusItems||[],multi=its.length>1,open=multi&&state.bonusOpen&&state.bonusOpen.has(r.y),f=rf(r.y);
+        const subs=multi?its.map(x=>`<tr class="bsub"${open?"":" hidden"} data-p="${r.y}"><td>${nice(x.d)}</td><td class="n">${fmt0(x.gross*f)}</td><td class="n">${fmt0(x.net*f)}${x.est?"†":""}</td><td class="n"></td><td class="n">${x.gross>0.5&&x.net>0.5?pc1(x.net,x.gross):"—"}</td><td class="n">${fmt0(x.k*f)}</td><td class="n">${fmt0(x.tax*f)}</td><td class="n"></td><td class="n"></td><td class="nt">${esc(x.what)}</td></tr>`).join(""):"";
+        return`<tr class="click${state.yoySel===r.y?" sel":""}${multi?" multi":""}${open?" open":""}" data-y="${r.y}"${multi?` data-multi="1" aria-expanded="${!!open}"`:""}><td>${multi?`<span class="xchev">${CHEV}</span>`:""}${r.y}${r.proj?"*":""}</td><td class="n">${fmt0(bg(r))}</td><td class="n">${fmt0(yv(r,"bonusNet"))}${r.full.bonusEst?"†":""}</td><td class="n">${fmt0(yv(r,"ot"))}</td><td class="n">${r.full.bonus>0.5&&r.full.bonusNet>0.5?pc1(r.full.bonusNet,r.full.bonus):"—"}</td><td class="n">${fmt0(yv(r,"bonus401"))}</td><td class="n">${fmt0(yv(r,"bonusTax"))}</td><td class="n">${fmt0(bg(r)+yv(r,"ot"))}</td><td class="n">${pc1(r.full.bonus+r.full.ot,r.full.gross)}</td><td class="nt">${dts(r)}</td></tr>`+subs}).join("")+
       `<tr class="total"><td>All</td><td class="n">${fmt0(gT)}</td><td class="n">${fmt0(nT)}</td><td class="n">${fmt0(Tb("ot"))}</td><td class="n">${pc1(nT,gT)}</td><td class="n">${fmt0(Tb("bonus401"))}</td><td class="n">${fmt0(Tb("bonusTax"))}</td><td class="n">${fmt0(gT+Tb("ot"))}</td><td class="n">${pc1(gT+Tb("ot"),rows.reduce((a,r)=>a+yv(r,"gross"),0))}</td><td></td></tr></tbody>`;
-    $("yoyBonusNote").textContent=`Bonus net is what was deposited from the bonus. Bonuses paid on their own check use that check's actual deposit; when a check mixed a bonus with other pay, its taxes, 401(k) and deposit are split in proportion to the bonus share.${rows.some(r=>r.full.bonusEst)?" † Includes a bonus paid on a regular check, split that way.":""} Extra checks that deposited nothing (tax gross-ups and gift cards) are left out of the bonus figures${rows.some(r=>r.full.bonusSkipped>0.5)?` (${fmt0(rows.reduce((a,r)=>a+r.full.bonusSkipped,0))} in all)`:""}; they still count in gross pay. Overtime is shown gross; it's paid on regular checks with everything else. Paid lists bonus dates of $500 or more. Tap a row to open that year.`;
+    $("yoyBonusNote").textContent=`Bonus net is what was deposited from the bonus. Bonuses paid on their own check use that check's actual deposit; when a check mixed a bonus with other pay, its taxes, 401(k) and deposit are split in proportion to the bonus share.${rows.some(r=>r.full.bonusEst)?" † Includes a bonus paid on a regular check, split that way.":""} Extra checks that deposited nothing (tax gross-ups and gift cards) are left out of the bonus figures${rows.some(r=>r.full.bonusSkipped>0.5)?` (${fmt0(rows.reduce((a,r)=>a+r.full.bonusSkipped,0))} in all)`:""}; they still count in gross pay. Overtime is shown gross; it's paid on regular checks with everything else. Paid lists bonus dates of $500 or more. Years with a ▸ have more than one payment: tap to see each one. Tap any other row to open that year.`;
   }
   const bT=S("bonus"),oT=S("ot");setSum("yoyExtra",`<strong>${fmt0(bT+oT)}</strong> total`);
   $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross: ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5&&sel.full.bonusNet>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept), ${fmt0(yv(sel,"bonus401"))} to 401(k), ${fmt0(yv(sel,"bonusTax"))} taxes · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses and one-time pay, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
@@ -1470,6 +1479,8 @@ function renderYoy(){
 document.addEventListener("click",e=>{
   const ob=e.target.closest("[data-open]");if(ob){state.year=+ob.dataset.open;if(ob.dataset.key){state.checkKey=ob.dataset.key;state.mode="cur"}setView("year");window.scrollTo(0,0);return}
   const th=e.target.closest("#yoyTbl th[data-sort]");if(th){const k=th.dataset.sort;const so=state.yoySort||{k:"y",d:-1};state.yoySort={k,d:so.k===k?-so.d:(k==="y"?-1:-1)};renderYoy();return}
+  const mt=e.target.closest("#yoyBonusTbl tr[data-multi]");if(mt){const y=+mt.dataset.y;state.bonusOpen=state.bonusOpen||new Set();if(state.bonusOpen.has(y))state.bonusOpen.delete(y);else state.bonusOpen.add(y);
+    const op=state.bonusOpen.has(y);mt.classList.toggle("open",op);mt.setAttribute("aria-expanded",String(op));document.querySelectorAll(`#yoyBonusTbl tr.bsub[data-p="${y}"]`).forEach(r=>r.hidden=!op);return}
   const tr=e.target.closest("#yoyTbl tr[data-y], #yoyBonusTbl tr[data-y], table.ytab tr[data-y]");if(tr){state.year=+tr.dataset.y;setView("year");window.scrollTo(0,0);return}
   const col=e.target.closest("#yoyView .col");if(col){const y=+col.dataset.y;state.yoySel=state.yoySel===y?null:y;renderYoy();return}
   if(e.target.closest("#yoyView .tog")){setTimeout(renderYoy,0);return}
