@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Pay data never passes through here; it lives in the browser's localStorage.
-const CACHE = "pxr-v59";
+const CACHE = "pxr-v60";
 const SHELL = ["./", "index.html", "ocr.js", "photo.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" }))))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
