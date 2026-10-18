@@ -216,6 +216,20 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .yearnav .btn,.chkbar .btn{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:0 14px;font-size:22px;line-height:1;border-radius:8px}
 @media (max-width:430px){.ctlbar .seg button{padding:6px 9px}.ctlbar .row-actions{gap:6px}}
 .yearnav .btn:disabled{opacity:.35;cursor:default}
+/* section jumping */
+.jumpbar{display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.jumpbar::-webkit-scrollbar{display:none}
+.jumpbar[hidden]{display:none}
+.jchip{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+.jchip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.fab{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:80;width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.45);cursor:pointer}
+.fab[hidden],.fabmenu[hidden]{display:none!important}
+.fab[aria-expanded=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.fabmenu{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 80px);z-index:80;min-width:210px;max-height:min(70vh,520px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.55);display:flex;flex-direction:column}
+.fabmenu button{all:unset;cursor:pointer;padding:10px 12px;border-radius:8px;font-size:15px;color:var(--ink)}
+.fabmenu button.on{color:var(--accent);font-weight:700}
+.fabmenu button:hover,.fabmenu button:focus-visible{background:var(--soft)}
+.fabmenu .sep{height:1px;background:var(--line);margin:4px 6px}
 /* one paycheck */
 .chkbar{display:flex;gap:5px;align-items:stretch;margin-top:8px}
 .chkbar .btn{flex:none;width:var(--yr-btn-w,52px)}
@@ -330,7 +344,10 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <select id="checkSel" aria-label="Choose a paycheck"></select>
       <button type="button" class="btn ghost small" id="chkNext" aria-label="Next check">›</button>
     </div>
+    <nav class="jumpbar" id="jumpBar" aria-label="Jump to a section"></nav>
   </div>
+  <button type="button" class="fab" id="fab" aria-label="Jump to a section" aria-haspopup="true" aria-expanded="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+  <div class="fabmenu" id="fabMenu" role="menu" hidden></div>
 
   <section class="panel" id="emptyNote" hidden>
     <h2>Start with your stubs</h2>
@@ -338,7 +355,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
   </section>
 
   <div id="yoyView" hidden>
-  <section class="panel">
+  <section class="panel" id="yoyTop">
     <div class="panel-head"><h2>Year over year</h2>
       <div class="seg" id="yoyReal" role="group" aria-label="Dollar amounts"><button data-real="0" aria-pressed="true">As paid</button><button data-real="1" aria-pressed="false">After inflation</button></div></div>
     <div class="statline" id="yoyStats"></div>
@@ -1491,7 +1508,55 @@ function setView(v){state.view=v;setOpen("view",v==="all");render()}
 let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(state.view==="all")renderYoy()},150)});
 
 /* ---------- main render ---------- */
-function render(){
+/* ---------- jump to sections ---------- */
+const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",add:"Add stubs",
+  yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
+  yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyTbl:"Every year"};
+let jumpList=[];
+function jumpSections(){
+  const all=state.view==="all";
+  const els=all?[$("yoyTop"),...document.querySelectorAll("#yoyView section.panel[data-k]"),document.querySelector('section[data-k="add"]')]
+    :[...document.querySelectorAll('.wrap section.panel[data-k]')].filter(s=>!s.closest("#yoyView"));
+  return els.filter(e=>e&&e.offsetParent!==null&&!e.hidden).map(e=>({el:e,k:e.dataset.k||e.id,name:JUMP_NAMES[e.dataset.k||e.id]||(e.querySelector("h2")||{}).textContent||""}));
+}
+function buildJump(){
+  jumpList=state.stubs.length?jumpSections():[];
+  $("jumpBar").hidden=!jumpList.length;$("fab").hidden=!jumpList.length;
+  $("jumpBar").innerHTML=jumpList.map((j,i)=>`<button type="button" class="jchip" data-j="${i}">${esc(j.name)}</button>`).join("");
+  $("fabMenu").innerHTML=`<button type="button" role="menuitem" data-j="top">↑ Back to top</button><div class="sep"></div>`+jumpList.map((j,i)=>`<button type="button" role="menuitem" data-j="${i}">${esc(j.name)}</button>`).join("");
+  spy();
+}
+function jumpTo(i){
+  if(i==="top"){window.scrollTo({top:0,behavior:"smooth"});return}
+  const j=jumpList[+i];if(!j)return;const sec=j.el;
+  if(sec.classList.contains("collapsed")&&sec.dataset.k){applyPanel(sec,true);setOpen(sec.dataset.k,true);if(state.view==="all")renderYoy()}
+  const barB=$("ctlBar").getBoundingClientRect().bottom;
+  const maxY=document.documentElement.scrollHeight-window.innerHeight,ty=Math.min(maxY,Math.max(0,sec.getBoundingClientRect().top+window.scrollY-barB-8));
+  jumpHold={i:+i,y:ty,t:Date.now()};spyOn=-1;spy();
+  window.scrollTo({top:ty,behavior:"smooth"});
+}
+let spyOn=-1,jumpHold=null;
+function spy(){
+  if(!jumpList.length)return;const barB=$("ctlBar").getBoundingClientRect().bottom+24;let on=0;
+  jumpList.forEach((j,i)=>{if(j.el.getBoundingClientRect().top<=barB)on=i});
+  if((window.innerHeight+window.scrollY)>=document.documentElement.scrollHeight-4)on=jumpList.length-1;
+  if(jumpHold){if(Date.now()-jumpHold.t<1500||Math.abs(window.scrollY-jumpHold.y)<30)on=jumpHold.i;else jumpHold=null}
+  if(on===spyOn&&$("jumpBar").querySelector(".on"))return;spyOn=on;
+  $("jumpBar").querySelectorAll(".jchip").forEach((c,i)=>c.classList.toggle("on",i===on));
+  $("fabMenu").querySelectorAll("[data-j]").forEach(c=>c.classList.toggle("on",c.dataset.j===String(on)));
+  const c=$("jumpBar").querySelector(".jchip.on"),bar=$("jumpBar");
+  if(c){const l=c.offsetLeft-bar.offsetLeft,r=l+c.offsetWidth;if(l<bar.scrollLeft+8||r>bar.scrollLeft+bar.clientWidth-8){const to=Math.max(0,l-bar.clientWidth/2+c.offsetWidth/2);try{bar.scrollTo({left:to,behavior:"smooth"})}catch(e){bar.scrollLeft=to}}}
+}
+window.addEventListener("scroll",spy,{passive:true});
+$("jumpBar").addEventListener("click",e=>{const b=e.target.closest("[data-j]");if(b)jumpTo(b.dataset.j)});
+const fabClose=()=>{$("fabMenu").hidden=true;$("fab").setAttribute("aria-expanded","false")};
+$("fab").addEventListener("click",e=>{e.stopPropagation();const open=$("fabMenu").hidden;$("fabMenu").hidden=!open;$("fab").setAttribute("aria-expanded",String(open))});
+$("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");if(b){fabClose();jumpTo(b.dataset.j)}});
+document.addEventListener("click",e=>{if(!$("fabMenu").hidden&&!e.target.closest("#fabMenu,#fab"))fabClose()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")fabClose()});
+
+function render(){renderMain();buildJump()}
+function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
   $("yearSel").innerHTML=(years.length?years:[state.year]).map(y=>`<option${y===state.year?" selected":""}>${y}</option>`).join("");
