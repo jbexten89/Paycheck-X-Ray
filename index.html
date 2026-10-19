@@ -107,6 +107,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .k401 th,.k401 td{padding-inline:6px}
 .k401 td.n:last-child,.k401 th.n:last-child{color:var(--accent)}
 .statline{display:flex;flex-wrap:wrap;gap:10px 28px}
+#bdStats{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px 24px;align-items:start}
+#bdStats .stat{min-width:0}
+#bdStats .stat small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (min-width:760px){#bdStats{grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr))}}
 .stat{display:flex;flex-direction:column;gap:1px}
 .stat b{font-family:var(--f-num);font-size:24px;font-weight:800;letter-spacing:-.01em}
 .stat small{color:var(--muted);font-size:12.5px}
@@ -900,9 +904,10 @@ function renderBreakdown(m){
     return lines.length>1?lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.n)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${(x.v/g*100).toFixed(1)}%</span></div>`).join(""):""};
   $("bdList").innerHTML=shown.map(([k,l,c])=>{const sb=subs(k);return grpRow("ee-"+k,c,l,fmt(b.parts[k]),(b.parts[k]/g*100).toFixed(1)+"%",!!sb)+sb+"</div>"}).join("");
   setSum("gross",`<strong>${fmt0(b.parts.net)}</strong> take-home of ${fmt0(b.gross)} · ${f==="cur"?`check of ${nice(m.reg.payDate)}`:f==="ytd"?"so far":m.partial?`through ${nice(m.latest.payDate)}`:"full year"}`);
-  const label=f==="cur"?`${isExtra(m.reg)?(isBonusCheck(m.reg)?"Bonus check":"Extra check"):"Check"} of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:(m.partial?`Through ${nice(m.latest.payDate)} (rest of year not loaded)`:m.remaining?`Projected through Dec 31 (${m.remaining} paydays left)`:`Full year ${state.year}`);
+  const label=f==="cur"?`${isExtra(m.reg)?(isBonusCheck(m.reg)?"Bonus check":"Extra check"):"Check"} of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:(m.partial?`Through ${nice(m.latest.payDate)}`:m.remaining?`Projected to Dec 31`:`Full year ${state.year}`);
+  const sub=f==="proj"&&!m.partial&&m.remaining?`gross · ${m.remaining} paydays left`:f==="proj"&&m.partial?"gross · rest not loaded":"gross pay";
   const totalTax=b.parts.fed+b.parts.fica+b.parts.state;
-  $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>gross pay</small></div>
+  $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>${sub}</small></div>
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
     <div class="stat"><small>All taxes</small><b>${(totalTax/g*100).toFixed(1)}%</b><small>${fmt0(totalTax)}</small></div>
     <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small></div>`;
