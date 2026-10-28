@@ -307,6 +307,9 @@ table.ytab th{white-space:normal;max-width:84px;vertical-align:bottom;line-heigh
 table.yt.ytab td.nt{color:var(--ink);font-size:13px}
 @media (max-width:520px){table.ytab th,table.ytab td{padding:6px 5px}table.ytab{font-size:12.5px}}
 .pj{display:block;font-size:10.5px;color:var(--muted);line-height:1.1}
+.pj.est,.estm{color:var(--amber)}.estm{margin-left:1px}
+.estrow td{font-size:11.5px;color:var(--muted);white-space:normal;text-align:left;padding-top:8px;font-weight:400}
+.estnote{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.4}
 table.yt th[data-sort]{cursor:pointer;white-space:nowrap}
 table.yt th[aria-sort=ascending]::after{content:" ▲";font-size:9px}
 table.yt th[aria-sort=descending]::after{content:" ▼";font-size:9px}
@@ -613,7 +616,7 @@ function load(){
     state.settings.seedVersion=SEED_VERSION;sortStubs(state.stubs);save();
   }
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify({stubs:state.stubs,settings:state.settings}))}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({stubs:pureStubs(),settings:state.settings}))}catch(e){}}
 
 /* ---------- per-year settings ---------- */
 const ageFor=y=>{const a=+state.settings.age||0;const ay=+state.settings.ageYear||2026;return a?a-(ay-y):0};
@@ -622,6 +625,23 @@ function taxIn(y){const t=(state.settings.tax||{})[y];if(t)return t;if(y===(+sta
 /* ---------- utils ---------- */
 const $=id=>document.getElementById(id);
 const r2=n=>Math.round(n*100)/100;
+/* ---------- estimated employer 401(k) for checks before the stubs listed it ---------- */
+const EST_ER=[["401K Match",.03],["401K Pension Safe Harbor",.03],["401K Pension LT 45",.02]];
+let estFrom=null;
+function applyEst(){
+  for(const s of state.stubs)if(s.items.some(i=>i.est))s.items=s.items.filter(i=>!i.est);
+  estFrom=state.stubs.filter(s=>s.items.some(i=>i.sec==="memo"&&/401|PENSION|MATCH|HARBOR/i.test(i.label)&&+i.cur>0)).map(s=>s.payDate).sort()[0]||null;
+  if(!estFrom)return;const ytd={};
+  for(const s of [...state.stubs].sort((a,b)=>a.payDate<b.payDate?-1:a.payDate>b.payDate?1:0)){
+    if(s.payDate>=estFrom)break;
+    const base=r2(s.items.filter(i=>i.sec==="earnings"&&!/NON\s*PENS/i.test(i.label)).reduce((a,i)=>a+(+i.cur||0),0));
+    if(!(base>0))continue;const y=s.payDate.slice(0,4);
+    for(const[l,p]of EST_ER){const c=r2(base*p),k=y+l;ytd[k]=r2((ytd[k]||0)+c);s.items.push({sec:"memo",label:l,cur:c,ytd:ytd[k],est:true})}
+  }
+}
+const pureStubs=()=>state.stubs.map(s=>s.items.some(i=>i.est)?Object.assign({},s,{items:s.items.filter(i=>!i.est)}):s);
+const hasEst=(ys,lab)=>ys.some(s=>s.items.some(i=>i.est&&(!lab||i.label===lab)));
+const estNote=()=>`* Estimated. Stubs before ${estFrom?nice(estFrom)+", "+estFrom.slice(0,4):"Apr 2014"} don't list employer 401(k) money, so the app adds 3% match, 3% safe harbor and 2% pension on pay (not counting non-pension pay).`;
 const fmt=n=>(n<0?"−":"")+"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmt0=n=>(n<0?"−":"")+"$"+Math.abs(Math.round(n)).toLocaleString("en-US");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -882,9 +902,10 @@ function renderCheckUI(m){
   for(const[sec,name]of SECN){const it=s.items.filter(x=>x.sec===sec);if(!it.length)continue;
     const tc=r2(it.reduce((a,x)=>a+x.cur,0)),ty=r2(it.reduce((a,x)=>a+(x.ytd||0),0));
     h+=`<tr class="sec"><td>${name}</td><td class="n">${fmt(tc)}</td><td class="n pc">${g?(tc/g*100).toFixed(1)+"%":""}</td><td class="n">${fmt(ty)}</td>${pv?"<td></td>":""}</tr>`;
-    h+=it.map(x=>`<tr${Math.abs(x.cur)<0.005&&!dif(x)?' class="z"':""}><td>${esc(x.label)}</td><td class="n">${fmt(x.cur)}</td><td class="n pc">${g?(x.cur/g*100).toFixed(1)+"%":""}</td><td class="n">${x.ytd!=null?fmt(x.ytd):"—"}</td>${pv?(dif(x)||"<td></td>"):""}</tr>`).join("")}
+    h+=it.map(x=>`<tr${Math.abs(x.cur)<0.005&&!dif(x)?' class="z"':""}><td>${esc(x.label)}${x.est?'<span class="estm">*</span>':""}</td><td class="n">${fmt(x.cur)}</td><td class="n pc">${g?(x.cur/g*100).toFixed(1)+"%":""}</td><td class="n">${x.ytd!=null?fmt(x.ytd):"—"}</td>${pv?(dif(x)||"<td></td>"):""}</tr>`).join("")}
   if(s.net){const nd=pv&&pv.net?r2(s.net.cur-pv.net.cur):0;
     h+=`<tr class="net"><td>Net pay (deposit)</td><td class="n">${fmt(s.net.cur)}</td><td class="n pc">${g?(s.net.cur/g*100).toFixed(1)+"%":""}</td><td class="n">${s.net.ytd!=null?fmt(s.net.ytd):"—"}</td>${pv?(Math.abs(nd)>=0.005?`<td class="n dif ${nd<0?"up":"dn"}">${nd>0?"+":"−"}${fmt(Math.abs(nd)).slice(1)}</td>`:"<td></td>"):""}</tr>`}
+  if(s.items.some(x=>x.est))h+=`<tr class="estrow"><td colspan="${pv?5:4}">${estNote()}</td></tr>`;
   $("sdTbl").innerHTML=h+"</tbody>";
   if(s.note)$("sdMeta").innerHTML+=`<span style="flex-basis:100%"><b>${esc(s.noteTitle||"Note")}:</b> ${esc(s.note)}</span>`;
 }
@@ -931,7 +952,7 @@ function renderEmployer(m,f,gross,er){
   const box=$("erBlock");if(!(er>0)){box.innerHTML="";return}
   const memo=m.latest.items.filter(i=>i.sec==="memo");
   const groups=ER_GROUPS.map(([k,name,c,pred])=>{
-    const lines=memo.filter(pred).map(i=>({name:erName(i.label),v:m.val(j=>j.sec==="memo"&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+    const lines=memo.filter(pred).map(i=>({name:erName(i.label)+(hasEst(m.ys,i.label)?"*":""),v:m.val(j=>j.sec==="memo"&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
     return{k,name,c,v:r2(lines.reduce((a,x)=>a+x.v,0)),lines}}).filter(g=>g.v>0.004);
   const pct=v=>(v/er*100).toFixed(1)+"%";
   const eo=isOpen("employer");box.classList.toggle("collapsed",!eo);
@@ -940,7 +961,7 @@ function renderEmployer(m,f,gross,er){
     <div class="bar" role="img" aria-label="${groups.map(g=>`${g.name} ${Math.round(g.v/er*100)}%`).join(", ")}">${groups.map(g=>`<div style="width:${(g.v/er*100).toFixed(3)}%;background:var(${g.c})" title="${g.name}: ${fmt(g.v)}"></div>`).join("")}</div>
     <div class="bd-list">${groups.map(g=>`${grpRow("er-"+g.k,g.c,g.name,fmt(g.v),pct(g.v),g.lines.length>1)}
       ${g.lines.length>1?g.lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.name)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${pct(x.v)}</span></div>`).join(""):""}</div>`).join("")}</div>
-    </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt0(gross)} + employer ${fmt0(er)}</small></div><b class="num">${fmt0(gross+er)}</b></div>`;
+    </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt0(gross)} + employer ${fmt0(er)}</small></div><b class="num">${fmt0(gross+er)}</b></div>${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}`;
 }
 
 /* ---------- 401(k) total: you + employer ---------- */
@@ -948,7 +969,7 @@ let k401Sum=0;
 function k401Total(m,catchUp){
   const parts=[{name:"You (pre-tax deferral)",c:"--c-k-you",pred:isPreRet,you:true},{name:"You (Roth)",c:"--c-k-roth",pred:isRoth,you:true}];
   const kc=["--c-k-match","--c-k-p45","--c-k-sh","--c-other"];let n=0;
-  for(const i of m.latest.items.filter(isErRet)){parts.push({name:erName(i.label),c:kc[Math.min(n++,3)],pred:j=>j.sec==="memo"&&j.label===i.label})}
+  for(const i of m.latest.items.filter(isErRet)){parts.push({name:erName(i.label)+(hasEst(m.ys,i.label)?"*":""),c:kc[Math.min(n++,3)],pred:j=>j.sec==="memo"&&j.label===i.label})}
   parts.forEach(p=>{p.y=m.val(p.pred,"ytd");p.p=m.val(p.pred,"proj")});
   const shown=parts.filter(p=>p.p>0.004);
   const tY=r2(shown.reduce((a,p)=>a+p.y,0)),tP=r2(shown.reduce((a,p)=>a+p.p,0));
@@ -963,7 +984,7 @@ function k401Total(m,catchUp){
       <tr><td><span class="sw" style="background:transparent"></span>Employer subtotal</td><td class="n">${fmt0(erY)}</td><td class="n">${fmt0(erP)}</td><td class="n">${pc(erP)}</td></tr>
       <tr class="total"><td><span class="sw" style="background:transparent"></span>Total into your 401(k)</td><td class="n">${fmt0(tY)}</td><td class="n">${fmt0(tP)}</td><td class="n">${pc(tP)}</td></tr>
     </tbody></table></div>
-    <small class="bd-sub">The IRS cap on everything going into the plan this year is ${fmt0(lim)} (${fmt0(LIM.total)} plus your ${fmt0(catchUp)} catch-up). You're projected to use ${Math.round(tP/lim*100)}% of it. % of pay is each amount divided by projected ${m.latest.payDate.slice(0,4)} gross pay of ${fmt0(gP)}.</small></div>`;
+    ${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}<small class="bd-sub">The IRS cap on everything going into the plan this year is ${fmt0(lim)} (${fmt0(LIM.total)} plus your ${fmt0(catchUp)} catch-up). You're projected to use ${Math.round(tP/lim*100)}% of it. % of pay is each amount divided by projected ${m.latest.payDate.slice(0,4)} gross pay of ${fmt0(gP)}.</small></div>`;
 }
 
 /* ---------- render: checks ---------- */
@@ -1203,7 +1224,7 @@ function yoyRow(y){
   const hrs=regs.reduce((a,s)=>a+stubHours(s),0)+(f==="proj"?m.remaining*(isSemi(m.reg)?2080/24:80):0);
   const mc={};for(const d of m.pds){const k=d.slice(0,7);mc[k]=(mc[k]||0)+1}
   const full=Object.assign(pack(f),bn),sofar=Object.assign(pack("ytd"),bn);
-  return{y,m,proj:f==="proj",partial:m.partial,full,sofar,pto,base:annualBase(m.reg),hrs,threes:Object.values(mc).filter(n=>n>=3).length,
+  return{y,m,est:hasEst(m.ys),proj:f==="proj",partial:m.partial,full,sofar,pto,base:annualBase(m.reg),hrs,threes:Object.values(mc).filter(n=>n>=3).length,
     checks:regs.length,k401Lim:lim.k401+cu,ssRate:lim.ssRate||.062,notes,latest:m.latest.payDate};
 }
 function yoyEvents(){
@@ -1257,13 +1278,16 @@ function lineChart(el,o){
   el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||"")}">${g}</svg>`;
 }
 /* by-year table under a chart: cols = [header, value(row), kind, total] ; kind $ % $c n txt ; total "sum" or function(rows) */
-function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();
+const EST_T=new Set(["tbComp","tb401"]);
+function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();const est=EST_T.has(id)&&rows.some(r=>r.est);
   const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt0(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):v;
   const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):"n";
   const hasT=cols.some(c=>c[3]);
   el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
-    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.tag?`<span class="pj">${r.tag}</span>`:r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
+    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.tag?`<span class="pj">${r.tag}</span>`:r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}${est&&r.est?'<span class="pj est">est.*</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
     (hasT?`<tr class="total"><td>All</td>${cols.map(c=>`<td class="${c[2]==="txt"?"":"n"}">${c[3]==="sum"?f(c[2],rows.reduce((a,r)=>a+(+c[1](r)||0),0)):typeof c[3]==="function"?f(c[2],c[3](rows)):""}</td>`).join("")}</tr>`:"")+"</tbody>";
+  const w=el.closest(".tbl-wrap");if(w){let n=w.nextElementSibling;if(!(n&&n.classList.contains("estnote"))){n=null}
+    if(est){if(!n){n=document.createElement("p");n.className="estnote";w.after(n)}n.textContent=estNote()}else if(n)n.remove()}
 }
 const legend=items=>items.map(([c,l,cls])=>`<span><i class="sw${cls?" "+cls:""}" style="background:var(${c})"></i>${l}</span>`).join("");
 const openBtn=y=>` <button class="linkbtn" data-open="${y}">Open ${y} →</button>`;
@@ -1487,7 +1511,7 @@ function renderYoy(){
     ["hr","Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:0,4],["tfd","Tax Freedom Day",r=>r.partial?0:tfdDay(r),5],["checks","Checks",r=>r.checks,3],["threes","3-check months",r=>r.threes,3]];
   const so=state.yoySort||{k:"y",d:-1};const cf=cols.find(c=>c[0]===so.k)||cols[0];
   const sorted=[...rows].sort((a,b)=>(cf[2](a)-cf[2](b))*so.d);
-  const cell=(c,r)=>{const v=c[2](r);return c[3]===1?fmt0(v):c[3]===2?(v*100).toFixed(1)+"%":c[3]===3?v:c[3]===4?(v?"$"+v.toFixed(2):"—"):c[3]===5?(v?dayLabel(r.y,v):"—"):`${r.y}${r.proj?"*":r.partial?"†":""}`};
+  const cell=(c,r)=>{const v=c[2](r);return c[3]===1?fmt0(v):c[3]===2?(v*100).toFixed(1)+"%":c[3]===3?v:c[3]===4?(v?"$"+v.toFixed(2):"—"):c[3]===5?(v?dayLabel(r.y,v):"—"):`${r.y}${r.proj?"*":r.partial?"†":""}${r.est?'<span class="pj est">est.‡</span>':""}`};
   const T=k=>rows.reduce((a,r)=>a+(cols.find(c=>c[0]===k)[2](r)),0);
   const tG=T("gross");
   $("yoyTbl").innerHTML=`<thead><tr>${cols.map(c=>`<th class="${c[3]?"n":""}" data-sort="${c[0]}" aria-sort="${so.k===c[0]?(so.d>0?"ascending":"descending"):"none"}">${c[1]}</th>`).join("")}<th>Notes</th></tr></thead><tbody>`+
@@ -1495,7 +1519,7 @@ function renderYoy(){
     `<tr class="total"><td>All</td><td class="n"></td><td class="n">${fmt0(tG)}</td><td class="n">${fmt0(T("net"))}</td><td class="n">${pc1(T("net"),tG)}</td>`+
     ["fed","fica","state"].map(k=>`<td class="n">${pc1(rows.reduce((a,r)=>a+yv(r,k),0),tG)}</td>`).join("")+
     `<td class="n">${fmt0(T("ret"))}</td><td class="n">${fmt0(T("er401"))}</td><td class="n">${fmt0(T("hl"))}</td><td class="n">${fmt0(T("xo"))}</td><td class="n">${fmt0(T("comp"))}</td><td class="n"></td><td class="n"></td><td class="n">${T("checks")}</td><td class="n">${T("threes")}</td><td></td></tr></tbody>`;
-  $("yoyTblNote").textContent=`Tap a column to sort, or a row to open that year. Base pay is the per-check rate times checks per year. Kept, Federal, FICA and State + local are percents of gross.${proj.size?" * Projected to Dec 31; the All row includes the projection.":""}${rows.some(r=>r.partial)?" † Partial year.":""}`;
+  $("yoyTblNote").textContent=`Tap a column to sort, or a row to open that year. Base pay is the per-check rate times checks per year. Kept, Federal, FICA and State + local are percents of gross.${proj.size?" * Projected to Dec 31; the All row includes the projection.":""}${rows.some(r=>r.partial)?" † Partial year.":""}${rows.some(r=>r.est)?" ‡ "+estNote().slice(2):""}`;
   setSum("yoyTbl",`${rows.length} years`);
 }
 document.addEventListener("click",e=>{
@@ -1560,7 +1584,7 @@ $("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");i
 document.addEventListener("click",e=>{if(!$("fabMenu").hidden&&!e.target.closest("#fabMenu,#fab"))fabClose()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")fabClose()});
 
-function render(){renderMain();buildJump()}
+function render(){applyEst();renderMain();buildJump()}
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
@@ -1615,7 +1639,7 @@ $("clearAll").addEventListener("click",()=>{if(!clearArmed){clearArmed=true;$("c
   clearArmed=false;$("clearAll").textContent="Clear all stubs";state.stubs=[];save();render();toast("All stubs cleared.")});
 $("saveBackup").addEventListener("click",async()=>{
   if(!state.stubs.length){toast("No stubs to back up yet.",true);return}
-  const json=JSON.stringify({stubs:state.stubs,settings:state.settings,savedAt:new Date().toISOString(),app:"Paycheck X-Ray"});
+  const json=JSON.stringify({stubs:pureStubs(),settings:state.settings,savedAt:new Date().toISOString(),app:"Paycheck X-Ray"});
   const name=`paycheck-xray-backup-${todayISO}.txt`;const yrs=[...new Set(state.stubs.map(s=>s.payDate.slice(0,4)))].sort();
   const msg=`${state.stubs.length} stubs, ${yrs[0]}–${yrs[yrs.length-1]}`;
   let file=null;try{file=new File([json],name,{type:"text/plain"})}catch(e){}
@@ -1626,7 +1650,7 @@ $("saveBackup").addEventListener("click",async()=>{
     toast(`Saved ${name} (${msg}). Load it later with Choose text file.`)}
   catch(e){toast("Couldn't save a file here. Use Copy backup instead.",true)}
 });
-$("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:state.stubs,settings:state.settings});const out=$("backupOut");
+$("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:pureStubs(),settings:state.settings});const out=$("backupOut");
   const fallback=()=>{out.hidden=false;out.value=json;out.focus();out.select();toast("Select-all is ready. Copy this text and keep it somewhere safe.")};
   try{navigator.clipboard.writeText(json).then(()=>{out.hidden=true;toast("Backup copied. Paste it into the box above to restore.")},fallback)}catch(e){fallback()}});
 $("m-cur").closest(".seg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;state.mode=b.dataset.mode;render()});
