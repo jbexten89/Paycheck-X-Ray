@@ -1284,7 +1284,7 @@ function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows]
   const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):"n";
   const hasT=cols.some(c=>c[3]);
   el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
-    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.tag?`<span class="pj">${r.tag}</span>`:r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}${est&&r.est?'<span class="pj est">est.*</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
+    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.tag?`<span class="pj">${r.tag}</span>`:r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}${est&&r.est?'<span class="estm">*</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
     (hasT?`<tr class="total"><td>All</td>${cols.map(c=>`<td class="${c[2]==="txt"?"":"n"}">${c[3]==="sum"?f(c[2],rows.reduce((a,r)=>a+(+c[1](r)||0),0)):typeof c[3]==="function"?f(c[2],c[3](rows)):""}</td>`).join("")}</tr>`:"")+"</tbody>";
   const w=el.closest(".tbl-wrap");if(w){let n=w.nextElementSibling;if(!(n&&n.classList.contains("estnote"))){n=null}
     if(est){if(!n){n=document.createElement("p");n.className="estnote";w.after(n)}n.textContent=estNote()}else if(n)n.remove()}
@@ -1511,7 +1511,7 @@ function renderYoy(){
     ["hr","Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:0,4],["tfd","Tax Freedom Day",r=>r.partial?0:tfdDay(r),5],["checks","Checks",r=>r.checks,3],["threes","3-check months",r=>r.threes,3]];
   const so=state.yoySort||{k:"y",d:-1};const cf=cols.find(c=>c[0]===so.k)||cols[0];
   const sorted=[...rows].sort((a,b)=>(cf[2](a)-cf[2](b))*so.d);
-  const cell=(c,r)=>{const v=c[2](r);return c[3]===1?fmt0(v):c[3]===2?(v*100).toFixed(1)+"%":c[3]===3?v:c[3]===4?(v?"$"+v.toFixed(2):"—"):c[3]===5?(v?dayLabel(r.y,v):"—"):`${r.y}${r.proj?"*":r.partial?"†":""}${r.est?'<span class="pj est">est.‡</span>':""}`};
+  const cell=(c,r)=>{const v=c[2](r);return c[3]===1?fmt0(v):c[3]===2?(v*100).toFixed(1)+"%":c[3]===3?v:c[3]===4?(v?"$"+v.toFixed(2):"—"):c[3]===5?(v?dayLabel(r.y,v):"—"):`${r.y}${r.proj?"*":r.partial?"†":""}${r.est?'<span class="estm">‡</span>':""}`};
   const T=k=>rows.reduce((a,r)=>a+(cols.find(c=>c[0]===k)[2](r)),0);
   const tG=T("gross");
   $("yoyTbl").innerHTML=`<thead><tr>${cols.map(c=>`<th class="${c[3]?"n":""}" data-sort="${c[0]}" aria-sort="${so.k===c[0]?(so.d>0?"ascending":"descending"):"none"}">${c[1]}</th>`).join("")}<th>Notes</th></tr></thead><tbody>`+
