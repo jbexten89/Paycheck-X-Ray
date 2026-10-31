@@ -233,6 +233,9 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .fab[hidden],.fabmenu[hidden]{display:none!important}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:90;display:grid;grid-template-columns:repeat(4,1fr);background:color-mix(in srgb,var(--bg) 92%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 6px) max(8px,env(safe-area-inset-left,0px))}
 .tabbar[hidden],.ctlbar[hidden]{display:none}
+.grp-off{display:none!important}
+.tbl-wrap.tbl-off,.tbl-wrap.tbl-off+.estnote{display:none}
+.tblbtn{all:unset;cursor:pointer;align-self:flex-start;color:var(--accent);font-size:13.5px;font-weight:600;padding:6px 0}
 .tabbar button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;color:var(--muted);font-size:11.5px;font-weight:600;-webkit-tap-highlight-color:transparent}
 .tabbar svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tabbar button.on{color:var(--accent)}
@@ -1794,6 +1797,13 @@ const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
+const YGROUPS=[["pay","Pay",["yoyTop","yoyRec","yoyGross","yoyComp","yoyRate","yoyHour"]],["tax","Taxes",["yoyTax","yoyTfd","yoyEarn"]],
+  ["save","Savings",["yoy401","yoyHealth"]],["extra","Extras",["yoyExtra","yoyObl","yoyPto"]],["table","Table",["yoyTbl"]]];
+const ygOf=k=>(YGROUPS.find(g=>g[2].includes(k))||YGROUPS[0])[0];
+function applyGroup(){const g=YGROUPS.some(x=>x[0]===state.yg)?state.yg:"pay";
+  document.querySelectorAll("#yoyView section.panel").forEach(sec=>sec.classList.toggle("grp-off",ygOf(sec.dataset.k||sec.id)!==g));
+  document.querySelectorAll("#yoyView > .grid2").forEach(gr=>gr.classList.toggle("grp-off",![...gr.children].some(c=>!c.classList.contains("grp-off"))))}
+function setGroup(g){state.yg=g;setOpen("yg",g);applyGroup();renderYoy();buildJump();window.scrollTo(0,0)}
 function jumpSections(){
   const all=state.view==="all";
   const els=all?[$("yoyTop"),...document.querySelectorAll("#yoyView section.panel[data-k]")]
@@ -1801,6 +1811,9 @@ function jumpSections(){
   return els.filter(e=>e&&e.offsetParent!==null&&!e.hidden).map(e=>({el:e,k:e.dataset.k||e.id,name:JUMP_NAMES[e.dataset.k||e.id]||(e.querySelector("h2")||{}).textContent||""}));
 }
 function buildJump(){
+  if(state.tab==="all"&&state.stubs.length){jumpList=[];
+    $("jumpBar").innerHTML=YGROUPS.map(([k,l])=>`<button type="button" class="jchip${k===(state.yg||"pay")?" on":""}" data-g="${k}">${l}</button>`).join("");
+    $("jumpBar").hidden=false;$("fab").hidden=true;$("ctlBar").hidden=false;return}
   jumpList=state.stubs.length?jumpSections():[];
   $("jumpBar").hidden=jumpList.length<2;$("fab").hidden=true;
   $("jumpBar").innerHTML=jumpList.map((j,i)=>`<button type="button" class="jchip" data-j="${i}">${esc(j.name)}</button>`).join("");
@@ -1830,7 +1843,7 @@ function spy(){
   if(c){const l=c.offsetLeft-bar.offsetLeft,r=l+c.offsetWidth;if(l<bar.scrollLeft+8||r>bar.scrollLeft+bar.clientWidth-8){const to=Math.max(0,l-bar.clientWidth/2+c.offsetWidth/2);try{bar.scrollTo({left:to,behavior:"smooth"})}catch(e){bar.scrollLeft=to}}}
 }
 window.addEventListener("scroll",spy,{passive:true});
-$("jumpBar").addEventListener("click",e=>{const b=e.target.closest("[data-j]");if(b)jumpTo(b.dataset.j)});
+$("jumpBar").addEventListener("click",e=>{const g=e.target.closest("[data-g]");if(g){setGroup(g.dataset.g);return}const b=e.target.closest("[data-j]");if(b)jumpTo(b.dataset.j)});
 const fabClose=()=>{$("fabMenu").hidden=true;$("fab").setAttribute("aria-expanded","false")};
 $("fab").addEventListener("click",e=>{e.stopPropagation();const open=$("fabMenu").hidden;$("fabMenu").hidden=!open;$("fab").setAttribute("aria-expanded",String(open))});
 $("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");if(b){fabClose();jumpTo(b.dataset.j)}});
@@ -1853,7 +1866,7 @@ function renderMain(){
   $("tabBar").querySelectorAll("[data-tab]").forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
   $("yearField").hidden=!(tab==="year"||tab==="plan");$("yoyView").hidden=!all;if(tab!=="year")$("chkBar").hidden=true;
   panels.forEach(p=>p.hidden=tabOf(p)!==tab);if(addSec)addSec.hidden=tab!=="stubs";
-  if(all){renderYoy();return}
+  if(all){applyGroup();renderYoy();return}
   if(tab==="stubs")return;
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
   let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
@@ -1936,8 +1949,13 @@ function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=stat
 $("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();render()});
 ["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();render()}));
 
-state.tab=["year","all","plan","stubs"].includes(ui.tab)?ui.tab:(isOpen("view")?"all":"year");state.view=state.tab==="all"?"all":"year";state.real=isOpen("real");
-initPanels();load();syncInputs();render();
+state.tab=["year","all","plan","stubs"].includes(ui.tab)?ui.tab:(isOpen("view")?"all":"year");state.view=state.tab==="all"?"all":"year";state.real=isOpen("real");state.yg=typeof ui.yg==="string"?ui.yg:"pay";
+initPanels();
+document.querySelectorAll("#yoyView .tbl-wrap").forEach((w,i)=>{const sec=w.closest("section.panel");if(!sec||sec.dataset.k==="yoyTbl")return;
+  const t=w.querySelector("table"),key="tbl."+(t&&t.id||i);const b=document.createElement("button");b.type="button";b.className="tblbtn";
+  const set=open=>{w.classList.toggle("tbl-off",!open);b.textContent=open?"Hide table ▴":"Show table ▾";b.setAttribute("aria-expanded",String(open))};
+  set(!!ui[key]);b.addEventListener("click",()=>{const open=w.classList.contains("tbl-off");set(open);setOpen(key,open)});w.before(b)});
+load();syncInputs();render();
 window.__pxr={parseText,model,breakdown};
 window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:()=>{if(state.tab!=="stubs")setTab("stubs");const sec=document.querySelector('section[data-k="add"]');if(sec){applyPanel(sec,true);setOpen("add",true)}}};
 })();
