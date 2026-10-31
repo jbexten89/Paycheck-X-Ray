@@ -549,6 +549,19 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <button type="button" class="btn ghost small" id="wiReset" style="align-self:flex-start">Reset to this check</button>
   </section>
 
+  <section class="panel" data-k="bonusEst">
+    <div class="panel-head"><h2>Bonus estimator</h2></div>
+    <div class="fields">
+      <label class="field" for="beAmt">Bonus $<input id="beAmt" type="number" inputmode="decimal" step="100" min="0"></label>
+      <label class="field" for="beK">401(k) % of bonus<input id="beK" type="number" inputmode="decimal" step="0.5" min="0" max="90"></label>
+    </div>
+    <div class="statline" id="beStats"></div>
+    <div class="tbl-wrap"><table id="beTbl"></table></div>
+    <div class="er-head" style="margin-top:6px"><h3>Your recent bonus checks</h3></div>
+    <div class="tbl-wrap"><table id="bePast"></table></div>
+    <p class="note" id="beNote" style="margin:0"></p>
+  </section>
+
   <section class="panel" data-k="add">
     <div class="panel-head"><h2>Add stubs</h2><span class="muted" id="stubCount"></span></div>
     <div class="grid2">
@@ -689,7 +702,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -1286,6 +1299,38 @@ function renderWhatIf(m,y){
   [["wiRaise","raise"],["wiK","k"],["wiH","hsa"],["wiX","x"],["wiMed","med"],["wiDen","den"],["wiVis","vis"]].forEach(([id,k])=>$(id).addEventListener("change",e=>wiSet(k,e.target.value)));
   $("wiReset").addEventListener("click",()=>{state.settings.wi={};save();keepPos(()=>render())});}
 
+/* ---------- bonus estimator ---------- */
+function renderBonusEst(m,y){
+  const sec=document.querySelector('section[data-k="bonusEst"]');
+  const bcs=state.stubs.filter(s=>isExtra(s)&&isBonusCheck(s)&&s.net&&s.net.cur>0&&s.payDate<=(m.latest?m.latest.payDate:"9999")).sort((a,b)=>a.payDate<b.payDate?-1:1);
+  const last=bcs[bcs.length-1];if(!last||!m.reg){sec.hidden=true;return}
+  const sm=(s,p)=>r2(s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0));
+  const lE=sm(last,i=>i.sec==="earnings"),lT=sm(last,i=>i.sec==="taxable"),lPre=sm(last,i=>i.sec==="pretax"),lW=r2(lE+lT-lPre),lK=sm(last,isPreRet);
+  const st=last.items.filter(isStateLocal).filter(i=>i.cur>0).map(i=>({l:i.label,r:lW>0?Math.round(i.cur/lW*2000)/2000:0}));
+  const fedR=lW>0&&sm(last,isFed)>0?Math.round(sm(last,isFed)/lW*1000)/1000:.22;
+  const recent=bcs.filter(s=>s.payDate>=addDays(last.payDate,-365)),big=recent.reduce((a,s)=>Math.max(a,sm(s,i=>i.sec==="earnings")),0);
+  const w=state.settings.be||{},B=w.amt!=null?+w.amt:big,kp=w.k!=null?+w.k:Math.round(lK/lE*10000)/100;
+  [["beAmt",B],["beK",kp]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(+(+v).toFixed(2))});
+  const L=limFor(y),rate=L.ssRate||.062,f=m.remaining?"proj":"ytd";
+  const ssW=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f)),room=Math.max(0,L.ssBase-ssW);
+  const K=r2(B*kp/100),W=r2(B-K),fed=r2(W*fedR),ss=r2(Math.min(B,room)*rate),md=r2(B*.0145+Math.max(0,ssW+B-Math.max(200000,ssW))*.009);
+  const stv=st.map(x=>({l:x.l,v:r2(W*x.r)})),kept=r2(B-K-fed-ss-md-stv.reduce((a,x)=>a+x.v,0));
+  const {b}=wiBasis(m.reg),erR=b?sm(m.reg,isErRet)/b:0,er=r2(B*erR);
+  $("beStats").innerHTML=`<div class="stat"><small>You'd keep</small><b>${fmt(kept)}</b><small>${B?(kept/B*100).toFixed(1):0}% of ${fmt0(B)}</small></div>
+    <div class="stat"><small>Into your 401(k)</small><b>${fmt0(K+er)}</b><small>${fmt0(K)} you + ${fmt0(er)} employer</small></div>`;
+  const rows=[["Bonus",B],["401(k), "+(+kp.toFixed(2))+"%",-K],[`Federal, ${(fedR*100).toFixed(1)}% flat`,-fed],[room<B?`Social Security (cap reached after ${fmt0(room)})`:"Social Security",-ss],["Medicare",-md],...stv.map(x=>[esc(x.l),-x.v])];
+  $("beTbl").innerHTML=`<tbody>${rows.map(([l,v],i)=>`<tr${i?"":' class="sec"'}><td>${l}</td><td class="n">${v<0?"−"+fmt(-v).slice(0):fmt(v)}</td><td class="n pc">${B&&i?(-v/B*100).toFixed(1)+"%":""}</td></tr>`).join("")}
+    <tr class="net"><td>You keep</td><td class="n">${fmt(kept)}</td><td class="n pc">${B?(kept/B*100).toFixed(1)+"%":""}</td></tr>
+    ${er?`<tr><td>Employer 401(k) on top</td><td class="n">${fmt(er)}</td><td class="n pc">${(erR*100).toFixed(1)}%</td></tr>`:""}</tbody>`;
+  const past=bcs.slice(-6).reverse();
+  $("bePast").innerHTML=`<thead><tr><th>Paid</th><th class="n">Bonus</th><th class="n">Deposited</th><th class="n">Kept</th></tr></thead><tbody>`+past.map(s=>{const g=sm(s,i=>i.sec==="earnings");return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}</td><td class="n">${fmt0(g)}</td><td class="n">${fmt0(s.net.cur)}</td><td class="n">${(s.net.cur/g*100).toFixed(1)}%</td></tr>`}).join("")+"</tbody>";
+  $("beNote").textContent=`Rates come from your ${nice(last.payDate)}, ${last.payDate.slice(0,4)} bonus check: federal ${(fedR*100).toFixed(1)}% (the flat rate for bonuses)`+st.map(x=>`, ${x.l} ${(x.r*100).toFixed(2).replace(/\.?0+$/,"")}%`).join("")+`, all figured after the 401(k). Social Security ${room<B?`stops once ${y} wages reach the ${fmt0(L.ssBase)} cap`:"is 6.2%"}; Medicare is 1.45%. A separate Roth amount or other deductions on a bonus check would lower what you keep. Bonus withholding isn't your final tax; the year-end return settles it.`;
+  setSum("bonusEst",`Keep <strong>${fmt0(kept)}</strong> of ${fmt0(B)}`);
+  sec.hidden=false;
+}
+{const beSet=(k,v)=>{const w=state.settings.be=state.settings.be||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
+  $("beAmt").addEventListener("change",e=>beSet("amt",e.target.value));$("beK").addEventListener("change",e=>beSet("k",e.target.value));}
+
 /* ---------- next year at today's settings ---------- */
 function nextYear(){
   const y=state.year,ny=y+1,lastY=Math.max(...state.stubs.map(s=>+s.payDate.slice(0,4)));
@@ -1718,7 +1763,7 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
-const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",add:"Add stubs",
+const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
@@ -1783,7 +1828,7 @@ function renderMain(){
   if(all){renderYoy();return}
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
   let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
-  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);
+  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);
   {const asof=ma!==m?` · as of ${nice(ma.latest.payDate)}`:"";$("w2year").textContent=y+asof;
    document.querySelectorAll(".asof").forEach(e=>{e.hidden=!asof;e.textContent=asof?`Showing the year as of the ${nice(ma.latest.payDate)} check, as if it were the latest. Switch to Year to date to see the whole year.`:""})}
 }
