@@ -444,6 +444,12 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <div class="tbl-wrap"><table class="yt ytab" id="tbPto"></table></div>
       <p class="note" id="yoyPtoNote" style="margin:0"></p>
     </section>
+    <section class="panel" data-k="yoyEarn" style="grid-column:1/-1">
+      <div class="panel-head"><h2>Social Security earnings record</h2></div>
+      <div class="chart" id="yoyEarn"></div><div class="legend-row" id="yoyEarnLeg"></div><p class="yd" id="yoyEarnD"></p>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbEarn"></table></div>
+      <p class="note" id="yoyEarnNote" style="margin:6px 0 0"></p>
+    </section>
   </div>
   <section class="panel" data-k="yoyTbl">
     <div class="panel-head"><h2>Every year</h2></div>
@@ -665,7 +671,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -1180,7 +1186,11 @@ function renderMeters(m){
 /* ---------- Social Security wage cap ---------- */
 function renderSsCap(m,y){
   const box=$("ssCap");const L=limFor(y),base=L.ssBase,rate=L.ssRate||.062;
-  if(!m.latest||!base||m.lastByEmp.length>1){box.innerHTML="";return}
+  if(!m.latest||!base){box.innerHTML="";return}
+  if(m.lastByEmp.length>1){const f=m.remaining?"proj":"ytd",w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f)),t=m.val(isSS,f),max=r2(base*rate),xs=r2(t-max);
+    box.innerHTML=`<div class="er-head"><h3>Social Security cap</h3><span style="font-size:14px;color:var(--muted)">${m.lastByEmp.length} employers</span></div>`+meter("",`Social Security wages, ${y}, all employers`,w,w,base,[
+      `Each employer withholds Social Security on its own and only stops at the cap on its own pay, so the combined ${fmt0(w)} ${w>base?`passed the ${fmt0(base)} cap`:`is under the ${fmt0(base)} cap`}.`,
+      xs>0.5?`<b>${fmt0(xs)} more than the ${fmt(max)} maximum was withheld.</b> It comes back as a credit on your tax return (Schedule 3, excess Social Security).`:`Withheld ${fmt(t)}, within the ${fmt(max)} maximum.`],0);return}
   const ssw=s=>{const Y=p=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);return r2(Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125))};
   const cur=s=>r2(s.items.filter(i=>i.sec==="earnings"||i.sec==="taxable").reduce((a,i)=>a+i.cur,0)-s.items.filter(isSec125).reduce((a,i)=>a+i.cur,0));
   const ytd=ssw(m.latest),per=cur(m.reg),proj=r2(ytd+per*m.remaining),max=base*rate,bump=Math.min(per,Math.max(0,per))*rate;
@@ -1189,7 +1199,7 @@ function renderSsCap(m,y){
   if(hit){const before=r2(base-(ssw(hit)-cur(hit)));
     head=`Hit the cap on ${nice(hit.payDate)}`;
     lines=[`Social Security wages passed ${fmt0(base)} on that check, so only ${fmt(Math.max(0,before)*rate)} came out of it and none after. The year's maximum is ${fmt(max)}.`,
-      `Each regular check after that is about <b class="num">${fmt(bump)}</b> bigger.`]}
+      m.ys.some(x=>x.payDate>hit.payDate&&!isExtra(x))||m.remaining?`Each regular check after that is about <b class="num">${fmt(bump)}</b> bigger.`:`That was the last check of the year, so it was the only one that got bigger.`]}
   else if(proj>base+0.005&&per>0){const n=Math.ceil((base-ytd)/per),d=m.pds.filter(x=>x>m.latest.payDate)[n-1];
     head=`On pace to hit the cap${d?` on ${nice(d)}`:""}`;
     lines=[`${fmt0(ytd)} so far, about ${fmt0(per)} per check. Social Security stops once wages pass ${fmt0(base)}.`,
@@ -1504,6 +1514,17 @@ function renderYoy(){
       $("yoyHsaLeg").innerHTML=legend([["--c-er-hsa","You"],["--c-k-match","Employer"],["--amber","IRS limit","tick"]]);
       const hs=sel&&hr.find(r=>r.y===sel.y);
       $("yoyHsaD").innerHTML=hs?`<b>${hs.y}</b> · You ${fmt0(yv(hs,"hsa"))} · Employer ${fmt0(yv(hs,"erHsa"))} · Total ${fmt0(yv(hs,"hsa")+yv(hs,"erHsa"))} · Limit ${fmt0(hl(hs)*rf(hs.y))}`+(hl(hs)?(hs.full.hsa+hs.full.erHsa>hl(hs)+0.5?` · <span class="warn">${fmt0((hs.full.hsa+hs.full.erHsa-hl(hs))*rf(hs.y))} over</span>`:` · ${fmt0((hl(hs)-hs.full.hsa-hs.full.erHsa)*rf(hs.y))} unused`):""):"Your HSA deposits plus your employer's, against each year's IRS limit (family or self-only from your stubs, plus the catch-up from age 55).";}}
+  {const E=new Map(rows.map(r=>{const m=r.m,f=r.proj?"proj":"ytd",L=limFor(r.y);
+      const w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f));
+      return[r.y,{w,ss:Math.min(w,L.ssBase),cap:L.ssBase,ssT:m.val(isSS,f),mdT:m.val(isMedi,f)}]}));const e=r=>E.get(r.y);
+    barChart($("yoyEarn"),{years:Y,proj,series:[{c:"--c-ret",vals:rows.map(r=>e(r).ss)}],marker:rows.map(r=>e(r).cap),aria:"Social Security wages by year with the yearly cap"});
+    $("yoyEarnLeg").innerHTML=legend([["--c-ret","Social Security wages"],["--amber","Yearly cap","tick"]]);
+    const es=sel&&E.get(sel.y);
+    $("yoyEarnD").innerHTML=es?`<b>${sel.y}</b> · Social Security wages ${fmt0(es.ss)} · ${(es.ss/es.cap*100).toFixed(0)}% of the ${fmt0(es.cap)} cap · Social Security tax ${fmt0(es.ssT)}`:"Earnings Social Security credits you with each year. Compare with the earnings record on your statement at ssa.gov.";
+    yearTable("tbEarn",rows,[["SS wages",r=>e(r).ss,"$","sum"],["Cap",r=>e(r).cap,"$"],["Of cap",r=>e(r).ss/e(r).cap,"%"],["Medicare wages",r=>e(r).w,"$","sum"],["SS tax",r=>e(r).ssT,"$","sum"],["Medicare tax",r=>e(r).mdT,"$","sum"]]);
+    const yrs=rows.filter(r=>!r.proj&&!r.partial);
+    $("yoyEarnNote").textContent=`From your stubs: gross pay plus taxable benefits, minus health, dental, vision, HSA and FSA deductions (W-2 boxes 3 and 5). Always as paid, even with After inflation on, so it matches your Social Security statement.${rows.some(r=>r.proj)?" The current year is projected.":""}${rows.some(r=>r.partial)?" Partial years are missing stubs.":""} Years before ${rows[0].y} aren't loaded. Your benefit uses your highest 35 years, adjusted for wage growth.`;
+    setSum("yoyEarn",`<strong>${fmt0(yrs.reduce((a,r)=>a+e(r).ss,0))}</strong> credited ${yrs.length?`${yrs[0].y}–${yrs[yrs.length-1].y}`:""}`)}
   /* extras */
   const bOther=r=>Math.max(0,yv(r,"bonus")-yv(r,"bonusNet")-yv(r,"bonusTax")-yv(r,"bonus401"));const hasBO=rows.some(r=>bOther(r)>1);
   barChart($("yoyExtra"),{years:Y,proj,series:[{c:"--c-k-p45",vals:V("bonusNet")},{c:"--c-ret",vals:V("bonus401")},{c:"--c-fed",vals:V("bonusTax")}].concat(hasBO?[{c:"--c-other",vals:rows.map(bOther)}]:[]).concat([{c:"--c-fica",vals:V("ot")}]),aria:"Bonuses split into net, 401(k) and taxes, plus overtime, by year"});
@@ -1625,7 +1646,7 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 /* ---------- jump to sections ---------- */
 const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
-  yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyTbl:"Every year"};
+  yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
 function jumpSections(){
   const all=state.view==="all";
