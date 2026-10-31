@@ -234,6 +234,26 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:90;display:grid;grid-template-columns:repeat(4,1fr);background:color-mix(in srgb,var(--bg) 92%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 6px) max(8px,env(safe-area-inset-left,0px))}
 .tabbar[hidden],.ctlbar[hidden]{display:none}
 .grp-off{display:none!important}
+:root{color-scheme:dark}.field input[type=date]{background:var(--bg);color:var(--ink);min-height:40px;-webkit-appearance:none;appearance:none}
+.yirbar[hidden]{display:none}
+.yirbtn{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--surface)),var(--surface));color:var(--ink);font-weight:700;font-size:15px}
+.yirbtn span{color:var(--accent)}
+.yir{position:fixed;inset:0;z-index:300;background:radial-gradient(120% 80% at 30% 10%,#123327,#07080A 70%);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.yir-track{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.yir-track::-webkit-scrollbar{display:none}
+.yir-card{flex:0 0 100%;scroll-snap-align:center;box-sizing:border-box;padding:40px 32px;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.yir-card small{color:var(--accent);font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.yir-card b{font-size:clamp(44px,13vw,72px);font-weight:700;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums}
+.yir-card p{margin:0;color:var(--muted);font-size:17px;line-height:1.45;max-width:30ch}
+.yir-card.sum b{font-size:26px}
+.yir-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px 18px;margin:10px 0 18px}
+.yir-grid span{display:block;color:var(--muted);font-size:14px}
+.yir-card.sum .btn{align-self:flex-start}
+.yir-x{all:unset;cursor:pointer;position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:16px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.08);color:var(--ink);font-size:18px;z-index:2}
+.yir-dots{display:flex;justify-content:center;gap:7px;padding:14px 0 18px}
+.yir-dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.22);transition:background .2s,width .2s}
+.yir-dots i.on{background:var(--accent);width:20px;border-radius:4px}
+.yir-hint{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 46px);right:24px;margin:0;color:var(--muted);font-size:13px;transition:opacity .3s}
 .tbl-wrap.tbl-off,.tbl-wrap.tbl-off+.estnote{display:none}
 .tblbtn{all:unset;cursor:pointer;align-self:flex-start;color:var(--accent);font-size:13.5px;font-weight:600;padding:6px 0}
 .tabbar button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;color:var(--muted);font-size:11.5px;font-weight:600;-webkit-tap-highlight-color:transparent}
@@ -368,6 +388,8 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
   <button type="button" class="fab" id="fab" aria-label="Jump to a section" aria-haspopup="true" aria-expanded="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   <div class="fabmenu" id="fabMenu" role="menu" hidden></div>
   <nav class="tabbar" id="tabBar" aria-label="Main"><button type="button" data-tab="year"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Year</span></button><button type="button" data-tab="all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M6.5 20v-6M11 20V9M15.5 20v-8M20 20V5" stroke-width="2.6"/></svg><span>All years</span></button><button type="button" data-tab="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span>Plan</span></button><button type="button" data-tab="stubs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 12.5h6M10 16h6"/></svg><span>Stubs</span></button></nav>
+
+  <div class="yirbar" id="yirBar" hidden><button type="button" class="yirbtn" id="yirBtn"></button></div>
 
   <section class="panel" id="emptyNote" hidden>
     <h2>Start with your stubs</h2>
@@ -578,6 +600,20 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div id="nyBox"></div>
   </section>
 
+  <section class="panel" data-k="retire">
+    <div class="panel-head"><h2>Paychecks to retirement</h2></div>
+    <div class="fields">
+      <label class="field" for="rtAge">Retire at age<input id="rtAge" type="number" inputmode="numeric" step="1" min="40" max="80"></label>
+      <label class="field" for="rtDate">Last day of work<input id="rtDate" type="date"></label>
+      <label class="field" for="rtRaise">Raise % a year<input id="rtRaise" type="number" inputmode="decimal" step="0.5" min="0" max="20"></label>
+      <label class="field" for="rtBonus">Bonus $ a year<input id="rtBonus" type="number" inputmode="decimal" step="500" min="0"></label>
+    </div>
+    <div class="statline" id="rtStats"></div>
+    <div id="rtBar"></div>
+    <div class="tbl-wrap"><table id="rtTbl"></table></div>
+    <p class="note" id="rtNote" style="margin:0"></p>
+  </section>
+
   <section class="panel" data-k="sscap">
     <div class="panel-head"><h2>Social Security cap</h2></div>
     <div id="ssCap"></div>
@@ -725,7 +761,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={retire:true,nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -1358,6 +1394,96 @@ function renderBonusEst(m,y){
 {const beSet=(k,v)=>{const w=state.settings.be=state.settings.be||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
   $("beAmt").addEventListener("change",e=>beSet("amt",e.target.value));$("beK").addEventListener("change",e=>beSet("k",e.target.value));$("beR").addEventListener("change",e=>beSet("roth",e.target.value));}
 
+/* ---------- paychecks to retirement ---------- */
+function renderRetire(){
+  const sec=document.querySelector('section[data-k="retire"]');if(state.tab!=="plan"){sec.hidden=true;return}
+  const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))].sort((a,b)=>a-b),Y0=ys[ys.length-1],M=model(Y0),s=M.reg;
+  const age=ageFor(Y0);if(!s||!annualBase(s)||!age){sec.hidden=true;return}
+  const w=state.settings.rt||{},ev=yoyEvents();
+  const rAge=w.age!=null?+w.age:65,endY=Y0+(rAge-age),end=w.date||`${endY}-12-31`;
+  const recentR=ev.raises.slice(-5),avgR=recentR.length?recentR.reduce((a,r)=>a+r.pct,0)/recentR.length*100:3;
+  const raise=w.raise!=null?+w.raise:Math.round(avgR*2)/2;
+  const bRows=ys.filter(y=>y<+todayISO.slice(0,4)).slice(-3).map(y=>yoyRow(y)).filter(Boolean),avgB=bRows.length?bRows.reduce((a,r)=>a+r.full.bonus,0)/bRows.length:0;
+  const bonus=w.bonus!=null?+w.bonus:Math.round(avgB/500)*500;
+  [["rtAge",rAge],["rtRaise",raise],["rtBonus",bonus]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
+  if(document.activeElement!==$("rtDate"))$("rtDate").value=end;
+  const per=annualBase(s)/(isSemi(s)?24:26),sum=p=>s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0);
+  const E=sum(i=>i.sec==="earnings"),{b}=wiBasis(s),kR=b?sum(isPreRet)/b:0,erR=b?sum(isErRet)/b:0,netR=E>0?s.net.cur/E:0;
+  const lb=state.stubs.filter(x=>isExtra(x)&&isBonusCheck(x)&&x.net&&x.net.cur>0).sort((a,c)=>a.payDate<c.payDate?-1:1).pop();
+  const bNetR=lb?lb.net.cur/lb.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0):.6;
+  const last=state.stubs.map(x=>x.payDate).sort().pop();const rows=[];let all=[];
+  for(let y=Y0;y<=+end.slice(0,4);y++){const pd=payDates(y).filter(d=>d.startsWith(y+"")&&d>last&&d<=end);
+    const g1=per*Math.pow(1+raise/100,y-Y0),bon=(y>Y0||!state.stubs.some(x=>x.payDate.startsWith(y+"")&&isBonusCheck(x)))&&end>=`${y}-11-20`?bonus*Math.pow(1+raise/100,y-Y0):0;
+    if(!pd.length&&!bon)continue;all=all.concat(pd);
+    const g=g1*pd.length;rows.push({y,n:pd.length,g:g+bon,net:g*netR+bon*bNetR,k:(g+bon)*kR,er:(g+bon)*erR})}
+  const n=all.length,T=k=>rows.reduce((a,r)=>a+r[k],0);
+  const first=state.stubs.map(x=>x.payDate).sort()[0],done=state.stubs.filter(x=>!isExtra(x)).length,pct=done/(done+n)*100;
+  const ms=(new Date(end)-new Date(todayISO))/864e5,yrs=Math.floor(ms/365.25),mos=Math.floor((ms-yrs*365.25)/30.44);
+  $("rtStats").innerHTML=`<div class="stat"><small>Paychecks left</small><b>${n}</b><small>${n?`last one about ${nice(all[n-1])}, ${all[n-1].slice(0,4)}`:"none before that date"}</small></div>
+    <div class="stat"><small>Time left</small><b>${ms>0?`${yrs}y ${mos}m`:"—"}</b><small>to ${nice(end)}, ${end.slice(0,4)}${w.date?"":` (the year you turn ${rAge})`}</small></div>`;
+  $("rtBar").innerHTML=`<div class="meter"><div class="track" role="img" aria-label="${pct.toFixed(0)}% of the way"><div class="ytd" style="width:${pct.toFixed(2)}%"></div></div>
+    <small>${done} regular checks loaded since ${nice(first)}, ${first.slice(0,4)}. That's ${pct.toFixed(0)}% of the way to your last one.</small></div>`;
+  $("rtTbl").innerHTML=rows.length?`<thead><tr><th>Year</th><th class="n">Checks</th><th class="n">Gross</th><th class="n">Take-home</th><th class="n">401(k) you</th><th class="n">Employer</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${r.y}</td><td class="n">${r.n}</td><td class="n">${fmt0(r.g)}</td><td class="n">${fmt0(r.net)}</td><td class="n">${fmt0(r.k)}</td><td class="n">${fmt0(r.er)}</td></tr>`).join("")+
+    `<tr class="total"><td>All</td><td class="n">${n}</td><td class="n">${fmt0(T("g"))}</td><td class="n">${fmt0(T("net"))}</td><td class="n">${fmt0(T("k"))}</td><td class="n">${fmt0(T("er"))}</td></tr></tbody>`:"";
+  $("rtNote").textContent=`From your ${nice(s.payDate)}, ${s.payDate.slice(0,4)} check: base pay ${fmt(per)} per check, raised ${raise}% each January, with a ${fmt0(bonus)} bonus each November (default is your average over the last 3 years). Take-home keeps today's ${(netR*100).toFixed(1)}% of pay (${(bNetR*100).toFixed(1)}% on bonuses). 401(k) keeps today's ${(kR*100).toFixed(1)}% from you and ${(erR*100).toFixed(1)}% from your employer; IRS limits aren't applied. Dollars are as paid, not adjusted for inflation.`;
+  setSum("retire",n?`<strong>${n}</strong> paychecks left`:"");
+  sec.hidden=false;
+}
+{const rtSet=(k,v)=>{const w=state.settings.rt=state.settings.rt||{};const t=String(v).trim();if(t===""||(k!=="date"&&!isFinite(+t)))delete w[k];else w[k]=k==="date"?t:+t;if(k==="age")delete w.date;save();keepPos(()=>render())};
+  [["rtAge","age"],["rtDate","date"],["rtRaise","raise"],["rtBonus","bonus"]].forEach(([id,k])=>$(id).addEventListener("change",e=>rtSet(k,e.target.value)));}
+
+/* ---------- year in review ---------- */
+function yirCards(y){
+  const r=yoyRow(y);if(!r)return null;const cur=y>=+todayISO.slice(0,4),P=r.proj?r.sofar:r.full,tag=cur?" so far":"";
+  const ys=yearStubs(y),pv=yoyRow(y-1),PV=pv&&(pv.proj?pv.sofar:pv.full);
+  const big=ys.filter(x=>x.net&&x.net.cur>0).sort((a,b)=>b.net.cur-a.net.cur)[0];
+  const tax=P.fed+P.fica+P.state,save401=P.ret+P.er401,hsa=(P.hsa||0)+(P.erHsa||0);
+  const ptoH=Object.values(r.pto||{}).reduce((a,o)=>a+o.h,0);
+  const ev=yoyEvents(),rz=ev.raises.filter(x=>x.d.startsWith(y+""));
+  const chg=(a,b)=>b?`${a>=b?"up":"down"} ${Math.abs((a/b-1)*100).toFixed(1)}% from ${y-1}`:"";
+  const cards=[{k:"Your year in pay",big:String(y),sub:`${ys.filter(x=>!isExtra(x)).length} paychecks${ys.some(isExtra)?` + ${ys.filter(isExtra).length} extra`:""}${tag}`},
+    {k:"You earned",big:fmt0(P.gross),sub:PV?chg(P.gross,PV.gross):"gross pay"},
+    {k:"You took home",big:fmt0(P.net),sub:`${(P.net/P.gross*100).toFixed(1)}% of gross`+(big?` · biggest deposit ${fmt0(big.net.cur)} on ${nice(big.payDate)}`:"")},
+    {k:"Taxes",big:fmt0(tax),sub:`${(tax/P.gross*100).toFixed(1)}% of gross`+(!cur&&!r.partial?` · Tax Freedom Day was ${dayLabel(y,tfdDay(r))}`:"")},
+    {k:"Into your 401(k)",big:fmt0(save401),sub:`${fmt0(P.ret)} from you + ${fmt0(P.er401)} from your employer`+(hsa>0.5?` · HSA ${fmt0(hsa)}`:"")}];
+  if(rz.length)cards.push({k:"Your raise",big:"+"+(rz.reduce((a,x)=>a*(1+x.pct),1)*100-100).toFixed(1)+"%",sub:`Prices rose ${(rz[0].inf*100).toFixed(1)}% · ${rz.every(x=>x.real>=0)?"you beat inflation":"inflation beat it"}`});
+  if(P.bonus>0.5)cards.push({k:"Bonus",big:fmt0(P.bonus),sub:PV&&PV.bonus>0.5?chg(P.bonus,PV.bonus):"gross"});
+  if(ptoH>0.5)cards.push({k:"Time off",big:`${+(ptoH/8).toFixed(1)} days`,sub:"paid vacation, holidays and personal days"});
+  return{y,cur,cards,sum:[["Earned",fmt0(P.gross)],["Took home",fmt0(P.net)],["Taxes",fmt0(tax)],["Into 401(k)",fmt0(save401)]].concat(P.bonus>0.5?[["Bonus",fmt0(P.bonus)]]:[]).concat(ptoH>0.5?[["Time off",`${+(ptoH/8).toFixed(1)} days`]]:[])};
+}
+function openYir(y){
+  const d=yirCards(y);if(!d)return;
+  const ov=document.createElement("div");ov.className="yir";ov.setAttribute("role","dialog");ov.setAttribute("aria-label",`${y} in review`);
+  const cards=d.cards.map((c,i)=>`<section class="yir-card${i?"":" first"}"><small>${esc(c.k)}</small><b>${esc(c.big)}</b><p>${esc(c.sub)}</p></section>`).join("")+
+    `<section class="yir-card sum"><small>${y}${d.cur?" so far":""} at a glance</small><div class="yir-grid">${d.sum.map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join("")}</div>
+     <button type="button" class="btn" id="yirSave">Save image</button></section>`;
+  const n=d.cards.length+1;
+  ov.innerHTML=`<button type="button" class="yir-x" aria-label="Close">✕</button><div class="yir-track">${cards}</div><div class="yir-dots">${Array.from({length:n},(_,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div><p class="yir-hint">Swipe →</p>`;
+  document.body.appendChild(ov);document.documentElement.style.overflow="hidden";
+  const tr=ov.querySelector(".yir-track"),dots=[...ov.querySelectorAll(".yir-dots i")];
+  tr.addEventListener("scroll",()=>{const i=Math.round(tr.scrollLeft/tr.clientWidth);dots.forEach((x,j)=>x.classList.toggle("on",i===j));ov.querySelector(".yir-hint").style.opacity=i?0:1},{passive:true});
+  const close=()=>{ov.remove();document.documentElement.style.overflow=""};
+  ov.querySelector(".yir-x").addEventListener("click",close);
+  ov.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
+  ov.querySelector("#yirSave").addEventListener("click",()=>saveYir(d));
+}
+async function saveYir(d){
+  const W=1080,H=1350,c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
+  const bg=g.createLinearGradient(0,0,W,H);bg.addColorStop(0,"#10241D");bg.addColorStop(1,"#07080A");g.fillStyle=bg;g.fillRect(0,0,W,H);
+  const F=(w,px)=>`${w} ${px}px "Nunito Sans", -apple-system, "Segoe UI", sans-serif`;
+  g.fillStyle="#3CC79A";g.font=F(700,34);g.fillText("PAYCHECK X-RAY",90,140);
+  g.fillStyle="#ECEEF0";g.font=F(700,120);g.fillText(String(d.y),86,280);
+  g.fillStyle="#9BA1A8";g.font=F(500,44);g.fillText(d.cur?"so far, at a glance":"at a glance",90,350);
+  d.sum.forEach(([l,v],i)=>{const col=i%2,row=Math.floor(i/2),x=90+col*470,yy=490+row*230;
+    g.fillStyle="#9BA1A8";g.font=F(500,38);g.fillText(l,x,yy);g.fillStyle=i===1?"#3CC79A":"#ECEEF0";g.font=F(700,74);g.fillText(v,x,yy+86)});
+  g.fillStyle="#3CC79A";g.fillRect(90,H-150,120,8);
+  const blob=await new Promise(r=>c.toBlob(r,"image/png"));const name=`paycheck-${d.y}-review.png`;
+  try{const f=new File([blob],name,{type:"image/png"});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:`${d.y} in review`});return}}catch(e){if(e&&e.name==="AbortError")return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();toast("Image saved.");
+}
+$("yirBtn").addEventListener("click",()=>openYir(state.year));
+
 /* ---------- next year at today's settings ---------- */
 function nextYear(){
   const y=state.year,ny=y+1,lastY=Math.max(...state.stubs.map(s=>+s.payDate.slice(0,4)));
@@ -1784,7 +1910,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#yoyView .tog")){setTimeout(renderYoy,0);return}
   const rb=e.target.closest("#yoyReal [data-real]");if(rb){state.real=rb.dataset.real==="1";setOpen("real",state.real);renderYoy();return}
 });
-const TAB_OF={whatif:"plan",bonusEst:"plan",nextyr:"plan",sscap:"plan",add:"stubs"};
+const TAB_OF={whatif:"plan",bonusEst:"plan",nextyr:"plan",retire:"plan",sscap:"plan",add:"stubs"};
 const tabOf=el=>TAB_OF[el.dataset&&el.dataset.k]||"year";
 function setTab(t){if(t===state.tab){window.scrollTo({top:0,behavior:"smooth"});return}state.tab=t;state.view=t==="all"?"all":"year";setOpen("tab",t);render();window.scrollTo(0,0)}
 function setView(v){setTab(v==="all"?"all":"year")}
@@ -1793,7 +1919,7 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
-const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",sscap:"SS cap",add:"Add stubs",
+const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",sscap:"SS cap",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
@@ -1860,12 +1986,13 @@ function renderMain(){
   renderStubs();
   const panels=document.querySelectorAll(".wrap > section.panel:not(:last-child):not(#emptyNote), .wrap > .grid2");
   const addSec=document.querySelector('section[data-k="add"]');
-  if(!m.latest){panels.forEach(p=>p.hidden=true);$("chkBar").hidden=true;$("yoyView").hidden=true;$("tabBar").hidden=true;$("yearField").hidden=true;$("emptyNote").hidden=false;if(addSec){addSec.hidden=false;applyPanel(addSec,true)}return}
+  if(!m.latest){$("yirBar").hidden=true;panels.forEach(p=>p.hidden=true);$("chkBar").hidden=true;$("yoyView").hidden=true;$("tabBar").hidden=true;$("yearField").hidden=true;$("emptyNote").hidden=false;if(addSec){addSec.hidden=false;applyPanel(addSec,true)}return}
   $("emptyNote").hidden=true;$("tabBar").hidden=false;
   const tab=state.tab,all=tab==="all";
   $("tabBar").querySelectorAll("[data-tab]").forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
   $("yearField").hidden=!(tab==="year"||tab==="plan");$("yoyView").hidden=!all;if(tab!=="year")$("chkBar").hidden=true;
   panels.forEach(p=>p.hidden=tabOf(p)!==tab);if(addSec)addSec.hidden=tab!=="stubs";
+  $("yirBar").hidden=true;
   if(all){applyGroup();renderYoy();return}
   if(tab==="stubs")return;
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
@@ -1873,6 +2000,8 @@ function renderMain(){
   renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);
   {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
   if(tab!=="year")$("chkBar").hidden=true;
+  renderRetire();
+  {const cur=+todayISO.slice(0,4);$("yirBar").hidden=tab!=="year";$("yirBtn").innerHTML=`<span aria-hidden="true">✦</span> ${y}${y>=cur?" so far":""} in review`}
   if(!$("ssCap").innerHTML.trim())document.querySelector('section[data-k="sscap"]').hidden=true;
   {const asof=ma!==m?` · as of ${nice(ma.latest.payDate)}`:"";$("w2year").textContent=y+asof;
    document.querySelectorAll(".asof").forEach(e=>{e.hidden=!asof;e.textContent=asof?`Showing the year as of the ${nice(ma.latest.payDate)} check, as if it were the latest. Switch to Year to date to see the whole year.`:""})}
