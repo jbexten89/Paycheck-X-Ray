@@ -415,6 +415,8 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <section class="panel" data-k="yoyHealth">
       <div class="panel-head"><h2>Health costs</h2></div>
       <div class="chart" id="yoyHealth"></div><div class="legend-row" id="yoyHealthLeg"></div><p class="yd" id="yoyHealthD"></p>
+      <div id="hsaWrap"><div class="er-head" style="margin-top:16px"><h3>HSA vs the IRS limit</h3></div>
+      <div class="chart" id="yoyHsa"></div><div class="legend-row" id="yoyHsaLeg"></div><p class="yd" id="yoyHsaD"></p></div>
       <div class="tbl-wrap"><table class="yt ytab" id="tbHealth"></table></div>
       <div class="er-head" style="margin-top:16px"><h3>Insurance premiums per check</h3></div>
       <div class="tbl-wrap"><table class="yt ytab" id="tbPrem"></table></div>
@@ -1232,7 +1234,7 @@ const dayLabel=(y,n)=>{const d=new Date(y,0,1);d.setDate(d.getDate()+Math.ceil(n
 const annualBase=s=>{const r=s&&s.payRate;if(!r)return null;return r<500?r*2080:r*(isSemi(s)?24:26)};
 const pc1=(a,b)=>b?(a/b*100).toFixed(1)+"%":"—";
 const sgn=p=>(p>=0?"+":"−")+Math.abs(p*100).toFixed(1)+"%";
-const kfmt=v=>v>=1e6?"$"+(v/1e6).toFixed(1)+"M":v>=1000?"$"+Math.round(v/1000)+"k":"$"+Math.round(v);
+const kfmt=v=>{const t=(x)=>String(+x.toFixed(1));return v>=1e6?"$"+t(v/1e6)+"M":v>=1000?"$"+t(v/1000)+"k":"$"+Math.round(v)};
 function niceStep(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return(n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
 function niceMax(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return(n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
 let yoyCache=null;
@@ -1467,6 +1469,14 @@ function renderYoy(){
   const H0=rows.find(r=>!r.partial&&r.full.health>0),H1=[...rows].reverse().find(r=>!r.partial&&!r.proj&&r.full.health>0);
   setSum("yoyHealth",H0&&H1&&H0!==H1?`Insurance ${fmt0(yv(H0,"health"))} in ${H0.y} → ${fmt0(yv(H1,"health"))} in ${H1.y}`:"");
   $("yoyHealthD").innerHTML=sel?`<b>${sel.y}</b> · `+hs.filter(([k])=>sel.full[k]>0.004).map(([k,l])=>`${l} ${fmt0(yv(sel,k))}`).join(" · ")+(sel.full.erHsa?` · Employer HSA deposit ${fmt0(yv(sel,"erHsa"))}`:"")+openBtn(sel.y):"What came out of your pay for health coverage and health accounts.";
+  {const hl=r=>{const it=r.m.ys.flatMap(s=>s.items).filter(i=>isHSA(i)||isHSAer(i));if(!it.length)return 0;const L=limFor(r.y),fam=it.some(i=>/FAM/i.test(i.label));
+      return(fam?L.hsaFam:L.hsaSelf)+(ageFor(r.y)>=55?L.hsaCatch:0)};
+    const has=rows.some(r=>r.full.hsa>0||r.full.erHsa>0);$("hsaWrap").hidden=!has;
+    if(has){const hr=rows.filter(r=>hl(r)||r.full.hsa>0||r.full.erHsa>0),HY=hr.map(r=>r.y),HV=k=>hr.map(r=>yv(r,k));
+      barChart($("yoyHsa"),{years:HY,proj,series:[{c:"--c-er-hsa",vals:HV("hsa")},{c:"--c-k-match",vals:HV("erHsa")}],marker:hr.map(r=>hl(r)*rf(r.y)),aria:"HSA contributions by year with the IRS limit"});
+      $("yoyHsaLeg").innerHTML=legend([["--c-er-hsa","You"],["--c-k-match","Employer"],["--amber","IRS limit","tick"]]);
+      const hs=sel&&hr.find(r=>r.y===sel.y);
+      $("yoyHsaD").innerHTML=hs?`<b>${hs.y}</b> · You ${fmt0(yv(hs,"hsa"))} · Employer ${fmt0(yv(hs,"erHsa"))} · Total ${fmt0(yv(hs,"hsa")+yv(hs,"erHsa"))} · Limit ${fmt0(hl(hs)*rf(hs.y))}`+(hl(hs)?(hs.full.hsa+hs.full.erHsa>hl(hs)+0.5?` · <span class="warn">${fmt0((hs.full.hsa+hs.full.erHsa-hl(hs))*rf(hs.y))} over</span>`:` · ${fmt0((hl(hs)-hs.full.hsa-hs.full.erHsa)*rf(hs.y))} unused`):""):"Your HSA deposits plus your employer's, against each year's IRS limit (family or self-only from your stubs, plus the catch-up from age 55).";}}
   /* extras */
   const bOther=r=>Math.max(0,yv(r,"bonus")-yv(r,"bonusNet")-yv(r,"bonusTax")-yv(r,"bonus401"));const hasBO=rows.some(r=>bOther(r)>1);
   barChart($("yoyExtra"),{years:Y,proj,series:[{c:"--c-k-p45",vals:V("bonusNet")},{c:"--c-ret",vals:V("bonus401")},{c:"--c-fed",vals:V("bonusTax")}].concat(hasBO?[{c:"--c-other",vals:rows.map(bOther)}]:[]).concat([{c:"--c-fica",vals:V("ot")}]),aria:"Bonuses split into net, 401(k) and taxes, plus overtime, by year"});
