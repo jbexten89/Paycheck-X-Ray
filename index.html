@@ -231,6 +231,13 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .jchip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .fab{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:80;width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.45);cursor:pointer}
 .fab[hidden],.fabmenu[hidden]{display:none!important}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:90;display:grid;grid-template-columns:repeat(4,1fr);background:color-mix(in srgb,var(--bg) 92%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 6px) max(8px,env(safe-area-inset-left,0px))}
+.tabbar[hidden],.ctlbar[hidden]{display:none}
+.tabbar button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;color:var(--muted);font-size:11.5px;font-weight:600;-webkit-tap-highlight-color:transparent}
+.tabbar svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tabbar button.on{color:var(--accent)}
+.tabbar button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
+body{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 74px)}
 .fab[aria-expanded=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .fabmenu{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 80px);z-index:80;min-width:210px;max-height:min(70vh,520px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.55);display:flex;flex-direction:column}
 .fabmenu button{all:unset;cursor:pointer;padding:10px 12px;border-radius:8px;font-size:15px;color:var(--ink)}
@@ -346,7 +353,6 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
   </header>
   <div class="ctlbar" id="ctlBar">
     <div class="row-actions">
-      <div class="seg" id="viewSeg" role="group" aria-label="View"><button data-view="year" aria-pressed="true">One year</button><button data-view="all" aria-pressed="false">All years</button></div>
       <div class="yearnav" id="yearField"><button type="button" class="btn ghost small" id="yearPrev" aria-label="Previous year">‹</button><select id="yearSel" aria-label="Year"></select><button type="button" class="btn ghost small" id="yearNext" aria-label="Next year">›</button></div>
     </div>
     <div class="chkbar" id="chkBar" hidden>
@@ -358,6 +364,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
   </div>
   <button type="button" class="fab" id="fab" aria-label="Jump to a section" aria-haspopup="true" aria-expanded="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   <div class="fabmenu" id="fabMenu" role="menu" hidden></div>
+  <nav class="tabbar" id="tabBar" aria-label="Main"><button type="button" data-tab="year"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Year</span></button><button type="button" data-tab="all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M6.5 20v-6M11 20V9M15.5 20v-8M20 20V5" stroke-width="2.6"/></svg><span>All years</span></button><button type="button" data-tab="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span>Plan</span></button><button type="button" data-tab="stubs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 12.5h6M10 16h6"/></svg><span>Stubs</span></button></nav>
 
   <section class="panel" id="emptyNote" hidden>
     <h2>Start with your stubs</h2>
@@ -505,7 +512,6 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <p class="note asof" hidden style="margin:0"></p>
       <div class="tbl-wrap"><table id="w2"></table></div>
       <p class="note" id="w2emp" hidden></p>
-      <div id="ssCap" style="margin-top:14px"></div>
       <p class="note">Projected = latest year-to-date plus the latest check repeated for each payday left. HSA money your employer deposits directly is not on the stub, so Box 12 W may come in higher.</p>
     </section>
 
@@ -562,6 +568,16 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div class="er-head" style="margin-top:6px"><h3>Your recent bonus checks</h3></div>
     <div class="tbl-wrap"><table id="bePast"></table></div>
     <p class="note" id="beNote" style="margin:0"></p>
+  </section>
+
+  <section class="panel" data-k="nextyr">
+    <div class="panel-head"><h2>Next year</h2></div>
+    <div id="nyBox"></div>
+  </section>
+
+  <section class="panel" data-k="sscap">
+    <div class="panel-head"><h2>Social Security cap</h2></div>
+    <div id="ssCap"></div>
   </section>
 
   <section class="panel" data-k="add">
@@ -706,7 +722,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -1214,7 +1230,7 @@ function renderMeters(m){
   const hLines=[`${fmt0(hY)} so far: ${fmt0(hY-hEr)} from you (${fmt(hC)} ${perLbl}) and ${fmt0(hEr)} from your employer.`,
     m.remaining===0?(hY>hLim+0.5?`<b>Year finished ${fmt0(hY-hLim)} over the limit.</b>`:(hLim-hY>1?`Year finished ${fmt0(hLim-hY)} under the limit.`:`Hit the limit exactly.`)):hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it by about ${fmt0(-extraPer)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. Adding about <b class="num">${fmt0(extraPer)}</b> per check (about <b class="num">${fmt0(hC+extraPer)}</b> total) would fill it.`:`On pace to hit the limit exactly.`,
     `${fam?"Family":"Self-only"} limit${age>=55?" plus the age-55 catch-up":""}. Employer deposits count toward it.`];
-  $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines,catchUp)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines,age>=55?LIM.hsaCatch:0):"")+k401Total(m,catchUp)+nextYear();
+  $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines,catchUp)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines,age>=55?LIM.hsaCatch:0):"")+k401Total(m,catchUp);
   setSum("savings",`401(k) <strong>${fmt0(k401Sum)}</strong> total`+(hsaItems.length?` · HSA `+(hP>hLim+0.5?`<span class="warn">${fmt0(hP-hLim)} over</span>`:`<strong>${fmt0(Math.max(0,hLim-hP))}</strong> room left`):""));
 }
 
@@ -1223,7 +1239,8 @@ function renderSsCap(m,y){
   const box=$("ssCap");const L=limFor(y),base=L.ssBase,rate=L.ssRate||.062;
   if(!m.latest||!base){box.innerHTML="";return}
   if(m.lastByEmp.length>1){const f=m.remaining?"proj":"ytd",w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f)),t=m.val(isSS,f),max=r2(base*rate),xs=r2(t-max);
-    box.innerHTML=`<div class="er-head"><h3>Social Security cap</h3><span style="font-size:14px;color:var(--muted)">${m.lastByEmp.length} employers</span></div>`+meter("",`Social Security wages, ${y}, all employers`,w,w,base,[
+    setSum("sscap",`${m.lastByEmp.length} employers`);
+    box.innerHTML=meter("",`Social Security wages, ${y}, all employers`,w,w,base,[
       `Each employer withholds Social Security on its own and only stops at the cap on its own pay, so the combined ${fmt0(w)} ${w>base?`passed the ${fmt0(base)} cap`:`is under the ${fmt0(base)} cap`}.`,
       xs>0.5?`<b>${fmt0(xs)} more than the ${fmt(max)} maximum was withheld.</b> It comes back as a credit on your tax return (Schedule 3, excess Social Security).`:`Withheld ${fmt(t)}, within the ${fmt(max)} maximum.`],0);return}
   const ssw=s=>{const Y=p=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);return r2(Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125))};
@@ -1244,7 +1261,8 @@ function renderSsCap(m,y){
     lines=[`${m.remaining?"Projected":"Total"} Social Security wages ${fmt0(proj)}, ${fmt0(short)} under the ${fmt0(base)} cap, so Social Security comes out of every check.`,
       m.remaining?`A bonus or extra pay of about <b class="num">${fmt0(short)}</b> more this year would reach it. After that, checks would be about ${fmt(bump)} bigger.`:`You'd have needed ${fmt0(short)} more in wages to reach it.`]}
   lines.push(`Social Security wages are gross pay plus taxable benefits, minus health, dental, vision, HSA and FSA deductions. Your 401(k) doesn't lower them. Medicare has no cap.`);
-  box.innerHTML=`<div class="er-head"><h3>Social Security cap</h3><span style="font-size:14px;color:var(--muted)">${head}</span></div>`+meter("",`Social Security wages, ${y}`,ytd,Math.max(proj,ytd),base,lines,0);
+  setSum("sscap",head);
+  box.innerHTML=meter("",`Social Security wages, ${y}`,ytd,Math.max(proj,ytd),base,lines,0);
 }
 
 /* ---------- what-if paycheck ---------- */
@@ -1296,8 +1314,8 @@ function renderWhatIf(m,y){
     (D2*n>kLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">401(k) would be ${fmt0(D2*n-kLim)} over your ${fmt0(kLim)} ${y} limit over a full year.</span></div>`:"")+
     (H2*n+hEr>hLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">HSA would be ${fmt0(H2*n+hEr-hLim)} over your ${fmt0(hLim)} ${y} limit, counting ${fmt0(hEr)} from your employer.</span></div>`:"");
   $("wiNote").textContent=`Estimate. Federal uses ${y} brackets, tuned so it matches what this check actually withheld; Social Security, Medicare, state and local scale with the wages they're figured on. Insurance premiums come out before tax, so a change also moves every tax line. After-tax deductions stay the same. Employer 401(k) money scales with pay.${Math.abs(drift)>0.004?` This check's own lines are off from its deposit by ${fmt(Math.abs(drift))}, so that's carried over.`:""}`;
+  sec.hidden=state.tab!=="plan";
   setSum("whatif",(raise||Math.abs(kPct-kNow)>0.005||Math.abs(hsa-H)>0.005||xf||Math.abs(dIns)>0.004)?`Take-home <strong>${fmt(net2a)}</strong> (${net2a>=net?"+":"−"}${fmt(Math.abs(net2a-net)).slice(1)})`:"Try a raise, 401(k) % or HSA amount");
-  sec.hidden=false;
 }
 {const wiSet=(k,v)=>{const w=state.settings.wi=state.settings.wi||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
   [["wiRaise","raise"],["wiK","k"],["wiH","hsa"],["wiX","x"],["wiMed","med"],["wiDen","den"],["wiVis","vis"]].forEach(([id,k])=>$(id).addEventListener("change",e=>wiSet(k,e.target.value)));
@@ -1332,7 +1350,7 @@ function renderBonusEst(m,y){
   $("bePast").innerHTML=`<thead><tr><th>Paid</th><th class="n">Bonus</th><th class="n">Deposited</th><th class="n">Kept</th></tr></thead><tbody>`+past.map(s=>{const g=sm(s,i=>i.sec==="earnings");return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}</td><td class="n">${fmt0(g)}</td><td class="n">${fmt0(s.net.cur)}</td><td class="n">${(s.net.cur/g*100).toFixed(1)}%</td></tr>`}).join("")+"</tbody>";
   $("beNote").textContent=`Rates come from your ${nice(last.payDate)}, ${last.payDate.slice(0,4)} bonus check: federal ${(fedR*100).toFixed(1)}% (the flat rate for bonuses)`+st.map(x=>`, ${x.l} ${(x.r*100).toFixed(2).replace(/\.?0+$/,"")}%`).join("")+`, all figured after the 401(k).${ohNote} Social Security ${room<B?`stops once ${y} wages reach the ${fmt0(L.ssBase)} cap`:"is 6.2%"}; Medicare is 1.45%. Roth comes out after taxes, so it doesn't lower them. Other deductions on a bonus check would lower what you keep. Bonus withholding isn't your final tax; the year-end return settles it.`;
   setSum("bonusEst",`Keep <strong>${fmt0(kept)}</strong> of ${fmt0(B)}`);
-  sec.hidden=false;
+  sec.hidden=state.tab!=="plan";
 }
 {const beSet=(k,v)=>{const w=state.settings.be=state.settings.be||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
   $("beAmt").addEventListener("change",e=>beSet("amt",e.target.value));$("beK").addEventListener("change",e=>beSet("k",e.target.value));$("beR").addEventListener("change",e=>beSet("roth",e.target.value));}
@@ -1358,7 +1376,7 @@ function nextYear(){
       hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it to about ${fmt(hNeed)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. To fill it, set about <b class="num">${fmt(hNeed)}</b> per check.`:"On pace to hit the limit exactly.",
       `${fam?"Family":"Self-only"} limit ${fmt0(hLim-hc)}${hc?` plus the ${fmt0(hc)} age-55 catch-up`:""}. Employer deposits count toward it.`];
     out+=meter("hsa",`HSA in ${ny}`,0,hP,hLim,hLines,hc,true)}
-  return`<div class="nextyr" style="grid-column:1/-1"><div class="er-head"><h3>Next year, ${ny}, at today's settings</h3>
+  return`<div class="nextyr"><div class="er-head"><span class="bd-sub" style="margin:0">${ny}, at today's settings</span>
     <label class="field" style="flex-direction:row;align-items:center;gap:8px">Raise <input id="nyRaise" type="number" inputmode="decimal" step="0.5" min="0" max="50" value="${+state.settings.nextRaise||0}" style="width:64px"> %</label>
     ${s.items.some(isHSA)?`<label class="field" style="flex-direction:row;align-items:center;gap:8px">HSA $ <input id="nyHsa" type="number" inputmode="decimal" step="1" min="0" value="${state.settings.nextHsa!=null&&state.settings.nextHsa!==""?+state.settings.nextHsa:r2(s.items.filter(isHSA).reduce((a,i)=>a+i.cur,0))}" style="width:84px"> per check</label>`:""}</div>
     <p class="bd-sub" style="margin:0">Starts from your ${nice(s.payDate)} check: same 401(k) %, the HSA amount above, and this year's employer HSA deposits. Clear the HSA box to go back to your current amount.</p>
@@ -1762,28 +1780,32 @@ document.addEventListener("click",e=>{
   const col=e.target.closest("#yoyView .col");if(col){const y=+col.dataset.y;state.yoySel=state.yoySel===y?null:y;renderYoy();return}
   if(e.target.closest("#yoyView .tog")){setTimeout(renderYoy,0);return}
   const rb=e.target.closest("#yoyReal [data-real]");if(rb){state.real=rb.dataset.real==="1";setOpen("real",state.real);renderYoy();return}
-  const vb=e.target.closest("#viewSeg [data-view]");if(vb){setView(vb.dataset.view)}
 });
-function setView(v){state.view=v;setOpen("view",v==="all");render()}
+const TAB_OF={whatif:"plan",bonusEst:"plan",nextyr:"plan",sscap:"plan",add:"stubs"};
+const tabOf=el=>TAB_OF[el.dataset&&el.dataset.k]||"year";
+function setTab(t){if(t===state.tab){window.scrollTo({top:0,behavior:"smooth"});return}state.tab=t;state.view=t==="all"?"all":"year";setOpen("tab",t);render();window.scrollTo(0,0)}
+function setView(v){setTab(v==="all"?"all":"year")}
+$("tabBar").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(b)setTab(b.dataset.tab)});
 let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(state.view==="all")renderYoy()},150)});
 
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
-const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",add:"Add stubs",
+const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",sscap:"SS cap",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
 function jumpSections(){
   const all=state.view==="all";
-  const els=all?[$("yoyTop"),...document.querySelectorAll("#yoyView section.panel[data-k]"),document.querySelector('section[data-k="add"]')]
+  const els=all?[$("yoyTop"),...document.querySelectorAll("#yoyView section.panel[data-k]")]
     :[...document.querySelectorAll('.wrap section.panel[data-k]')].filter(s=>!s.closest("#yoyView"));
   return els.filter(e=>e&&e.offsetParent!==null&&!e.hidden).map(e=>({el:e,k:e.dataset.k||e.id,name:JUMP_NAMES[e.dataset.k||e.id]||(e.querySelector("h2")||{}).textContent||""}));
 }
 function buildJump(){
   jumpList=state.stubs.length?jumpSections():[];
-  $("jumpBar").hidden=!jumpList.length;$("fab").hidden=!jumpList.length;
+  $("jumpBar").hidden=jumpList.length<2;$("fab").hidden=true;
   $("jumpBar").innerHTML=jumpList.map((j,i)=>`<button type="button" class="jchip" data-j="${i}">${esc(j.name)}</button>`).join("");
   $("fabMenu").innerHTML=`<button type="button" role="menuitem" data-j="top">↑ Back to top</button><div class="sep"></div>`+jumpList.map((j,i)=>`<button type="button" role="menuitem" data-j="${i}">${esc(j.name)}</button>`).join("");
+  $("ctlBar").hidden=$("yearField").hidden&&$("chkBar").hidden&&$("jumpBar").hidden;
   spy();
 }
 function jumpTo(i){
@@ -1825,16 +1847,20 @@ function renderMain(){
   renderStubs();
   const panels=document.querySelectorAll(".wrap > section.panel:not(:last-child):not(#emptyNote), .wrap > .grid2");
   const addSec=document.querySelector('section[data-k="add"]');
-  if(!m.latest){panels.forEach(p=>p.hidden=true);$("chkBar").hidden=true;$("yoyView").hidden=true;$("viewSeg").hidden=true;$("emptyNote").hidden=false;if(addSec)applyPanel(addSec,true);return}
-  $("emptyNote").hidden=true;$("viewSeg").hidden=false;
-  const all=state.view==="all";
-  $("viewSeg").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.view==="all")===all)));
-  $("yearField").hidden=all;$("yoyView").hidden=!all;if(all)$("chkBar").hidden=true;
-  panels.forEach(p=>p.hidden=all);
+  if(!m.latest){panels.forEach(p=>p.hidden=true);$("chkBar").hidden=true;$("yoyView").hidden=true;$("tabBar").hidden=true;$("yearField").hidden=true;$("emptyNote").hidden=false;if(addSec){addSec.hidden=false;applyPanel(addSec,true)}return}
+  $("emptyNote").hidden=true;$("tabBar").hidden=false;
+  const tab=state.tab,all=tab==="all";
+  $("tabBar").querySelectorAll("[data-tab]").forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+  $("yearField").hidden=!(tab==="year"||tab==="plan");$("yoyView").hidden=!all;if(tab!=="year")$("chkBar").hidden=true;
+  panels.forEach(p=>p.hidden=tabOf(p)!==tab);if(addSec)addSec.hidden=tab!=="stubs";
   if(all){renderYoy();return}
+  if(tab==="stubs")return;
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
   let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
   renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);
+  {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
+  if(tab!=="year")$("chkBar").hidden=true;
+  if(!$("ssCap").innerHTML.trim())document.querySelector('section[data-k="sscap"]').hidden=true;
   {const asof=ma!==m?` · as of ${nice(ma.latest.payDate)}`:"";$("w2year").textContent=y+asof;
    document.querySelectorAll(".asof").forEach(e=>{e.hidden=!asof;e.textContent=asof?`Showing the year as of the ${nice(ma.latest.payDate)} check, as if it were the latest. Switch to Year to date to see the whole year.`:""})}
 }
@@ -1910,10 +1936,10 @@ function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=stat
 $("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();render()});
 ["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();render()}));
 
-state.view=isOpen("view")?"all":"year";state.real=isOpen("real");
+state.tab=["year","all","plan","stubs"].includes(ui.tab)?ui.tab:(isOpen("view")?"all":"year");state.view=state.tab==="all"?"all":"year";state.real=isOpen("real");
 initPanels();load();syncInputs();render();
 window.__pxr={parseText,model,breakdown};
-window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:()=>{const sec=document.querySelector('section[data-k="add"]');if(sec){applyPanel(sec,true);setOpen("add",true)}}};
+window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:()=>{if(state.tab!=="stubs")setTab("stubs");const sec=document.querySelector('section[data-k="add"]');if(sec){applyPanel(sec,true);setOpen("add",true)}}};
 })();
 </script>
 <script src="ocr.js"></script>
