@@ -136,6 +136,7 @@ tr.total td{font-weight:700;border-top:1.5px solid var(--line)}
 
 /* tax */
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+#beFields{grid-template-columns:1fr 1fr}#beFields>label[for=beAmt]{grid-column:1;grid-row:1}#beFields>label[for=beK]{grid-column:2;grid-row:1}#beFields>label[for=beR]{grid-column:2;grid-row:2}
 .field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
 .field input{width:100%;color:var(--ink)}
 .verdict{border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;border:1.5px solid var(--line)}
@@ -551,7 +552,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
 
   <section class="panel" data-k="bonusEst">
     <div class="panel-head"><h2>Bonus estimator</h2></div>
-    <div class="fields">
+    <div class="fields" id="beFields">
       <label class="field" for="beAmt">Bonus $<input id="beAmt" type="number" inputmode="decimal" step="100" min="0"></label>
       <label class="field" for="beK">401(k) % of bonus<input id="beK" type="number" inputmode="decimal" step="0.5" min="0" max="90"></label>
       <label class="field" for="beR">Roth % of bonus<input id="beR" type="number" inputmode="decimal" step="0.5" min="0" max="90" placeholder="0"></label>
