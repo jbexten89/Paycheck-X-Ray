@@ -498,6 +498,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <p class="note asof" hidden style="margin:0"></p>
       <div class="tbl-wrap"><table id="w2"></table></div>
       <p class="note" id="w2emp" hidden></p>
+      <div id="ssCap" style="margin-top:14px"></div>
       <p class="note">Projected = latest year-to-date plus the latest check repeated for each payday left. HSA money your employer deposits directly is not on the stub, so Box 12 W may come in higher.</p>
     </section>
 
@@ -1111,6 +1112,7 @@ function renderW2(m,y){
       ["19","Local / school district tax",m.val(i=>isStateLocal(i)&&!/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)]]};
   const a=box("ytd"),p=box("proj");
   const wn=$("w2emp");if(wn){const n=m.lastByEmp?m.lastByEmp.length:1;wn.hidden=n<2;wn.textContent=n<2?"":`Combined from ${n} employers: ${m.lastByEmp.map(g=>g.e||"unnamed").join(" and ")}. You'll get a separate W-2 from each.`}
+  renderSsCap(m,y);
   setSum("w2",`Box 1 wages <strong>${fmt0(p[0][2])}</strong> · fed withheld ${fmt0(p[1][2])}`);
   $("w2").innerHTML=`<thead><tr><th>Box</th><th class="n">YTD</th><th class="n">Dec 31</th></tr></thead><tbody>`+
     a.map((r,k)=>r[2]||p[k][2]?`<tr><td><span class="box">${r[0]}</span>${r[1]}</td><td class="n">${fmt0(r[2])}</td><td class="n">${fmt0(p[k][2])}</td></tr>`:"").join("")+`</tbody>`;
@@ -1173,6 +1175,31 @@ function renderMeters(m){
     `${fam?"Family":"Self-only"} limit${age>=55?" plus the age-55 catch-up":""}. Employer deposits count toward it.`];
   $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines,catchUp)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines,age>=55?LIM.hsaCatch:0):"")+k401Total(m,catchUp)+nextYear();
   setSum("savings",`401(k) <strong>${fmt0(k401Sum)}</strong> total`+(hsaItems.length?` · HSA `+(hP>hLim+0.5?`<span class="warn">${fmt0(hP-hLim)} over</span>`:`<strong>${fmt0(Math.max(0,hLim-hP))}</strong> room left`):""));
+}
+
+/* ---------- Social Security wage cap ---------- */
+function renderSsCap(m,y){
+  const box=$("ssCap");const L=limFor(y),base=L.ssBase,rate=L.ssRate||.062;
+  if(!m.latest||!base||m.lastByEmp.length>1){box.innerHTML="";return}
+  const ssw=s=>{const Y=p=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);return r2(Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125))};
+  const cur=s=>r2(s.items.filter(i=>i.sec==="earnings"||i.sec==="taxable").reduce((a,i)=>a+i.cur,0)-s.items.filter(isSec125).reduce((a,i)=>a+i.cur,0));
+  const ytd=ssw(m.latest),per=cur(m.reg),proj=r2(ytd+per*m.remaining),max=base*rate,bump=Math.min(per,Math.max(0,per))*rate;
+  let lines=[],head="";
+  const hit=m.ys.find(s=>ssw(s)>base+0.005);
+  if(hit){const before=r2(base-(ssw(hit)-cur(hit)));
+    head=`Hit the cap on ${nice(hit.payDate)}`;
+    lines=[`Social Security wages passed ${fmt0(base)} on that check, so only ${fmt(Math.max(0,before)*rate)} came out of it and none after. The year's maximum is ${fmt(max)}.`,
+      `Each regular check after that is about <b class="num">${fmt(bump)}</b> bigger.`]}
+  else if(proj>base+0.005&&per>0){const n=Math.ceil((base-ytd)/per),d=m.pds.filter(x=>x>m.latest.payDate)[n-1];
+    head=`On pace to hit the cap${d?` on ${nice(d)}`:""}`;
+    lines=[`${fmt0(ytd)} so far, about ${fmt0(per)} per check. Social Security stops once wages pass ${fmt0(base)}.`,
+      `Checks after that would be about <b class="num">${fmt(bump)}</b> bigger, with ${fmt(max)} withheld for the year.`]}
+  else{const short=r2(base-proj);
+    head=m.remaining?`Won't reach the cap in ${y}`:`Didn't reach the cap in ${y}`;
+    lines=[`${m.remaining?"Projected":"Total"} Social Security wages ${fmt0(proj)}, ${fmt0(short)} under the ${fmt0(base)} cap, so Social Security comes out of every check.`,
+      m.remaining?`A bonus or extra pay of about <b class="num">${fmt0(short)}</b> more this year would reach it. After that, checks would be about ${fmt(bump)} bigger.`:`You'd have needed ${fmt0(short)} more in wages to reach it.`]}
+  lines.push(`Social Security wages are gross pay plus taxable benefits, minus health, dental, vision, HSA and FSA deductions. Your 401(k) doesn't lower them. Medicare has no cap.`);
+  box.innerHTML=`<div class="er-head"><h3>Social Security cap</h3><span style="font-size:14px;color:var(--muted)">${head}</span></div>`+meter("",`Social Security wages, ${y}`,ytd,Math.max(proj,ytd),base,lines,0);
 }
 
 /* ---------- next year at today's settings ---------- */
