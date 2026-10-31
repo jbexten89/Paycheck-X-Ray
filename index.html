@@ -634,6 +634,8 @@ const LIMS={
   2026:{std:16100,br:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]],
     k401:24500,c50:8000,c60:11250,total:72000,ssBase:184500,hsaSelf:4400,hsaFam:8750,hsaCatch:1000}};
 /* 2027: HSA from Rev. Proc. 2026; 401(k) figures are forecasts until the IRS announces them. Tax brackets carry over from 2026. */
+/* Ohio flat rate for bonuses and other supplemental wages (Ohio Dept. of Taxation, 2026 withholding guidance). */
+LIMS[2026].ohSupp=.0275;
 LIMS[2027]=Object.assign({},LIMS[2026],{k401:25500,c50:8500,c60:11750,total:75000,hsaSelf:4500,hsaFam:9000,hsaCatch:1000,proj401:true});
 const limYears=Object.keys(LIMS).map(Number).sort();
 const limFor=y=>LIMS[y]||LIMS[limYears.filter(k=>k<=y).pop()||limYears[0]];
@@ -1312,6 +1314,8 @@ function renderBonusEst(m,y){
   const w=state.settings.be||{},B=w.amt!=null?+w.amt:big,kp=w.k!=null?+w.k:Math.round(lK/lE*10000)/100;
   [["beAmt",B],["beK",kp]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(+(+v).toFixed(2))});
   const L=limFor(y),rate=L.ssRate||.062,f=m.remaining?"proj":"ytd";
+  const ohio=x=>/\bOH\b|OHIO/i.test(x.l);let ohNote="";
+  if(L.ohSupp)st.forEach(x=>{if(ohio(x)&&Math.abs(x.r-L.ohSupp)>0.00001){ohNote=` Ohio uses its ${y} bonus rate of ${(L.ohSupp*100).toFixed(2)}% instead of the ${(x.r*100).toFixed(2).replace(/\.?0+$/,"")}% on that check.`;x.r=L.ohSupp}});
   const ssW=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f)),room=Math.max(0,L.ssBase-ssW);
   const K=r2(B*kp/100),W=r2(B-K),fed=r2(W*fedR),ss=r2(Math.min(B,room)*rate),md=r2(B*.0145+Math.max(0,ssW+B-Math.max(200000,ssW))*.009);
   const stv=st.map(x=>({l:x.l,v:r2(W*x.r)})),kept=r2(B-K-fed-ss-md-stv.reduce((a,x)=>a+x.v,0));
@@ -1324,7 +1328,7 @@ function renderBonusEst(m,y){
     ${er?`<tr><td>Employer 401(k) on top</td><td class="n">${fmt(er)}</td><td class="n pc">${(erR*100).toFixed(1)}%</td></tr>`:""}</tbody>`;
   const past=bcs.slice(-6).reverse();
   $("bePast").innerHTML=`<thead><tr><th>Paid</th><th class="n">Bonus</th><th class="n">Deposited</th><th class="n">Kept</th></tr></thead><tbody>`+past.map(s=>{const g=sm(s,i=>i.sec==="earnings");return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}</td><td class="n">${fmt0(g)}</td><td class="n">${fmt0(s.net.cur)}</td><td class="n">${(s.net.cur/g*100).toFixed(1)}%</td></tr>`}).join("")+"</tbody>";
-  $("beNote").textContent=`Rates come from your ${nice(last.payDate)}, ${last.payDate.slice(0,4)} bonus check: federal ${(fedR*100).toFixed(1)}% (the flat rate for bonuses)`+st.map(x=>`, ${x.l} ${(x.r*100).toFixed(2).replace(/\.?0+$/,"")}%`).join("")+`, all figured after the 401(k). Social Security ${room<B?`stops once ${y} wages reach the ${fmt0(L.ssBase)} cap`:"is 6.2%"}; Medicare is 1.45%. A separate Roth amount or other deductions on a bonus check would lower what you keep. Bonus withholding isn't your final tax; the year-end return settles it.`;
+  $("beNote").textContent=`Rates come from your ${nice(last.payDate)}, ${last.payDate.slice(0,4)} bonus check: federal ${(fedR*100).toFixed(1)}% (the flat rate for bonuses)`+st.map(x=>`, ${x.l} ${(x.r*100).toFixed(2).replace(/\.?0+$/,"")}%`).join("")+`, all figured after the 401(k).${ohNote} Social Security ${room<B?`stops once ${y} wages reach the ${fmt0(L.ssBase)} cap`:"is 6.2%"}; Medicare is 1.45%. A separate Roth amount or other deductions on a bonus check would lower what you keep. Bonus withholding isn't your final tax; the year-end return settles it.`;
   setSum("bonusEst",`Keep <strong>${fmt0(kept)}</strong> of ${fmt0(B)}`);
   sec.hidden=false;
 }
