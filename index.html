@@ -538,6 +538,9 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <label class="field" for="wiK">401(k) %<input id="wiK" type="number" inputmode="decimal" step="0.5" min="0" max="90"></label>
       <label class="field" for="wiH">HSA $ per check<input id="wiH" type="number" inputmode="decimal" step="1" min="0"></label>
       <label class="field" for="wiX">Extra federal $ per check<input id="wiX" type="number" inputmode="decimal" step="1" min="0"></label>
+      <label class="field" for="wiMed">Medical $ per check<input id="wiMed" type="number" inputmode="decimal" step="0.01" min="0"></label>
+      <label class="field" for="wiDen">Dental $ per check<input id="wiDen" type="number" inputmode="decimal" step="0.01" min="0"></label>
+      <label class="field" for="wiVis">Vision $ per check<input id="wiVis" type="number" inputmode="decimal" step="0.01" min="0"></label>
     </div>
     <p class="note" id="wiBase" style="margin:0"></p>
     <div class="tbl-wrap"><table id="wiTbl"></table></div>
@@ -1239,14 +1242,16 @@ function renderWhatIf(m,y){
   const pre=sum(i=>i.sec==="pretax"),post=sum(i=>i.sec==="posttax"),sec125=sum(isSec125),other125=r2(sec125-H);
   const W=r2(E+T-pre);const st=s.items.filter(isStateLocal);
   const w=state.settings.wi||{};const kNow=b?D/b*100:0;
+  const ins=re=>sum(i=>isHealthEE(i)&&re.test(i.label)),mN=ins(/MED/i),dN=ins(/DENT/i),vN=ins(/VIS/i);
   const raise=w.raise!=null?+w.raise:0,kPct=w.k!=null?+w.k:Math.round(kNow*100)/100,hsa=w.hsa!=null?+w.hsa:H,xf=w.x!=null?+w.x:0;
-  [["wiRaise",raise],["wiK",kPct],["wiH",hsa],["wiX",xf]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(+(+v).toFixed(2))});
+  const mW=w.med!=null?+w.med:mN,dW=w.den!=null?+w.den:dN,vW=w.vis!=null?+w.vis:vN,dIns=r2(mW+dW+vW-mN-dN-vN);
+  [["wiRaise",raise],["wiK",kPct],["wiH",hsa],["wiX",xf],["wiMed",mW],["wiDen",dW],["wiVis",vW]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(+(+v).toFixed(2))});
   /* federal: calibrate an annual adjustment so 2026-style percentage method reproduces today's withholding */
   const br=t=>{let tax=0,lo=0;for(const[hi,r]of L.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax};
   let lo=-200000,hi=200000;for(let k=0;k<80;k++){const mid=(lo+hi)/2;if(br(Math.max(0,W*n-mid))/n>fed)lo=mid;else hi=mid}const adj=(lo+hi)/2;
   const calOK=fed>0.5&&Math.abs(br(Math.max(0,W*n-adj))/n-fed)<1;
   const f=1+raise/100,E2=r2(E*f),b2=r2(b-E+E2),D2=r2(b2*kPct/100),H2=r2(hsa);
-  const pre2=r2(pre-D+D2-H+H2),W2=r2(E2+T-pre2),sw2=r2(E2+T-(other125+H2));
+  const pre2=r2(pre-D+D2-H+H2+dIns),W2=r2(E2+T-pre2),sw2=r2(E2+T-(other125+H2+dIns));
   const fed2=r2((calOK?br(Math.max(0,W2*n-adj))/n:(W?fed*W2/W:0))+xf);
   const ssw=r2(E+T-sec125),fica2=ssw>0?r2(fica*sw2/ssw):0,med2=ssw>0?r2(med*sw2/ssw):0;
   const st2=st.map(i=>({l:i.label,a:i.cur,b:W>0?r2(i.cur*W2/W):i.cur}));
@@ -1254,7 +1259,8 @@ function renderWhatIf(m,y){
   const net2a=r2(net2+drift);
   const erR=s.items.filter(isErRet),er=r2(erR.reduce((a,i)=>a+i.cur,0)),er2=b?r2(er*b2/b):er;
   const healthIns=sum(i=>(i.sec==="pretax"||i.sec==="posttax")&&isHealthEE(i));
-  const rows=[["Gross pay",E,E2,1],["401(k)",D,D2],["HSA",H,H2],healthIns?["Health, dental, vision",healthIns,healthIns]:null,
+  const rows=[["Gross pay",E,E2,1],["401(k)",D,D2],["HSA",H,H2],mN||mW?["Medical",mN,mW]:null,dN||dW?["Dental",dN,dW]:null,vN||vW?["Vision",vN,vW]:null,
+    r2(healthIns-mN-dN-vN)>0.004?["Other insurance",r2(healthIns-mN-dN-vN),r2(healthIns-mN-dN-vN)]:null,
     r2(pre-D-H-healthIns)>0.004?["Other before-tax",r2(pre-D-H-healthIns),r2(pre-D-H-healthIns)]:null,
     ["Federal income tax",fed,fed2],["Social Security",fica,fica2],["Medicare",med,med2],...st2.map(x=>[esc(x.l),x.a,x.b]),
     post>0.004?["After-tax deductions",post,post]:null].filter(Boolean);
@@ -1267,17 +1273,17 @@ function renderWhatIf(m,y){
   const age=ageFor(y),cu=age>=60&&age<=63?L.c60:age>=50?L.c50:0,kLim=L.k401+cu;
   const fam=s.items.filter(isHSA).some(i=>/FAM/i.test(i.label))||m.ys.some(x=>x.items.some(i=>isHSA(i)&&/FAM/i.test(i.label)));
   const hEr=m.val(isHSAer,"proj"),hLim=(fam?L.hsaFam:L.hsaSelf)+(age>=55?L.hsaCatch:0);
-  const yr=[["Take-home",net*n,net2a*n,true],["401(k), you",D*n,D2*n,null],["HSA, you + employer",H*n+hEr,H2*n+hEr,null],["Taxes",(fed+fica+med+st.reduce((a,i)=>a+i.cur,0))*n,(fed2+fica2+med2+st2.reduce((a,x)=>a+x.b,0))*n,null]];
+  const yr=[["Take-home",net*n,net2a*n,true],["401(k), you",D*n,D2*n,null],["HSA, you + employer",H*n+hEr,H2*n+hEr,null],["Medical, dental, vision",(mN+dN+vN)*n,(mW+dW+vW)*n,null],["Taxes",(fed+fica+med+st.reduce((a,i)=>a+i.cur,0))*n,(fed2+fica2+med2+st2.reduce((a,x)=>a+x.b,0))*n,null]];
   $("wiYear").innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Over ${n} paydays</th><th class="n">Now</th><th class="n">What if</th><th class="n">Change</th></tr></thead><tbody>`+
     yr.map(([l,a,b2,g])=>{const d=b2-a;return`<tr><td>${l}</td><td class="n">${fmt0(a)}</td><td class="n">${fmt0(b2)}</td><td class="n ${Math.abs(d)<0.5||g==null?"":(g?d>0:d<0)?"up":"down"}">${Math.abs(d)<0.5?"":(d>0?"+":"−")+fmt0(Math.abs(d)).slice(1)}</td></tr>`}).join("")+`</tbody></table></div>`+
     (D2*n>kLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">401(k) would be ${fmt0(D2*n-kLim)} over your ${fmt0(kLim)} ${y} limit over a full year.</span></div>`:"")+
     (H2*n+hEr>hLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">HSA would be ${fmt0(H2*n+hEr-hLim)} over your ${fmt0(hLim)} ${y} limit, counting ${fmt0(hEr)} from your employer.</span></div>`:"");
-  $("wiNote").textContent=`Estimate. Federal uses ${y} brackets, tuned so it matches what this check actually withheld; Social Security, Medicare, state and local scale with the wages they're figured on. Insurance and after-tax deductions stay the same. Employer 401(k) money scales with pay.${Math.abs(drift)>0.004?` This check's own lines are off from its deposit by ${fmt(Math.abs(drift))}, so that's carried over.`:""}`;
-  setSum("whatif",(raise||Math.abs(kPct-kNow)>0.005||Math.abs(hsa-H)>0.005||xf)?`Take-home <strong>${fmt(net2a)}</strong> (${net2a>=net?"+":"−"}${fmt(Math.abs(net2a-net)).slice(1)})`:"Try a raise, 401(k) % or HSA amount");
+  $("wiNote").textContent=`Estimate. Federal uses ${y} brackets, tuned so it matches what this check actually withheld; Social Security, Medicare, state and local scale with the wages they're figured on. Insurance premiums come out before tax, so a change also moves every tax line. After-tax deductions stay the same. Employer 401(k) money scales with pay.${Math.abs(drift)>0.004?` This check's own lines are off from its deposit by ${fmt(Math.abs(drift))}, so that's carried over.`:""}`;
+  setSum("whatif",(raise||Math.abs(kPct-kNow)>0.005||Math.abs(hsa-H)>0.005||xf||Math.abs(dIns)>0.004)?`Take-home <strong>${fmt(net2a)}</strong> (${net2a>=net?"+":"−"}${fmt(Math.abs(net2a-net)).slice(1)})`:"Try a raise, 401(k) % or HSA amount");
   sec.hidden=false;
 }
 {const wiSet=(k,v)=>{const w=state.settings.wi=state.settings.wi||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
-  [["wiRaise","raise"],["wiK","k"],["wiH","hsa"],["wiX","x"]].forEach(([id,k])=>$(id).addEventListener("change",e=>wiSet(k,e.target.value)));
+  [["wiRaise","raise"],["wiK","k"],["wiH","hsa"],["wiX","x"],["wiMed","med"],["wiDen","den"],["wiVis","vis"]].forEach(([id,k])=>$(id).addEventListener("change",e=>wiSet(k,e.target.value)));
   $("wiReset").addEventListener("click",()=>{state.settings.wi={};save();keepPos(()=>render())});}
 
 /* ---------- next year at today's settings ---------- */
