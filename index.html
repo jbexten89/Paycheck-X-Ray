@@ -236,6 +236,8 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .grp-off{display:none!important}
 :root{color-scheme:dark}.field input[type=date]{background:var(--bg);color:var(--ink);min-height:40px;-webkit-appearance:none;appearance:none}
 .yirbar[hidden]{display:none}
+.bknote{margin-bottom:12px}.bknote[hidden]{display:none}.bkbtns{display:flex;gap:8px;margin-top:6px}
+.bknote .bkgo{background:var(--amber-ink);color:var(--amber);border-color:var(--amber-ink)}.bknote .bklater{color:var(--amber-ink);border-color:color-mix(in srgb,var(--amber-ink) 40%,transparent);background:transparent}
 .yirbtn{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--surface)),var(--surface));color:var(--ink);font-weight:700;font-size:15px}
 .yirbtn span{color:var(--accent)}
 .yir{position:fixed;inset:0;z-index:300;background:radial-gradient(120% 80% at 30% 10%,#123327,#07080A 70%);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -389,6 +391,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
   <div class="fabmenu" id="fabMenu" role="menu" hidden></div>
   <nav class="tabbar" id="tabBar" aria-label="Main"><button type="button" data-tab="year"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Year</span></button><button type="button" data-tab="all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M6.5 20v-6M11 20V9M15.5 20v-8M20 20V5" stroke-width="2.6"/></svg><span>All years</span></button><button type="button" data-tab="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span>Plan</span></button><button type="button" data-tab="stubs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 12.5h6M10 16h6"/></svg><span>Stubs</span></button></nav>
 
+  <div class="verdict owe bknote" id="bkNote" hidden><span class="note" id="bkMsg"></span><div class="bkbtns"><button type="button" class="btn small bkgo" id="bkGo">Save backup</button><button type="button" class="btn ghost small bklater" id="bkLater">Later</button></div></div>
   <div class="yirbar" id="yirBar" hidden><button type="button" class="yirbtn" id="yirBtn"></button></div>
 
   <section class="panel" id="emptyNote" hidden>
@@ -1976,7 +1979,7 @@ $("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");i
 document.addEventListener("click",e=>{if(!$("fabMenu").hidden&&!e.target.closest("#fabMenu,#fab"))fabClose()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")fabClose()});
 
-function render(){applyEst();renderMain();buildJump()}
+function render(){applyEst();renderMain();renderBackupNote();buildJump()}
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
@@ -2036,6 +2039,15 @@ $("stubTbl").addEventListener("click",e=>{const b=e.target.closest("[data-del]")
 let clearArmed=false;
 $("clearAll").addEventListener("click",()=>{if(!clearArmed){clearArmed=true;$("clearAll").textContent="Confirm clear";return}
   clearArmed=false;$("clearAll").textContent="Clear all stubs";state.stubs=[];save();render();toast("All stubs cleared.")});
+function markBackup(){state.settings.lastBackup={at:todayISO,n:state.stubs.length};delete state.settings.bkSnooze;save();renderBackupNote()}
+function renderBackupNote(){const el=$("bkNote");if(!state.stubs.length){el.hidden=true;return}
+  const lb=state.settings.lastBackup,days=lb?Math.round((new Date(todayISO)-new Date(lb.at))/864e5):null,added=lb?state.stubs.length-lb.n:state.stubs.length;
+  const due=!lb||days>30||added>=4,snz=state.settings.bkSnooze&&state.settings.bkSnooze>todayISO;
+  el.hidden=!due||!!snz;if(el.hidden)return;
+  $("bkMsg").innerHTML=!lb?`<b>No backup saved yet.</b> Your ${state.stubs.length} stubs live only in this browser. Save a backup file so you don't lose them.`:
+    `<b>Time for a backup.</b> Last one was ${days===0?"today":days===1?"yesterday":days+" days ago"}${added>0?`, and ${added} stub${added===1?" has":"s have"} been added since`:""}.`}
+$("bkGo").addEventListener("click",()=>$("saveBackup").click());
+$("bkLater").addEventListener("click",()=>{const d=new Date(todayISO);d.setDate(d.getDate()+7);state.settings.bkSnooze=d.toISOString().slice(0,10);save();renderBackupNote()});
 $("saveBackup").addEventListener("click",async()=>{
   if(!state.stubs.length){toast("No stubs to back up yet.",true);return}
   const json=JSON.stringify({stubs:pureStubs(),settings:state.settings,savedAt:new Date().toISOString(),app:"Paycheck X-Ray"});
@@ -2043,13 +2055,13 @@ $("saveBackup").addEventListener("click",async()=>{
   const msg=`${state.stubs.length} stubs, ${yrs[0]}–${yrs[yrs.length-1]}`;
   let file=null;try{file=new File([json],name,{type:"text/plain"})}catch(e){}
   if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],title:"Paycheck X-Ray backup"});toast(`Backup ready: ${name} (${msg}). Load it later with Choose text file.`);return}
+    try{await navigator.share({files:[file],title:"Paycheck X-Ray backup"});markBackup();toast(`Backup ready: ${name} (${msg}). Load it later with Choose text file.`);return}
     catch(e){if(e&&e.name==="AbortError"){toast("Backup not saved.");return}}}
-  try{const url=URL.createObjectURL(new Blob([json],{type:"text/plain"}));const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+  try{const url=URL.createObjectURL(new Blob([json],{type:"text/plain"}));const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);markBackup();
     toast(`Saved ${name} (${msg}). Load it later with Choose text file.`)}
   catch(e){toast("Couldn't save a file here. Use Copy backup instead.",true)}
 });
-$("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:pureStubs(),settings:state.settings});const out=$("backupOut");
+$("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:pureStubs(),settings:state.settings});markBackup();const out=$("backupOut");
   const fallback=()=>{out.hidden=false;out.value=json;out.focus();out.select();toast("Select-all is ready. Copy this text and keep it somewhere safe.")};
   try{navigator.clipboard.writeText(json).then(()=>{out.hidden=true;toast("Backup copied. Paste it into the box above to restore.")},fallback)}catch(e){fallback()}});
 $("m-cur").closest(".seg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;state.mode=b.dataset.mode;render()});
