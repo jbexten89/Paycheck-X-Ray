@@ -416,6 +416,9 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <div class="panel-head"><h2>Health costs</h2></div>
       <div class="chart" id="yoyHealth"></div><div class="legend-row" id="yoyHealthLeg"></div><p class="yd" id="yoyHealthD"></p>
       <div class="tbl-wrap"><table class="yt ytab" id="tbHealth"></table></div>
+      <div class="er-head" style="margin-top:16px"><h3>Insurance premiums per check</h3></div>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbPrem"></table></div>
+      <p class="note" id="tbPremNote" style="margin:6px 0 0"></p>
     </section>
     <section class="panel" data-k="yoyExtra" style="grid-column:1/-1">
       <div class="panel-head"><h2>Bonuses and overtime</h2></div>
@@ -590,6 +593,8 @@ const LIMS={
     k401:23500,c50:7500,c60:11250,total:70000,ssBase:176100,hsaSelf:4300,hsaFam:8550,hsaCatch:1000},
   2026:{std:16100,br:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]],
     k401:24500,c50:8000,c60:11250,total:72000,ssBase:184500,hsaSelf:4400,hsaFam:8750,hsaCatch:1000}};
+/* 2027: HSA from Rev. Proc. 2026; 401(k) figures are forecasts until the IRS announces them. Tax brackets carry over from 2026. */
+LIMS[2027]=Object.assign({},LIMS[2026],{k401:25500,c50:8500,c60:11750,total:75000,hsaSelf:4500,hsaFam:9000,hsaCatch:1000,proj401:true});
 const limYears=Object.keys(LIMS).map(Number).sort();
 const limFor=y=>LIMS[y]||LIMS[limYears.filter(k=>k<=y).pop()||limYears[0]];
 let LIM=limFor(2026);
@@ -1137,12 +1142,12 @@ function renderTax(m){
 }
 
 /* ---------- render: meters ---------- */
-function meter(cls,title,ytd,proj,limit,lines,cu){
+function meter(cls,title,ytd,proj,limit,lines,cu,ahead){
   const pct=v=>Math.min(100,v/limit*100).toFixed(2);
   const zone=cu>0?`<div class="cu" style="left:${pct(limit-cu)}%" title="Age catch-up: ${fmt0(cu)}"></div><div class="cutick" style="left:${pct(limit-cu)}%"></div>`:"";
   return`<div class="meter"><div class="meter-top"><b>${title}</b><span class="num">${fmt0(proj)} of ${fmt0(limit)}</span></div>
     <div class="track ${cls}" role="img" aria-label="${title}: ${fmt0(ytd)} so far, ${fmt0(proj)} projected, limit ${fmt0(limit)}">${zone}<div class="proj" style="width:${pct(proj)}%"></div><div class="ytd" style="width:${pct(ytd)}%"></div></div>
-    ${cu>0?`<div class="cu-leg"><span><i class="sw sw-ytd"></i>So far</span><span><i class="sw sw-proj"></i>Projected</span><span><i class="sw sw-cu"></i>Catch-up ${fmt0(cu)} (regular limit ${fmt0(limit-cu)})</span></div>`:""}
+    ${cu>0?`<div class="cu-leg">${ahead?"":'<span><i class="sw sw-ytd"></i>So far</span>'}<span><i class="sw sw-proj"></i>Projected</span><span><i class="sw sw-cu"></i>Catch-up ${fmt0(cu)} (regular limit ${fmt0(limit-cu)})</span></div>`:""}
     ${lines.map(l=>`<small>${l}</small>`).join("")}</div>`;
 }
 function renderMeters(m){
@@ -1164,9 +1169,39 @@ function renderMeters(m){
   const hLines=[`${fmt0(hY)} so far: ${fmt0(hY-hEr)} from you (${fmt(hC)} ${perLbl}) and ${fmt0(hEr)} from your employer.`,
     m.remaining===0?(hY>hLim+0.5?`<b>Year finished ${fmt0(hY-hLim)} over the limit.</b>`:(hLim-hY>1?`Year finished ${fmt0(hLim-hY)} under the limit.`:`Hit the limit exactly.`)):hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it by about ${fmt0(-extraPer)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. Adding about <b class="num">${fmt0(extraPer)}</b> per check (about <b class="num">${fmt0(hC+extraPer)}</b> total) would fill it.`:`On pace to hit the limit exactly.`,
     `${fam?"Family":"Self-only"} limit${age>=55?" plus the age-55 catch-up":""}. Employer deposits count toward it.`];
-  $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines,catchUp)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines,age>=55?LIM.hsaCatch:0):"")+k401Total(m,catchUp);
+  $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines,catchUp)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines,age>=55?LIM.hsaCatch:0):"")+k401Total(m,catchUp)+nextYear();
   setSum("savings",`401(k) <strong>${fmt0(k401Sum)}</strong> total`+(hsaItems.length?` · HSA `+(hP>hLim+0.5?`<span class="warn">${fmt0(hP-hLim)} over</span>`:`<strong>${fmt0(Math.max(0,hLim-hP))}</strong> room left`):""));
 }
+
+/* ---------- next year at today's settings ---------- */
+function nextYear(){
+  const y=state.year,ny=y+1,lastY=Math.max(...state.stubs.map(s=>+s.payDate.slice(0,4)));
+  if(y!==lastY||!LIMS[ny])return"";
+  const M=model(y),s=M.reg;if(!s)return"";
+  const earn=r2(s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+(+i.cur||0),0));if(!(earn>0))return"";
+  const L=limFor(ny),raise=(+state.settings.nextRaise||0)/100,n=payDates(ny).filter(d=>d.startsWith(ny+"")).length||26;
+  const age=ageFor(ny),cu=age>=60&&age<=63?L.c60:age>=50?L.c50:0,kLim=L.k401+cu;
+  const per=r2(earn*(1+raise)),kNow=r2(s.items.filter(isDefer).reduce((a,i)=>a+i.cur,0)),kPct=kNow/earn,kPer=r2(per*kPct),kP=r2(kPer*n);
+  const kNeed=kLim/n;
+  const kLines=[`${fmt(kPer)} per check (${(kPct*100).toFixed(1)}% of ${fmt(per)}) × ${n} paydays.`,
+    kP>kLim+0.5?`<b>Projected ${fmt0(kP-kLim)} over the limit.</b> Keep it to about ${fmt0(kNeed)} per check.`:kLim-kP>1?`Room left: ${fmt0(kLim-kP)}. To max out, set about <b class="num">${fmt0(kNeed)}</b> per check (${(kNeed/per*100).toFixed(1)}% of pay).`:"On pace to hit the limit exactly.",
+    `Regular checks only; a bonus would add ${(kPct*100).toFixed(1)}% of the bonus. `+(cu?`Limit includes the ${fmt0(cu)} age catch-up.`:"")+(L.proj401?` ${ny} 401(k) limits are forecasts until the IRS announces them, usually in November.`:"")];
+  let out=meter("",`401(k), you, in ${ny}`,0,kP,kLim,kLines,cu,true);
+  const hItems=s.items.filter(isHSA);
+  if(hItems.length){const fam=hItems.some(i=>/FAM/i.test(i.label)),hNow=r2(hItems.reduce((a,i)=>a+i.cur,0)),hSet=state.settings.nextHsa,hPer=hSet!=null&&hSet!==""&&isFinite(+hSet)?r2(+hSet):hNow,hEr=M.val(isHSAer,"proj");
+    const hc=age>=55?L.hsaCatch:0,hLim=(fam?L.hsaFam:L.hsaSelf)+hc,hP=r2(hPer*n+hEr),hNeed=Math.max(0,(hLim-hEr)/n);
+    const hLines=[`${fmt(hPer)} per check × ${n} = ${fmt0(hPer*n)} from you, plus ${fmt0(hEr)} from your employer (same as ${y}).`,
+      hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it to about ${fmt(hNeed)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. To fill it, set about <b class="num">${fmt(hNeed)}</b> per check.`:"On pace to hit the limit exactly.",
+      `${fam?"Family":"Self-only"} limit ${fmt0(hLim-hc)}${hc?` plus the ${fmt0(hc)} age-55 catch-up`:""}. Employer deposits count toward it.`];
+    out+=meter("hsa",`HSA in ${ny}`,0,hP,hLim,hLines,hc,true)}
+  return`<div class="nextyr" style="grid-column:1/-1"><div class="er-head"><h3>Next year, ${ny}, at today's settings</h3>
+    <label class="field" style="flex-direction:row;align-items:center;gap:8px">Raise <input id="nyRaise" type="number" inputmode="decimal" step="0.5" min="0" max="50" value="${+state.settings.nextRaise||0}" style="width:64px"> %</label>
+    ${s.items.some(isHSA)?`<label class="field" style="flex-direction:row;align-items:center;gap:8px">HSA $ <input id="nyHsa" type="number" inputmode="decimal" step="1" min="0" value="${state.settings.nextHsa!=null&&state.settings.nextHsa!==""?+state.settings.nextHsa:r2(s.items.filter(isHSA).reduce((a,i)=>a+i.cur,0))}" style="width:84px"> per check</label>`:""}</div>
+    <p class="bd-sub" style="margin:0">Starts from your ${nice(s.payDate)} check: same 401(k) %, the HSA amount above, and this year's employer HSA deposits. Clear the HSA box to go back to your current amount.</p>
+    <div class="grid2">${out}</div></div>`;
+}
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="nyRaise"){state.settings.nextRaise=Math.max(0,+e.target.value||0);save();keepPos(()=>render())}
+  if(e.target&&e.target.id==="nyHsa"){const v=e.target.value.trim();state.settings.nextHsa=v===""?null:Math.max(0,+v||0);save();keepPos(()=>render())}});
 
 /* ---------- render: stub table ---------- */
 let armed=null;
@@ -1187,6 +1222,10 @@ const cpiOf=y=>CPI[y]||CPI[y<CPI_YEARS[0]?CPI_YEARS[0]:CPI_BASE];
 const isOTe=i=>i.sec==="earnings"&&/\bOT\b|OVERTIME/i.test(i.label);
 const isBonusE=i=>i.sec==="earnings"&&/\bBONUS\b/i.test(i.label);
 const isErHealth=i=>i.sec==="memo"&&/MEDICAL|DENTAL|VISION/i.test(i.label);
+const isHealthEE=i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&!isFSA(i)&&/MED|DENT|VIS|HEALTH|INS/i.test(i.label);
+function premRow(r){const s=r.m.reg;if(!s)return null;const c=(p)=>r2(s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0));
+  const med=c(i=>isHealthEE(i)&&/MED/i.test(i.label)),den=c(i=>isHealthEE(i)&&/DENT/i.test(i.label)),vis=c(i=>isHealthEE(i)&&/VIS/i.test(i.label)),you=c(isHealthEE),er=c(isErHealth);
+  return{med,den,vis,you,er,tot:er>0.004?you+er:0,d:s.payDate}}
 const stubHours=s=>{if(isSemi(s))return 2080/24;const p=s.period;if(p&&p[0]&&p[1]){const d=Math.round((dObj(p[1])-dObj(p[0]))/864e5)+1;if(d>0&&d<14)return 80*d/14}return 80};
 const tfdDay=r=>(r.full.fed+r.full.fica+r.full.state)/r.full.gross*(new Date(r.y,1,29).getDate()===29?366:365);
 const dayLabel=(y,n)=>{const d=new Date(y,0,1);d.setDate(d.getDate()+Math.ceil(n)-1);return MON[d.getMonth()]+" "+d.getDate()};
@@ -1283,10 +1322,10 @@ function lineChart(el,o){
 const EST_T=new Set(["tbComp","tb401"]);
 function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();const est=EST_T.has(id)&&rows.some(r=>r.est);
   const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt0(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):v;
-  const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):"n";
+  const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):k==="pmi"?"n "+(v==null||Math.abs(v)<0.0005?"":v<0?"up":"down"):"n";
   const hasT=cols.some(c=>c[3]);
   el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
-    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.tag?`<span class="pj">${r.tag}</span>`:r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}${est&&r.est?'<span class="estm">*</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
+    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.tag?`<span class="pj">${r.tag}</span>`:r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}${est&&r.est?'<span class="estm">*</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"||c[2]==="pmi"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
     (hasT?`<tr class="total"><td>All</td>${cols.map(c=>`<td class="${c[2]==="txt"?"":"n"}">${c[3]==="sum"?f(c[2],rows.reduce((a,r)=>a+(+c[1](r)||0),0)):typeof c[3]==="function"?f(c[2],c[3](rows)):""}</td>`).join("")}</tr>`:"")+"</tbody>";
   const w=el.closest(".tbl-wrap");if(w){let n=w.nextElementSibling;if(!(n&&n.classList.contains("estnote"))){n=null}
     if(est){if(!n){n=document.createElement("p");n.className="estnote";w.after(n)}n.textContent=estNote()}else if(n)n.remove()}
@@ -1504,6 +1543,13 @@ function renderYoy(){
     yearTable("tbHour",rows,[["Paid hours",r=>r.hrs,"n","sum"],["Gross / hr",r=>r.hrs?g(r)/r.hrs:null,"$c"],["Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:null,"$c"],["Base / hr",r=>r.base?r.base*rf(r.y)/2080:null,"$c"],["Taxes / hr",r=>r.hrs?tx(r)/r.hrs:null,"$c"]]);
     let run=0;const runMap=new Map(rows.map(r=>{run+=yv(r,"ret")+yv(r,"er401");return[r.y,run]}));
     yearTable("tb401",rows,[["You",r=>yv(r,"ret"),"$","sum"],["% of pay",r=>r.full.ret/r.full.gross,"%",ofG("ret")],["Employer",r=>yv(r,"er401"),"$","sum"],["Total",r=>yv(r,"ret")+yv(r,"er401"),"$","sum"],["Your limit",r=>r.k401Lim*rf(r.y),"$"],["Limit used",r=>r.full.ret/r.k401Lim,"%"],["Running total",r=>runMap.get(r.y),"$"]]);
+    {const P=new Map(rows.map(r=>[r.y,premRow(r)])),pv=r=>P.get(r.y),prev=r=>P.get(r.y-1);
+      const chg=(r,k)=>{const a=prev(r),b=pv(r);return a&&b&&a[k]>0.004&&b[k]>0.004?b[k]/a[k]-1:null};
+      const $v=(r,k)=>{const p=pv(r);return p&&p[k]>0.004?p[k]*rf(r.y):null};
+      yearTable("tbPrem",rows,[["Medical",r=>$v(r,"med"),"$c"],["Dental",r=>$v(r,"den"),"$c"],["Vision",r=>$v(r,"vis"),"$c"],["You pay",r=>$v(r,"you"),"$c"],["Change",r=>chg(r,"you"),"pmi"],
+        ["Employer pays",r=>$v(r,"er"),"$c"],["Total",r=>$v(r,"tot"),"$c"],["Total change",r=>chg(r,"tot"),"pmi"],["Your share",r=>{const p=pv(r);return p&&p.er>0.004?p.you/p.tot:null},"%"]]);
+      const big=rows.map(r=>({y:r.y,c:chg(r,"you")})).filter(x=>x.c!=null).sort((a,b)=>b.c-a.c)[0];
+      $("tbPremNote").textContent=`Amounts per regular check, from the last regular check of each year, so a year shows the rate that open enrollment set.${big&&big.c>0?` Biggest jump in what you pay: ${big.y}, up ${(big.c*100).toFixed(1)}%.`:""} Employer amounts show only for years whose stubs list them.`}
     yearTable("tbHealth",rows,[["Insurance",r=>yv(r,"health"),"$","sum"],["HSA (you)",r=>yv(r,"hsa"),"$","sum"],["Health FSA",r=>yv(r,"fsa"),"$","sum"],["From your pay",r=>yv(r,"health")+yv(r,"hsa")+yv(r,"fsa"),"$","sum"],["% of gross",r=>(r.full.health+r.full.hsa+r.full.fsa)/r.full.gross,"%",rs=>(sum("health")(rs)+sum("hsa")(rs)+sum("fsa")(rs))/sum("gross")(rs)],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Employer premiums",r=>yv(r,"erHealth"),"$","sum"]]);
   }
   /* table */
