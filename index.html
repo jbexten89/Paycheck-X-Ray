@@ -262,7 +262,7 @@ html.rpt *{transition:none!important;animation:none!important}
 .bknote .bkgo{background:var(--amber-ink);color:var(--amber);border-color:var(--amber-ink)}.bknote .bklater{color:var(--amber-ink);border-color:color-mix(in srgb,var(--amber-ink) 40%,transparent);background:transparent}
 .yirbtn{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--surface)),var(--surface));color:var(--ink);font-weight:700;font-size:15px}
 .yirbtn span{color:var(--accent)}
-.yir{position:fixed;inset:0;z-index:300;background:radial-gradient(120% 80% at 30% 10%,#123327,#07080A 70%);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.yir{--ink:#ECEEF0;--muted:#A3A9B0;--accent:#3CC79A;--line:#23272D;--surface:#111317;color:var(--ink);position:fixed;inset:0;z-index:300;background:radial-gradient(120% 80% at 30% 10%,#123327,#07080A 70%);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .yir-track{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .yir-track::-webkit-scrollbar{display:none}
 .yir-card{flex:0 0 100%;scroll-snap-align:center;box-sizing:border-box;padding:40px 32px;display:flex;flex-direction:column;justify-content:center;gap:12px}
@@ -1583,14 +1583,17 @@ function yirCards(y){
   const tax=P.fed+P.fica+P.state,save401=P.ret+P.er401,hsa=(P.hsa||0)+(P.erHsa||0);
   const ptoH=Object.values(r.pto||{}).reduce((a,o)=>a+o.h,0);
   const ev=yoyEvents(),rz=ev.raises.filter(x=>x.d.startsWith(y+""));
-  const chg=(a,b)=>b?`${a>=b?"up":"down"} ${Math.abs((a/b-1)*100).toFixed(1)}% from ${y-1}`:"";
+  const chg=(a,b)=>b?`${a>=b?"up":"down"} ${Math.abs((a/b-1)*100).toFixed(1)}% from ${y-1}${cur?" at this point":""}`:"";
+  /* current year: compare with last year through the same date, not all of last year */
+  let PVc=PV;if(cur&&PV){const md=(ys[ys.length-1]||{payDate:todayISO}).payDate.slice(5),py=yearStubs(y-1).filter(x=>x.payDate.slice(5)<=md),ck=py[py.length-1];
+    if(ck){const mm=model(y-1,ck);PVc={gross:mm.val(i=>i.sec==="earnings","ytd"),bonus:mm.val(isBonusE,"ytd")}}else PVc=null}
   const cards=[{k:"Your year in pay",big:String(y),sub:`${ys.filter(x=>!isExtra(x)).length} paychecks${ys.some(isExtra)?` + ${ys.filter(isExtra).length} extra`:""}${tag}`},
-    {k:"You earned",big:fmt0(P.gross),sub:PV?chg(P.gross,PV.gross):"gross pay"},
+    {k:"You earned",big:fmt0(P.gross),sub:PVc?chg(P.gross,PVc.gross):"gross pay"},
     {k:"You took home",big:fmt0(P.net),sub:`${(P.net/P.gross*100).toFixed(1)}% of gross`+(big?` · biggest deposit ${fmt0(big.net.cur)} on ${nice(big.payDate)}`:"")},
     {k:"Taxes",big:fmt0(tax),sub:`${(tax/P.gross*100).toFixed(1)}% of gross`+(!cur&&!r.partial?` · Tax Freedom Day was ${dayLabel(y,tfdDay(r))}`:"")},
     {k:"Into your 401(k)",big:fmt0(save401),sub:`${fmt0(P.ret)} from you + ${fmt0(P.er401)} from your employer`+(hsa>0.5?` · HSA ${fmt0(hsa)}`:"")}];
   if(rz.length)cards.push({k:"Your raise",big:"+"+(rz.reduce((a,x)=>a*(1+x.pct),1)*100-100).toFixed(1)+"%",sub:`Prices rose ${(rz[0].inf*100).toFixed(1)}% · ${rz.every(x=>x.real>=0)?"you beat inflation":"inflation beat it"}`});
-  if(P.bonus>0.5)cards.push({k:"Bonus",big:fmt0(P.bonus),sub:PV&&PV.bonus>0.5?chg(P.bonus,PV.bonus):"gross"});
+  if(P.bonus>0.5)cards.push({k:"Bonus",big:fmt0(P.bonus),sub:PVc&&PVc.bonus>0.5?chg(P.bonus,PVc.bonus):"gross"});
   if(ptoH>0.5)cards.push({k:"Time off",big:`${+(ptoH/8).toFixed(1)} days`,sub:"paid vacation, holidays and personal days"});
   return{y,cur,cards,sum:[["Earned",fmt0(P.gross)],["Took home",fmt0(P.net)],["Taxes",fmt0(tax)],["Into 401(k)",fmt0(save401)]].concat(P.bonus>0.5?[["Bonus",fmt0(P.bonus)]]:[]).concat(ptoH>0.5?[["Time off",`${+(ptoH/8).toFixed(1)} days`]]:[])};
 }
