@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Pay data never passes through here; it lives in the browser's localStorage.
-const CACHE = "pxr-v83";
+const CACHE = "pxr-v84";
 const SHELL = ["./", "index.html", "ocr.js", "photo.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" }))))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
@@ -11,6 +11,8 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
   const same = new URL(req.url).origin === location.origin;
+  // Outside libraries (PDF reader, PDF maker, text recognition) go straight to the network.
+  if (!same) return;
   // Network first so updates show up; fall back to the saved copy when offline or if the server returns an error page.
   e.respondWith(
     fetch(req).then(r => {

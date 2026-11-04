@@ -526,7 +526,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div class="bar" id="bar" role="img"></div>
     <div class="bd-list" id="bdList"></div>
     <div class="er" id="erBlock"></div>
-    <details class="sd" id="stubDetail" hidden><summary>Every line on this check</summary><div class="sd-meta" id="sdMeta"></div><div class="tbl-wrap"><table id="sdTbl"></table></div></details>
+    <details class="sd" id="stubDetail" hidden><summary>Every line on this check</summary><div class="sd-meta" id="sdMeta"></div><button type="button" class="btn small" id="sdPdf" style="align-self:flex-start;margin:4px 0 8px">Save as PDF</button><div class="tbl-wrap"><table id="sdTbl"></table></div></details>
   </section>
 
   <section class="panel" data-k="checks">
@@ -993,10 +993,52 @@ function breakdown(m,f){
 }
 function chosenCheck(m){const ys=m.ys;let s=ys.find(x=>skey(x)===state.checkKey);if(!s){s=m.reg;state.checkKey=skey(s)}state.checkDate=s.payDate;return s}
 function checkModel(m){const s=chosenCheck(m);return Object.assign({},m,{reg:s,latest:s,val:(p,f)=>f==="cur"?r2(s.items.filter(p).reduce((a,i)=>a+i.cur,0)):m.val(p,f)})}
+let pdfStub=null;
+const JSPDF="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+async function stubToPdf(s){
+  if(!window.jspdf)await loadScript(JSPDF);
+  const doc=new window.jspdf.jsPDF({unit:"pt",format:"letter"}),W=612,L=54,R=W-54;let y=64;
+  const money=v=>(v<0?"-":"")+"$"+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const yr=s.payDate.slice(0,4),its=s.items.filter(i=>!i.est);
+  doc.setFont("helvetica","bold");doc.setFontSize(20);doc.setTextColor(17,19,23);doc.text("Pay statement",L,y);
+  doc.setFontSize(12);doc.text(`${nice(s.payDate)}, ${yr}`,R,y,{align:"right"});y+=22;
+  doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(90,96,104);
+  const meta=[s.employer||"",s.period&&s.period[0]?`Pay period ${nice(s.period[0])}, ${s.period[0].slice(0,4)} – ${nice(s.period[1])}, ${s.period[1].slice(0,4)}`:"",
+    s.payRate?`Rate ${money(s.payRate)} per ${isSemi(s)?"half month":"two weeks"}`:"",isExtra(s)?(isBonusCheck(s)?"Bonus check":"Extra check"):"Regular check",s.filing?`Withholding: ${s.filing}`:""].filter(Boolean);
+  meta.forEach(t=>{doc.text(t,L,y);y+=13});y+=6;
+  {const sm=p=>its.filter(p).reduce((a,x)=>a+x.cur,0),gross=sm(x=>x.sec==="earnings"),tax=sm(x=>x.sec==="taxes"),ded=sm(x=>x.sec==="pretax"||x.sec==="posttax");
+   const box=[["Gross pay",gross],["Taxes",tax],["Deductions",ded],["Net pay",s.net?s.net.cur:gross-tax-ded]],bw=(R-L-18)/4;
+   box.forEach(([l,v],i)=>{const x=L+i*(bw+6);if(i===3)doc.setFillColor(232,248,241);else doc.setFillColor(244,245,247);doc.roundedRect(x,y,bw,44,4,4,"F");
+     doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(110,116,124);doc.text(l.toUpperCase(),x+9,y+15);
+     doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(17,19,23);doc.text(money(v),x+9,y+34)});y+=60}
+  doc.setDrawColor(60,199,154);doc.setLineWidth(2);doc.line(L,y,R,y);y+=20;
+  const C1=R-110,C2=R;
+  const head=()=>{doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(120,126,134);doc.text("THIS CHECK",C1,y,{align:"right"});doc.text("YEAR TO DATE",C2,y,{align:"right"});y+=6};
+  const page=()=>{if(y>748){doc.addPage();y=64}};
+  for(const[sec,name]of SECN){const it=its.filter(x=>x.sec===sec&&(Math.abs(x.cur)>=0.005||Math.abs(x.ytd||0)>=0.005));if(!it.length)continue;page();
+    doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.setTextColor(17,19,23);doc.text(name,L,y);head();y+=6;
+    doc.setFont("helvetica","normal");doc.setFontSize(9.5);
+    for(const x of it){page();doc.setTextColor(40,44,50);doc.text(String(x.label),L+8,y);doc.text(money(x.cur),C1,y,{align:"right"});doc.text(x.ytd!=null?money(x.ytd):"",C2,y,{align:"right"});y+=12.5}
+    const tc=it.reduce((a,x)=>a+x.cur,0),ty=it.reduce((a,x)=>a+(x.ytd||0),0);
+    doc.setDrawColor(210,214,219);doc.setLineWidth(.6);doc.line(L+8,y-9,R,y-9);doc.setFont("helvetica","bold");doc.text("Total",L+8,y+2);doc.text(money(tc),C1,y+2,{align:"right"});doc.text(money(ty),C2,y+2,{align:"right"});y+=22}
+  if(s.net){page();doc.setFillColor(232,248,241);doc.roundedRect(L,y-16,R-L,30,4,4,"F");doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(17,19,23);
+    doc.text("Net pay (deposit)",L+10,y+3);doc.text(money(s.net.cur),C1,y+3,{align:"right"});doc.text(s.net.ytd!=null?money(s.net.ytd):"",C2,y+3,{align:"right"});y+=40}
+  doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(140,146,154);
+  if(y>758){doc.addPage();y=64}doc.text("Recreated by Paycheck X-Ray from stub data. Not an official pay statement; account and routing numbers are never stored.",L,770);
+  return{blob:doc.output("blob"),name:`paystub-${s.payDate}${isExtra(s)?"-extra":""}.pdf`};
+}
+async function savePdf(){
+  const s=pdfStub;if(!s)return;const b=$("sdPdf");b.disabled=true;b.textContent="Making PDF…";
+  try{const{blob,name}=await stubToPdf(s);
+    let f=null;try{f=new File([blob],name,{type:"application/pdf"})}catch(e){}
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:name});return}catch(e){if(e&&e.name==="AbortError")return}}
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast(`Saved ${name}.`)}
+  catch(e){toast("Couldn't make the PDF. Check your connection and try again.",true)}
+  finally{b.disabled=false;b.textContent="Save as PDF"}}
 const SECN=[["earnings","Earnings"],["taxable","Taxable benefits (not paid in cash)"],["pretax","Pre-tax deductions"],["taxes","Taxes"],["posttax","After-tax deductions"],["memo","Paid by your employer (not in your pay)"]];
 function renderCheckUI(m){
   const cur=state.mode==="cur";$("chkBar").hidden=!cur;$("stubDetail").hidden=!cur;if(!cur)return;
-  const ys=m.ys,s=chosenCheck(m),i=ys.indexOf(s);
+  const ys=m.ys,s=chosenCheck(m),i=ys.indexOf(s);pdfStub=s;
   $("checkSel").innerHTML=[...ys].reverse().map(x=>`<option value="${esc(skey(x))}"${x===s?" selected":""}>${nice(x.payDate)}${isExtra(x)?(isBonusCheck(x)?" · bonus check":" · extra check"):""} · ${x.net&&x.net.cur!=null?fmt(x.net.cur):"—"}</option>`).join("");
   $("chkPrev").disabled=i<=0;$("chkNext").disabled=i>=ys.length-1;
   const regs=ys.filter(x=>!isExtra(x));let pv=isExtra(s)?null:regs[regs.indexOf(s)-1]||null;
@@ -1486,6 +1528,7 @@ async function saveYir(d){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();toast("Image saved.");
 }
 $("yirBtn").addEventListener("click",()=>openYir(state.year));
+$("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
 
 /* ---------- next year at today's settings ---------- */
 function nextYear(){
