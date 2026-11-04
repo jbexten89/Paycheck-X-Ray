@@ -1053,22 +1053,26 @@ async function makeReport(kind){
     for(let i=0;i<secs.length;i++){const sec=secs[i];step(`Section ${i+1} of ${secs.length}`);await new Promise(r=>setTimeout(r,0));
       sec.setAttribute("data-rpt",String(i));
       {let need=0;sec.querySelectorAll(".tbl-wrap").forEach(w=>{const t=w.querySelector("table");if(t&&w.offsetParent!==null)need=Math.max(need,t.scrollWidth-w.clientWidth)});if(need>0)sec.style.width=(sec.offsetWidth+need+24)+"px"}
-      const c=await window.html2canvas(sec,{scale:2,backgroundColor:"#ffffff",windowWidth:Math.max(840,sec.offsetWidth+60),width:sec.offsetWidth,logging:false,onclone:d=>{const e=d.querySelector(`[data-rpt="${i}"]`);if(e)fixColors(e)}});
+      let br=[];const breaks=sec=>{const t0=sec.getBoundingClientRect().top,out=new Set();
+        sec.querySelectorAll("tr, .chart, .legend-row, p, .yd, .tiles>*, .meter, .meter small, .statline, .stat, .bd-row, .er-head, h3, .mheat, .months, .mo, .tc, .bar, .k401, .chk, .card, li, .verdict").forEach(e=>{if(e.offsetParent===null)return;const r=e.getBoundingClientRect();if(r.height>0)out.add(Math.round((r.bottom-t0)*2))});
+        return [...out].sort((a,b)=>a-b)};
+      const cut=(off,maxPx)=>{const lim=off+maxPx;let best=0;for(const b of br){if(b>off+60&&b<=lim)best=b}return best||Math.min(lim,Number.MAX_SAFE_INTEGER)};
+      const c=await window.html2canvas(sec,{scale:2,backgroundColor:"#ffffff",windowWidth:Math.max(840,sec.offsetWidth+60),width:sec.offsetWidth,logging:false,onclone:d=>{const e=d.querySelector(`[data-rpt="${i}"]`);if(e){fixColors(e);br=breaks(e)}}});
       sec.removeAttribute("data-rpt");sec.style.width="";
       if(c.width>2*1000){/* wide table: its own landscape page(s) */
         const LW=792-2*M,LB=612-46,pxPer=c.width/LW;let off=0;
-        while(off<c.height){doc.addPage("letter","l");const hPt=Math.min(LB-TOP,(c.height-off)/pxPer),hPx=Math.round(hPt*pxPer);
+        while(off<c.height){doc.addPage("letter","l");const room=Math.round((LB-TOP)*pxPer),hPx=c.height-off<=room?c.height-off:cut(off,room)-off,hPt=hPx/pxPer;
           const part=document.createElement("canvas");part.width=c.width;part.height=hPx;part.getContext("2d").drawImage(c,0,off,c.width,hPx,0,0,c.width,hPx);
-          doc.addImage(part.toDataURL("image/jpeg",.9),"JPEG",M,TOP,LW,hPt);off+=hPx}
+          doc.addImage(part.toDataURL("image/jpeg",.9),"JPEG",M,TOP,LW,hPt);off+=hPx;if(c.height-off<56)off=c.height}
         doc.addPage("letter","p");y=TOP;continue}
       const ih=c.height*CW/c.width;
       if(ih<=BOT-y){doc.addImage(c.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,ih);y+=ih+14;continue}
       if(ih<=BOT-TOP){doc.addPage();y=TOP;doc.addImage(c.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,ih);y+=ih+14;continue}
-      if(y>TOP+40){doc.addPage();y=TOP}
+      if(BOT-y<(BOT-TOP)*.3){doc.addPage();y=TOP}
       const pxPer=c.width/CW;let off=0;
-      while(off<c.height){const hPt=Math.min(BOT-y,(c.height-off)/pxPer),hPx=Math.round(hPt*pxPer);
+      while(off<c.height){const room=Math.round((BOT-y)*pxPer),hPx=c.height-off<=room?c.height-off:cut(off,room)-off,hPt=hPx/pxPer;
         const part=document.createElement("canvas");part.width=c.width;part.height=hPx;part.getContext("2d").drawImage(c,0,off,c.width,hPx,0,0,c.width,hPx);
-        doc.addImage(part.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,hPt);off+=hPx;y+=hPt+14;if(off<c.height){doc.addPage();y=TOP}}}
+        doc.addImage(part.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,hPt);off+=hPx;if(c.height-off<56)off=c.height;y+=hPt+14;if(off<c.height){doc.addPage();y=TOP}}}
     {const blank=doc.getNumberOfPages();if(y===TOP)doc.deletePage(blank)}
     const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);const pw=doc.internal.pageSize.getWidth(),ph=doc.internal.pageSize.getHeight();doc.setFontSize(8.5);doc.setTextColor(150,156,164);
       doc.text("Paycheck X-Ray · recreated from your stub data, not an official statement",M,ph-22);doc.text(`${i} / ${n}`,pw-M,ph-22,{align:"right"})}
