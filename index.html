@@ -2106,12 +2106,14 @@ function jumpTo(i){
   if(i==="top"){window.scrollTo({top:0,behavior:"smooth"});return}
   const j=jumpList[+i];if(!j)return;const sec=j.el;
   if(sec.classList.contains("collapsed")&&sec.dataset.k){applyPanel(sec,true);setOpen(sec.dataset.k,true);if(state.view==="all")renderYoy()}
-  const barB=$("ctlBar").getBoundingClientRect().bottom;
-  const maxY=document.documentElement.scrollHeight-window.innerHeight,ty=Math.min(maxY,Math.max(0,sec.getBoundingClientRect().top+window.scrollY-barB-8));
-  jumpHold={i:+i,y:ty,t:Date.now()};spyOn=-1;spy();
+  /* aim for where the bar will sit once it is pinned, not where it is right now */
+  const bar=$("ctlBar"),pinB=()=>(parseFloat(getComputedStyle(bar).top)||0)+bar.offsetHeight;
+  const want=()=>{const maxY=document.documentElement.scrollHeight-window.innerHeight;return Math.min(maxY,Math.max(0,sec.getBoundingClientRect().top+window.scrollY-pinB()-8))};
+  const ty=want();jumpHold={i:+i,y:ty,t:Date.now()};spyOn=-1;spy();
   window.scrollTo({top:ty,behavior:"smooth"});
+  clearTimeout(jumpFix);jumpFix=setTimeout(()=>{const t2=want();if(Math.abs(t2-window.scrollY)>3){jumpHold={i:+i,y:t2,t:Date.now()};window.scrollTo({top:t2,behavior:"smooth"})}},700);
 }
-let spyOn=-1,jumpHold=null;
+let spyOn=-1,jumpHold=null,jumpFix=0;
 function spy(){
   if(!jumpList.length)return;const barB=$("ctlBar").getBoundingClientRect().bottom+24;let on=0;
   jumpList.forEach((j,i)=>{if(j.el.getBoundingClientRect().top<=barB)on=i});
