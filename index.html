@@ -246,6 +246,7 @@ html.rpt .tbl-wrap.tbl-off,html.rpt .tbl-wrap.tbl-off+.estnote{display:block}
 html.rpt .tblbtn,html.rpt .tog .chev,html.rpt #sdPdf,html.rpt .rptbar,html.rpt .yirbar,html.rpt .bknote,html.rpt .wi-fields,html.rpt #wiReset{display:none!important}
 html.rpt .grp-off{display:block!important}html.rpt #yoyView>.grid2.grp-off{display:grid!important}
 html.rpt .tbl-wrap{overflow:visible}
+html.rpt .tbl-wrap>table{width:max-content;min-width:100%}
 html.rpt section.panel{max-width:none}
 html.rpt table.yt td.nt{white-space:normal;min-width:200px;max-width:260px}
 html.rpt *{transition:none!important;animation:none!important}
@@ -1051,8 +1052,8 @@ async function makeReport(kind){
     doc.addPage();let y=TOP;
     for(let i=0;i<secs.length;i++){const sec=secs[i];step(`Section ${i+1} of ${secs.length}`);await new Promise(r=>setTimeout(r,0));
       sec.setAttribute("data-rpt",String(i));
-      {const tw=Math.max(0,...[...sec.querySelectorAll("table")].map(t=>t.scrollWidth));const inner=sec.clientWidth-48;if(tw>inner)sec.style.width=(sec.offsetWidth+tw-inner)+"px"}
-      const c=await window.html2canvas(sec,{scale:2,backgroundColor:"#ffffff",windowWidth:840,logging:false,onclone:d=>{const e=d.querySelector(`[data-rpt="${i}"]`);if(e)fixColors(e)}});
+      {let need=0;sec.querySelectorAll(".tbl-wrap").forEach(w=>{const t=w.querySelector("table");if(t&&w.offsetParent!==null)need=Math.max(need,t.scrollWidth-w.clientWidth)});if(need>0)sec.style.width=(sec.offsetWidth+need+24)+"px"}
+      const c=await window.html2canvas(sec,{scale:2,backgroundColor:"#ffffff",windowWidth:Math.max(840,sec.offsetWidth+60),width:sec.offsetWidth,logging:false,onclone:d=>{const e=d.querySelector(`[data-rpt="${i}"]`);if(e)fixColors(e)}});
       sec.removeAttribute("data-rpt");sec.style.width="";
       if(c.width>2*1000){/* wide table: its own landscape page(s) */
         const LW=792-2*M,LB=612-46,pxPer=c.width/LW;let off=0;
