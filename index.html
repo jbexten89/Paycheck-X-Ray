@@ -235,7 +235,22 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .tabbar[hidden],.ctlbar[hidden]{display:none}
 .grp-off{display:none!important}
 :root{color-scheme:dark}.field input[type=date]{background:var(--bg);color:var(--ink);min-height:40px;-webkit-appearance:none;appearance:none}
-.yirbar[hidden]{display:none}
+.yirbar[hidden],.rptbar[hidden]{display:none}
+.rptbar{display:flex;justify-content:flex-end;margin-top:-8px}
+html.rpt{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#E1E4E8;--soft:#F2F4F6;--accent-ink:#04140E;--c-gross:#9AA1AA;color-scheme:light}
+html.rpt body{background:#fff}
+html.rpt .wrap{width:800px;max-width:none}
+html.rpt .panel{box-shadow:none}
+html.rpt .panel.collapsed>.pbody{display:block}
+html.rpt .tbl-wrap.tbl-off,html.rpt .tbl-wrap.tbl-off+.estnote{display:block}
+html.rpt .tblbtn,html.rpt .tog .chev,html.rpt #sdPdf,html.rpt .rptbar,html.rpt .yirbar,html.rpt .bknote,html.rpt .wi-fields,html.rpt #wiReset{display:none!important}
+html.rpt .grp-off{display:block!important}html.rpt #yoyView>.grid2.grp-off{display:grid!important}
+html.rpt .tbl-wrap{overflow:visible}
+html.rpt section.panel{max-width:none}
+html.rpt table.yt td.nt{white-space:normal;min-width:200px;max-width:260px}
+html.rpt *{transition:none!important;animation:none!important}
+.rptwait{position:fixed;inset:0;z-index:400;background:rgba(7,8,10,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--ink);font-size:16px}
+.rptwait small{color:var(--muted)}
 .bknote{margin-bottom:12px}.bknote[hidden]{display:none}.bkbtns{display:flex;gap:8px;margin-top:6px}
 .bknote .bkgo{background:var(--amber-ink);color:var(--amber);border-color:var(--amber-ink)}.bknote .bklater{color:var(--amber-ink);border-color:color-mix(in srgb,var(--amber-ink) 40%,transparent);background:transparent}
 .yirbtn{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--surface)),var(--surface));color:var(--ink);font-weight:700;font-size:15px}
@@ -393,6 +408,8 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
 
   <div class="verdict owe bknote" id="bkNote" hidden><span class="note" id="bkMsg"></span><div class="bkbtns"><button type="button" class="btn small bkgo" id="bkGo">Save backup</button><button type="button" class="btn ghost small bklater" id="bkLater">Later</button></div></div>
   <div class="yirbar" id="yirBar" hidden><button type="button" class="yirbtn" id="yirBtn"></button></div>
+
+  <div class="rptbar" id="rptBar" hidden><button type="button" class="btn ghost small" id="rptBtn">Save report as PDF</button></div>
 
   <section class="panel" id="emptyNote" hidden>
     <h2>Start with your stubs</h2>
@@ -994,6 +1011,74 @@ function breakdown(m,f){
 function chosenCheck(m){const ys=m.ys;let s=ys.find(x=>skey(x)===state.checkKey);if(!s){s=m.reg;state.checkKey=skey(s)}state.checkDate=s.payDate;return s}
 function checkModel(m){const s=chosenCheck(m);return Object.assign({},m,{reg:s,latest:s,val:(p,f)=>f==="cur"?r2(s.items.filter(p).reduce((a,i)=>a+i.cur,0)):m.val(p,f)})}
 let pdfStub=null;
+const H2C="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+const CPROPS=["color","background-color","border-top-color","border-right-color","border-bottom-color","border-left-color","background-image","outline-color","box-shadow","fill","stroke","text-decoration-color"];
+const toRgb=v=>v.replace(/color\(srgb\s+([\d.e-]+)\s+([\d.e-]+)\s+([\d.e-]+)(?:\s*\/\s*([\d.e-]+))?\)/g,(m,r,g,b,a)=>`rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},${a==null?1:+a})`);
+function fixColors(root){const view=root.ownerDocument.defaultView;[root,...root.querySelectorAll("*")].forEach(el=>{const cs=view.getComputedStyle(el);
+  for(const k of CPROPS){const v=cs.getPropertyValue(k);if(v&&v.includes("color("))el.style.setProperty(k,toRgb(v),"important")}})}
+function inlineSvg(root){root.querySelectorAll("svg").forEach(svg=>{svg.querySelectorAll("*").forEach(el=>{const cs=getComputedStyle(el);
+  for(const k of ["fill","stroke","stroke-width","stroke-dasharray","opacity","fill-opacity","stroke-opacity","font-size","font-weight","font-family","text-anchor"]){const v=cs.getPropertyValue(k);if(v&&v!=="normal")el.setAttribute(k,v)}});
+  const r=svg.getBoundingClientRect();svg.setAttribute("width",r.width);svg.setAttribute("height",r.height)})}
+async function makeReport(kind){
+  const wait=document.createElement("div");wait.className="rptwait";wait.innerHTML=`<div>Building your report…</div><small id="rptStep">Getting ready</small>`;document.body.appendChild(wait);
+  const keep={tab:state.tab,view:state.view,mode:state.mode,y:window.scrollY};const step=t=>{const e=document.getElementById("rptStep");if(e)e.textContent=t};
+  const html=document.documentElement;
+  try{
+    if(!window.jspdf)await loadScript(JSPDF);if(!window.html2canvas)await loadScript(H2C);
+    html.classList.add("rpt");state.tab=kind;state.view=kind==="all"?"all":"year";if(kind==="year")state.mode="ytd";render();
+    if(kind==="year"){const ss=document.querySelector('section[data-k="sscap"]');if($("ssCap").innerHTML.trim())ss.hidden=false;
+      ["whatif","bonusEst"].forEach(k=>{const e=document.querySelector(`section[data-k="${k}"]`);if(e)e.hidden=true})}
+    await new Promise(r=>setTimeout(r,250));
+    const secs=kind==="all"?[$("yoyTop"),...document.querySelectorAll("#yoyView section.panel[data-k]")].filter(e=>e&&!e.hidden&&e.offsetHeight>0)
+      :[...document.querySelectorAll(".wrap > section.panel[data-k], .wrap > .grid2 > section.panel[data-k]")].filter(e=>!e.hidden&&e.offsetParent!==null&&e.dataset.k!=="add"&&e.dataset.k!=="whatif"&&e.dataset.k!=="bonusEst");
+    secs.forEach(inlineSvg);
+    const doc=new window.jspdf.jsPDF({unit:"pt",format:"letter"}),PW=612,PH=792,M=40,CW=PW-2*M,TOP=48,BOT=PH-46;
+    /* cover */
+    const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))].sort((a,b)=>a-b);
+    doc.setFillColor(60,199,154);doc.rect(0,0,PW,10,"F");
+    doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(46,162,124);doc.text("PAYCHECK X-RAY",M,90);
+    doc.setFontSize(34);doc.setTextColor(22,25,29);doc.text(kind==="all"?`${ys[0]}–${ys[ys.length-1]}`:String(state.year),M,140);
+    doc.setFont("helvetica","normal");doc.setFontSize(15);doc.setTextColor(92,99,108);doc.text(kind==="all"?"All-years pay report":"Year pay report",M,166);
+    const rows=(kind==="all"?ys:[state.year]).map(yoyRow).filter(Boolean),P=r=>r.proj?r.sofar:r.full,S=k=>rows.reduce((a,r)=>a+(P(r)[k]||0),0);
+    const kp=[["Gross pay",S("gross")],["Take-home",S("net")],["Taxes",S("fed")+S("fica")+S("state")],["Into your 401(k)",S("ret")+S("er401")]];
+    kp.forEach(([l,v],i)=>{const x=M+(i%2)*(CW/2),y=230+Math.floor(i/2)*92;doc.setFillColor(i===1?232:244,i===1?248:245,i===1?241:247);doc.roundedRect(x,y,CW/2-10,74,6,6,"F");
+      doc.setFontSize(10);doc.setTextColor(92,99,108);doc.text(l.toUpperCase(),x+14,y+24);doc.setFont("helvetica","bold");doc.setFontSize(22);doc.setTextColor(22,25,29);doc.text(fmt0(v),x+14,y+54);doc.setFont("helvetica","normal")});
+    const cur=rows.some(r=>r.proj);doc.setFontSize(10);doc.setTextColor(120,126,134);
+    doc.text(`${cur?"Current year counted so far. ":""}Made ${nice(todayISO)}, ${todayISO.slice(0,4)} from ${state.stubs.length} stubs.`,M,430);
+    doc.text("Sections",M,470);doc.setTextColor(40,44,50);doc.setFontSize(11);
+    secs.forEach((e,i)=>{const t=(e.querySelector("h2")||{}).textContent||"";doc.text(`${i+1}.  ${t.trim()}`,M,492+i*17)});
+    /* sections */
+    doc.addPage();let y=TOP;
+    for(let i=0;i<secs.length;i++){const sec=secs[i];step(`Section ${i+1} of ${secs.length}`);await new Promise(r=>setTimeout(r,0));
+      sec.setAttribute("data-rpt",String(i));
+      {const tw=Math.max(0,...[...sec.querySelectorAll("table")].map(t=>t.scrollWidth));const inner=sec.clientWidth-48;if(tw>inner)sec.style.width=(sec.offsetWidth+tw-inner)+"px"}
+      const c=await window.html2canvas(sec,{scale:2,backgroundColor:"#ffffff",windowWidth:840,logging:false,onclone:d=>{const e=d.querySelector(`[data-rpt="${i}"]`);if(e)fixColors(e)}});
+      sec.removeAttribute("data-rpt");sec.style.width="";
+      if(c.width>2*1000){/* wide table: its own landscape page(s) */
+        const LW=792-2*M,LB=612-46,pxPer=c.width/LW;let off=0;
+        while(off<c.height){doc.addPage("letter","l");const hPt=Math.min(LB-TOP,(c.height-off)/pxPer),hPx=Math.round(hPt*pxPer);
+          const part=document.createElement("canvas");part.width=c.width;part.height=hPx;part.getContext("2d").drawImage(c,0,off,c.width,hPx,0,0,c.width,hPx);
+          doc.addImage(part.toDataURL("image/jpeg",.9),"JPEG",M,TOP,LW,hPt);off+=hPx}
+        doc.addPage("letter","p");y=TOP;continue}
+      const ih=c.height*CW/c.width;
+      if(ih<=BOT-y){doc.addImage(c.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,ih);y+=ih+14;continue}
+      if(ih<=BOT-TOP){doc.addPage();y=TOP;doc.addImage(c.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,ih);y+=ih+14;continue}
+      if(y>TOP+40){doc.addPage();y=TOP}
+      const pxPer=c.width/CW;let off=0;
+      while(off<c.height){const hPt=Math.min(BOT-y,(c.height-off)/pxPer),hPx=Math.round(hPt*pxPer);
+        const part=document.createElement("canvas");part.width=c.width;part.height=hPx;part.getContext("2d").drawImage(c,0,off,c.width,hPx,0,0,c.width,hPx);
+        doc.addImage(part.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,hPt);off+=hPx;y+=hPt+14;if(off<c.height){doc.addPage();y=TOP}}}
+    {const blank=doc.getNumberOfPages();if(y===TOP)doc.deletePage(blank)}
+    const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);const pw=doc.internal.pageSize.getWidth(),ph=doc.internal.pageSize.getHeight();doc.setFontSize(8.5);doc.setTextColor(150,156,164);
+      doc.text("Paycheck X-Ray · recreated from your stub data, not an official statement",M,ph-22);doc.text(`${i} / ${n}`,pw-M,ph-22,{align:"right"})}
+    const blob=doc.output("blob"),name=kind==="all"?`paycheck-report-${ys[0]}-${ys[ys.length-1]}.pdf`:`paycheck-report-${state.year}.pdf`;
+    html.classList.remove("rpt");state.tab=keep.tab;state.view=keep.view;state.mode=keep.mode;render();window.scrollTo(0,keep.y);wait.remove();
+    let f=null;try{f=new File([blob],name,{type:"application/pdf"})}catch(e){}
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:name});return}catch(e){if(e&&e.name==="AbortError")return}}
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast(`Saved ${name}.`);
+  }catch(e){console.error(e);toast("Couldn't build the report. Check your connection and try again.",true)}
+  finally{if(html.classList.contains("rpt")){html.classList.remove("rpt");state.tab=keep.tab;state.view=keep.view;state.mode=keep.mode;render();window.scrollTo(0,keep.y)}wait.remove()}
+}
 const JSPDF="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
 async function stubToPdf(s){
   if(!window.jspdf)await loadScript(JSPDF);
@@ -1529,6 +1614,7 @@ async function saveYir(d){
 }
 $("yirBtn").addEventListener("click",()=>openYir(state.year));
 $("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
+$("rptBtn").addEventListener("click",()=>makeReport(state.tab==="all"?"all":"year"));
 
 /* ---------- next year at today's settings ---------- */
 function nextYear(){
@@ -2022,7 +2108,8 @@ $("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");i
 document.addEventListener("click",e=>{if(!$("fabMenu").hidden&&!e.target.closest("#fabMenu,#fab"))fabClose()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")fabClose()});
 
-function render(){applyEst();renderMain();renderBackupNote();buildJump()}
+function render(){applyEst();renderMain();renderBackupNote();buildJump();
+  {const t=state.tab,on=state.stubs.length&&(t==="year"||t==="all");$("rptBar").hidden=!on;$("rptBtn").textContent=t==="all"?"Save all-years report as PDF":`Save ${state.year} report as PDF`}}
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
