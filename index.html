@@ -235,6 +235,7 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:90;display:grid;grid-template-columns:repeat(4,1fr);background:color-mix(in srgb,var(--bg) 92%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 6px) max(8px,env(safe-area-inset-left,0px))}
 .tabbar[hidden],.ctlbar[hidden]{display:none}
 .grp-off{display:none!important}
+.wi-ly{margin:6px 0 10px}
 html.light{--bg:#F4F5F7;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#DCE0E5;--soft:#ECEFF2;--accent:#22A87B;--good:#1E9C72;--info:#3D6FA8;--bad:#D2475A;--c-gross:#9AA1AA;color-scheme:light}
 html.light .panel{box-shadow:0 1px 2px rgba(16,24,32,.05)}
 html.light body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#16191D;z-index:500}
@@ -1486,20 +1487,24 @@ function renderWhatIf(m,y){
     rows.map(([l,a,b2,g])=>`<tr${g?' class="sec"':""}><td>${l}</td><td class="n">${fmt(a)}</td><td class="n">${fmt(b2)}</td>${dc(a,b2,g?true:null)}</tr>`).join("")+
     `<tr class="net"><td>Take-home</td><td class="n">${fmt(net)}</td><td class="n">${fmt(net2a)}</td>${dc(net,net2a,true)}</tr>`+
     (er?`<tr><td>Employer 401(k)</td><td class="n">${fmt(er)}</td><td class="n">${fmt(er2)}</td>${dc(er,er2,true)}</tr>`:"")+`</tbody>`;
-  const age=ageFor(y),cu=age>=60&&age<=63?L.c60:age>=50?L.c50:0,kLim=L.k401+cu;
+  /* limits: this year or next (next by default when viewing the latest year) */
+  const lastY=Math.max(...state.stubs.map(x=>+x.payDate.slice(0,4))),canNext=y===lastY&&!!LIMS[y+1];
+  const LY=canNext&&(w.ly||"next")==="next"?y+1:y,LL=limFor(LY),nL=LY===y?n:(payDates(LY).filter(d=>d.startsWith(LY+"")).length||26);
+  const age=ageFor(LY),cu=age>=60&&age<=63?LL.c60:age>=50?LL.c50:0,kLim=LL.k401+cu;
   const fam=s.items.filter(isHSA).some(i=>/FAM/i.test(i.label))||m.ys.some(x=>x.items.some(i=>isHSA(i)&&/FAM/i.test(i.label)));
-  const hEr=m.val(isHSAer,"proj"),hLim=(fam?L.hsaFam:L.hsaSelf)+(age>=55?L.hsaCatch:0);
-  const yr=[["Take-home",net*n,net2a*n,true],["401(k), you",D*n,D2*n,null],["HSA, you + employer",H*n+hEr,H2*n+hEr,null],["Medical, dental, vision",(mN+dN+vN)*n,(mW+dW+vW)*n,null],["Taxes",(fed+fica+med+st.reduce((a,i)=>a+i.cur,0))*n,(fed2+fica2+med2+st2.reduce((a,x)=>a+x.b,0))*n,null]];
-  $("wiYear").innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Over ${n} paydays</th><th class="n">Now</th><th class="n">What if</th><th class="n">Change</th></tr></thead><tbody>`+
+  const hEr=m.val(isHSAer,"proj"),hLim=(fam?LL.hsaFam:LL.hsaSelf)+(age>=55?LL.hsaCatch:0);
+  const yr=[["Take-home",net*nL,net2a*nL,true],["401(k), you",D*nL,D2*nL,null],["HSA, you + employer",H*nL+hEr,H2*nL+hEr,null],["Medical, dental, vision",(mN+dN+vN)*nL,(mW+dW+vW)*nL,null],["Taxes",(fed+fica+med+st.reduce((a,i)=>a+i.cur,0))*nL,(fed2+fica2+med2+st2.reduce((a,x)=>a+x.b,0))*nL,null]];
+  $("wiYear").innerHTML=(canNext?`<div class="seg wi-ly" role="group" aria-label="Check limits for"><button type="button" data-ly="cur" aria-pressed="${LY===y}">${y} limits</button><button type="button" data-ly="next" aria-pressed="${LY!==y}">${y+1} limits</button></div>`:"")+`<div class="tbl-wrap"><table><thead><tr><th>Over ${nL} paydays in ${LY}</th><th class="n">Now</th><th class="n">What if</th><th class="n">Change</th></tr></thead><tbody>`+
     yr.map(([l,a,b2,g])=>{const d=b2-a;return`<tr><td>${l}</td><td class="n">${fmt0(a)}</td><td class="n">${fmt0(b2)}</td><td class="n ${Math.abs(d)<0.5||g==null?"":(g?d>0:d<0)?"up":"down"}">${Math.abs(d)<0.5?"":(d>0?"+":"−")+fmt0(Math.abs(d)).slice(1)}</td></tr>`}).join("")+`</tbody></table></div>`+
-    (D2*n>kLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">401(k) would be ${fmt0(D2*n-kLim)} over your ${fmt0(kLim)} ${y} limit over a full year.</span></div>`:"")+
-    (H2*n+hEr>hLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">HSA would be ${fmt0(H2*n+hEr-hLim)} over your ${fmt0(hLim)} ${y} limit, counting ${fmt0(hEr)} from your employer.</span></div>`:"");
+    (D2*nL>kLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">401(k) would be ${fmt0(D2*nL-kLim)} over your ${fmt0(kLim)} ${LY} limit over a full year.</span></div>`:"")+
+    (H2*nL+hEr>hLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">HSA would be ${fmt0(H2*nL+hEr-hLim)} over your ${fmt0(hLim)} ${LY} limit, counting ${fmt0(hEr)} from your employer.</span></div>`:"");
   $("wiNote").textContent=`Estimate. Federal uses ${y} brackets, tuned so it matches what this check actually withheld; Social Security, Medicare, state and local scale with the wages they're figured on. Insurance premiums come out before tax, so a change also moves every tax line. After-tax deductions stay the same. Employer 401(k) money scales with pay.${Math.abs(drift)>0.004?` This check's own lines are off from its deposit by ${fmt(Math.abs(drift))}, so that's carried over.`:""}`;
   sec.hidden=state.tab!=="plan";
   setSum("whatif",(raise||Math.abs(kPct-kNow)>0.005||Math.abs(hsa-H)>0.005||xf||Math.abs(dIns)>0.004)?`Take-home <strong>${fmt(net2a)}</strong> (${net2a>=net?"+":"−"}${fmt(Math.abs(net2a-net)).slice(1)})`:"Try a raise, 401(k) % or HSA amount");
 }
 {const wiSet=(k,v)=>{const w=state.settings.wi=state.settings.wi||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
   [["wiRaise","raise"],["wiK","k"],["wiH","hsa"],["wiX","x"],["wiMed","med"],["wiDen","den"],["wiVis","vis"]].forEach(([id,k])=>$(id).addEventListener("change",e=>wiSet(k,e.target.value)));
+  $("wiYear").addEventListener("click",e=>{const b=e.target.closest("[data-ly]");if(!b)return;const w=state.settings.wi=state.settings.wi||{};w.ly=b.dataset.ly;save();keepPos(()=>render())});
   $("wiReset").addEventListener("click",()=>{state.settings.wi={};save();keepPos(()=>render())});}
 
 /* ---------- bonus estimator ---------- */
