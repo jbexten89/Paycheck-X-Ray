@@ -236,6 +236,8 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .tabbar[hidden],.ctlbar[hidden]{display:none}
 .grp-off{display:none!important}
 .wi-ly{margin:6px 0 10px}
+.ohbox{margin-top:12px}.ohbox summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:14px}
+.ohbox textarea{width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--f-num);font-size:16px}
 html.light{--bg:#F4F5F7;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#DCE0E5;--soft:#ECEFF2;--accent:#22A87B;--good:#1E9C72;--info:#3D6FA8;--bad:#D2475A;--c-gross:#9AA1AA;color-scheme:light}
 html.light .panel{box-shadow:0 1px 2px rgba(16,24,32,.05)}
 html.light body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#16191D;z-index:500}
@@ -445,6 +447,11 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div class="panel-head"><h2>Total compensation</h2></div>
     <div class="chart" id="yoyComp"></div><div class="legend-row" id="yoyCompLeg"></div><p class="yd" id="yoyCompD"></p>
     <div class="tbl-wrap"><table class="yt ytab" id="tbComp"></table></div>
+    <details class="ohbox"><summary>Ohio unemployment from your employer statements</summary>
+      <p class="note" style="margin:6px 0">Type or paste one year per line, with the "OH UT ER" amount from that year's total-compensation statement (add employers together). Years you leave out are estimated from the nearest year.</p>
+      <textarea id="ohUtIn" rows="5" placeholder="2025 81.00&#10;2024 81.00"></textarea>
+      <button type="button" class="btn small" id="ohUtSave" style="margin-top:8px">Save</button>
+    </details>
   </section>
   <section class="panel" data-k="yoyRate">
     <div class="panel-head"><h2>Base pay and raises</h2></div>
@@ -834,10 +841,21 @@ const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
 const isGtl=i=>i.sec==="taxable"&&/GRP\s*LF|GTL|GROUP\s*TERM|\bLIFE\b|\bLF\b/i.test(i.label);
 const isPerk=i=>i.sec==="taxable"&&!isGtl(i);
 /* employer payroll taxes, estimated: Social Security match (same as yours), Medicare match at 1.45%, federal unemployment 0.6% of the first $7,000 */
+/* Ohio unemployment: employer pays its own rate on the first $9,000 ($9,500 in 2018-19). Exact yearly amounts come from the
+   employer's total-compensation statement, typed in by the user and kept in settings (never in this code). */
+const ohBase=y=>y===2018||y===2019?9500:9000;
+function ohRate(y){const o=state.settings.ohUt||{},ks=Object.keys(o).map(Number).filter(k=>o[k]>0);if(!ks.length)return null;
+  const near=ks.sort((a,b)=>Math.abs(a-y)-Math.abs(b-y)||b-a)[0];return{y:near,rate:o[near]/ohBase(near)/(near===y&&ohEmps(near)>1?ohEmps(near):1),exact:near===y}}
+const ohEmps=y=>new Set(state.stubs.filter(s=>s.payDate.startsWith(y+"")).map(s=>s.employer||"")).size||1;
 function erTaxes(m,f){const W=g=>r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",g)-m.val(isSec125,g));
-  const ss=m.val(isSS,f),w=W(f),med=r2(w*.0145);let futa;
-  if(f==="cur"){const y=W("ytd");futa=r2((Math.min(7000,y)-Math.min(7000,Math.max(0,y-w)))*.006)}else futa=r2(Math.min(7000,w)*.006);
-  return{ss,med,futa,tot:r2(ss+med+futa)}}
+  const ss=m.val(isSS,f),w=W(f),med=r2(w*.0145),y=+((m.latest||m.ys[0]||{payDate:"0"}).payDate.slice(0,4)),yw=W("ytd"),ne=Math.max(1,m.lastByEmp?m.lastByEmp.length:1);
+  /* federal unemployment and Ohio unemployment are per employer: each one pays on its own first wages */
+  const firstPart=(cap)=>f==="cur"?Math.max(0,Math.min(cap,yw)-Math.min(cap,Math.max(0,yw-w))):Math.min(cap*ne,w);
+  const futa=r2(firstPart(7000)*.006);
+  const oh=state.settings.ohUt||{},B=ohBase(y);let suta=0,sutaEst=false;
+  if(oh[y]>0&&f!=="cur"&&(!m.remaining||f==="proj"||yw>=B*ne))suta=f==="ytd"&&yw<B*ne?r2(oh[y]*yw/(B*ne)):+oh[y];
+  else{const r=ohRate(y);if(r){suta=r2(firstPart(B)*r.rate);sutaEst=!r.exact}}
+  return{ss,med,futa,suta,sutaEst,tot:r2(ss+med+futa+suta)}}
 const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
 const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
 const isChild=i=>(i.sec==="pretax"||i.sec==="posttax")&&/CHILD|CHLD/i.test(i.label);
@@ -1213,7 +1231,7 @@ function renderEmployer(m,f,gross,er){
   const groups=ER_GROUPS.map(([k,name,c,pred])=>{
     const lines=memo.filter(pred).map(i=>({name:(isGtl(i)?"IRS value of coverage over $50K":i.sec==="taxable"?i.label.replace(/\bGU\b/,"").trim().toLowerCase().replace(/^./,c=>c.toUpperCase()):erName(i.label))+(hasEst(m.ys,i.label)?"*":""),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
     return{k,name,c,v:r2(lines.reduce((a,x)=>a+x.v,0)),lines}}).filter(g=>g.v>0.004);
-  const T=erTaxes(m,f);if(T.tot>0.004)groups.push({k:"tax",name:"Payroll taxes (est.)",c:"--c-fica",v:T.tot,lines:[{name:"Social Security match",v:T.ss},{name:"Medicare match",v:T.med},{name:"Federal unemployment",v:T.futa}].filter(x=>x.v>0.004)});
+  const T=erTaxes(m,f);if(T.tot>0.004)groups.push({k:"tax",name:"Payroll taxes (est.)",c:"--c-fica",v:T.tot,lines:[{name:"Social Security match",v:T.ss},{name:"Medicare match",v:T.med},{name:"Federal unemployment",v:T.futa},{name:"Ohio unemployment"+(T.sutaEst?" (est.)":""),v:T.suta}].filter(x=>x.v>0.004)});
   const pct=v=>(v/er*100).toFixed(1)+"%";
   const eo=isOpen("employer");box.classList.toggle("collapsed",!eo);
   box.innerHTML=`<button type="button" class="er-tog" aria-expanded="${eo}"><h3>${CHEV}Employer</h3><span class="num" style="font-size:20px;font-weight:800">${fmt(er)}</span></button>
@@ -1221,7 +1239,7 @@ function renderEmployer(m,f,gross,er){
     <div class="bar" role="img" aria-label="${groups.map(g=>`${g.name} ${Math.round(g.v/er*100)}%`).join(", ")}">${groups.map(g=>`<div style="width:${(g.v/er*100).toFixed(3)}%;background:var(${g.c})" title="${g.name}: ${fmt(g.v)}"></div>`).join("")}</div>
     <div class="bd-list">${groups.map(g=>`${grpRow("er-"+g.k,g.c,g.name,fmt(g.v),pct(g.v),g.lines.length>1)}
       ${g.lines.length>1?g.lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.name)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${pct(x.v)}</span></div>`).join(""):""}</div>`).join("")}</div>
-    <p class="note" style="margin:8px 0 0">Payroll taxes are estimated: your employer matches your Social Security and Medicare and pays federal unemployment. State unemployment varies by employer and isn't included. Life insurance's taxable value (W2 GRP LF INS) is counted the way your employer's statement does it, even though Basic life already covers what the policy costs, so life insurance shows up twice.</p>
+    <p class="note" style="margin:8px 0 0">Payroll taxes are estimated: your employer matches your Social Security and Medicare and pays federal unemployment. ${T.suta>0?(T.sutaEst?"Ohio unemployment uses the rate from your nearest year with a statement amount.":"Ohio unemployment comes from your employer statement."):"Ohio unemployment isn't included until you add amounts from your employer statement (All years → Total comp)."} Life insurance's taxable value (W2 GRP LF INS) is counted the way your employer's statement does it, even though Basic life already covers what the policy costs, so life insurance shows up twice.</p>
     </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt0(gross)} + employer ${fmt0(er)}</small></div><b class="num">${fmt0(gross+er)}</b></div>${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}`;
 }
 
@@ -1654,6 +1672,10 @@ $("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
   $("themeBtn").addEventListener("click",()=>{const order=["dark","light","auto"],t=order[(order.indexOf(ui.theme||"dark")+1)%3];setOpen("theme",t);apply();toast(`Theme: ${NM[t]}${t==="auto"?" (follows your iPhone)":""}`)});
   try{mq.addEventListener("change",()=>{if((ui.theme||"dark")==="auto")apply()})}catch(e){}
   window.__applyTheme=apply;}
+{const fill=()=>{const o=state.settings.ohUt||{};$("ohUtIn").value=Object.keys(o).sort().reverse().map(k=>`${k} ${(+o[k]).toFixed(2)}`).join("\n")};
+  $("ohUtSave").addEventListener("click",()=>{const o={};for(const ln of $("ohUtIn").value.split(/\n|;/)){const mm=ln.match(/(20\d\d)\D+?([\d,]+(?:\.\d+)?)/);if(mm)o[mm[1]]=r2(+mm[2].replace(/,/g,""))}
+    state.settings.ohUt=o;save();yoyCache=null;fill();keepPos(()=>render());toast(`Saved Ohio unemployment for ${Object.keys(o).length} year${Object.keys(o).length===1?"":"s"}.`)});
+  window.__fillOh=fill;}
 $("rptBtn").addEventListener("click",()=>makeReport(state.tab==="all"?"all":"year"));
 
 /* ---------- next year at today's settings ---------- */
@@ -2150,7 +2172,7 @@ $("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");i
 document.addEventListener("click",e=>{if(!$("fabMenu").hidden&&!e.target.closest("#fabMenu,#fab"))fabClose()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")fabClose()});
 
-function render(){applyEst();renderMain();renderBackupNote();buildJump();
+function render(){applyEst();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();
   {const t=state.tab,on=state.stubs.length&&(t==="year"||t==="all");$("rptBar").hidden=!on;$("rptBtn").textContent=t==="all"?"Save all-years report as PDF":`Save ${state.year} report as PDF`}}
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
