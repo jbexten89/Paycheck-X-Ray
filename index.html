@@ -24,7 +24,7 @@
   --accent:#3CC79A; --accent-ink:#04140E; --amber:#E3A04F; --amber-ink:#1A1004;
   --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-fsa:#4FC3C7; --c-gross:#59616D; --c-loan:#3E7CB8; --c-child:#C2A37A; --c-bonus-wh:#7D6B2C; --c-other:#6B7280;
   --c-k-you:#5FA8F5; --c-k-roth:#7FD1F0; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
-  --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2;
+  --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2; --c-er-perk:#4FC3C7;
   --bad:#F0707C; --warn:#E3A04F; --good:#3CC79A; --info:#8FB3D9;
   --f-display:"Nunito Sans","Avenir Next",Avenir,system-ui,sans-serif;
   --f-body:"Nunito Sans","Avenir Next",Avenir,system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -830,6 +830,13 @@ const isPreRet=i=>i.sec==="pretax"&&/401|403|457|RETIRE/i.test(i.label)&&!/ROTH/
 const isRoth=i=>(i.sec==="pretax"||i.sec==="posttax")&&/ROTH/i.test(i.label)&&!isLoan(i);
 const isDefer=i=>isPreRet(i)||isRoth(i);
 const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
+/* taxable perks your employer gives (gift cards etc.); the life-insurance imputed value is left out because Basic Life already counts its cost */
+const isPerk=i=>i.sec==="taxable"&&!/GRP\s*LF|GTL|GROUP\s*TERM|\bLIFE\b|\bLF\b/i.test(i.label);
+/* employer payroll taxes, estimated: Social Security match (same as yours), Medicare match at 1.45%, federal unemployment 0.6% of the first $7,000 */
+function erTaxes(m,f){const W=g=>r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",g)-m.val(isSec125,g));
+  const ss=m.val(isSS,f),w=W(f),med=r2(w*.0145);let futa;
+  if(f==="cur"){const y=W("ytd");futa=r2((Math.min(7000,y)-Math.min(7000,Math.max(0,y-w)))*.006)}else futa=r2(Math.min(7000,w)*.006);
+  return{ss,med,futa,tot:r2(ss+med+futa)}}
 const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
 const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
 const isChild=i=>(i.sec==="pretax"||i.sec==="posttax")&&/CHILD|CHLD/i.test(i.label);
@@ -1181,7 +1188,7 @@ function renderBreakdown(m){
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
     <div class="stat"><small>All taxes</small><b>${(totalTax/g*100).toFixed(1)}%</b><small>${fmt0(totalTax)}</small></div>
     <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small></div>`;
-  const er=m.val(i=>i.sec==="memo",f),erRet=m.val(isErRet,f);
+  const er=r2(m.val(i=>i.sec==="memo"||isPerk(i),f)+erTaxes(m,f).tot),erRet=m.val(isErRet,f);
   renderEmployer(m,f,b.gross,er);
   void erRet;renderCheckUI(m);
 }
@@ -1191,7 +1198,8 @@ const ER_GROUPS=[
   ["ret","Retirement","--c-er-ret",i=>isErRet(i)],
   ["med","Health coverage","--c-er-med",i=>i.sec==="memo"&&!/FSA/i.test(i.label)&&/MEDICAL|DENTAL|VISION/i.test(i.label)],
   ["hsa","HSA deposit","--c-er-hsa",i=>isHSAer(i)],
-  ["life","Life + disability","--c-er-life",i=>i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!/MEDICAL|DENTAL|VISION/i.test(i.label)]];
+  ["life","Life + disability","--c-er-life",i=>i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!/MEDICAL|DENTAL|VISION/i.test(i.label)],
+  ["perk","Gifts and perks","--c-er-perk",i=>isPerk(i)]];
 function erName(l){
   const map=[[/401K\s*MATCH/i,"401(k) match"],[/PENSION\s*45/i,"Pension 45+"],[/SAFE\s*HARBOR/i,"Safe harbor"],[/MEDICAL/i,"Medical"],[/DENTAL/i,"Dental"],[/VISION/i,"Vision"],
     [/PENSION\s*LT\s*45/i,"Pension (under 45)"],[/AD&D/i,"AD&D"],[/BASIC\s*LIFE/i,"Basic life"],[/LTD/i,"Long-term disability"],[/STD/i,"Short-term disability"],[/HSA/i,"HSA deposit"]];
@@ -1199,10 +1207,11 @@ function erName(l){
 }
 function renderEmployer(m,f,gross,er){
   const box=$("erBlock");if(!(er>0)){box.innerHTML="";return}
-  const memo=m.latest.items.filter(i=>i.sec==="memo");
+  const memo=[...new Map(m.ys.flatMap(x=>x.items).filter(i=>i.sec==="memo"||isPerk(i)).map(i=>[i.sec+i.label,i])).values()];
   const groups=ER_GROUPS.map(([k,name,c,pred])=>{
-    const lines=memo.filter(pred).map(i=>({name:erName(i.label)+(hasEst(m.ys,i.label)?"*":""),v:m.val(j=>j.sec==="memo"&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+    const lines=memo.filter(pred).map(i=>({name:(i.sec==="taxable"?i.label.replace(/\bGU\b/,"").trim().toLowerCase().replace(/^./,c=>c.toUpperCase()):erName(i.label))+(hasEst(m.ys,i.label)?"*":""),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
     return{k,name,c,v:r2(lines.reduce((a,x)=>a+x.v,0)),lines}}).filter(g=>g.v>0.004);
+  const T=erTaxes(m,f);if(T.tot>0.004)groups.push({k:"tax",name:"Payroll taxes (est.)",c:"--c-fica",v:T.tot,lines:[{name:"Social Security match",v:T.ss},{name:"Medicare match",v:T.med},{name:"Federal unemployment",v:T.futa}].filter(x=>x.v>0.004)});
   const pct=v=>(v/er*100).toFixed(1)+"%";
   const eo=isOpen("employer");box.classList.toggle("collapsed",!eo);
   box.innerHTML=`<button type="button" class="er-tog" aria-expanded="${eo}"><h3>${CHEV}Employer</h3><span class="num" style="font-size:20px;font-weight:800">${fmt(er)}</span></button>
@@ -1210,6 +1219,7 @@ function renderEmployer(m,f,gross,er){
     <div class="bar" role="img" aria-label="${groups.map(g=>`${g.name} ${Math.round(g.v/er*100)}%`).join(", ")}">${groups.map(g=>`<div style="width:${(g.v/er*100).toFixed(3)}%;background:var(${g.c})" title="${g.name}: ${fmt(g.v)}"></div>`).join("")}</div>
     <div class="bd-list">${groups.map(g=>`${grpRow("er-"+g.k,g.c,g.name,fmt(g.v),pct(g.v),g.lines.length>1)}
       ${g.lines.length>1?g.lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.name)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${pct(x.v)}</span></div>`).join(""):""}</div>`).join("")}</div>
+    <p class="note" style="margin:8px 0 0">Payroll taxes are estimated: your employer matches your Social Security and Medicare and pays federal unemployment. State unemployment varies by employer and isn't included. Life insurance's taxable value (W2 GRP LF INS) is left out because Basic life already counts what that coverage costs, so an employer statement that adds both runs higher.</p>
     </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt0(gross)} + employer ${fmt0(er)}</small></div><b class="num">${fmt0(gross+er)}</b></div>${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}`;
 }
 
@@ -1712,7 +1722,7 @@ function yoyRow(y){
   const m=model(y);if(!m.latest)return null;
   const f=m.remaining?"proj":"ytd";
   const pack=f=>{const b=breakdown(m,f),v=p=>m.val(p,f);
-    return Object.assign({gross:b.gross,er401:v(isErRet),erHsa:v(isHSAer),erHealth:v(isErHealth),erOther:v(i=>i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!isErHealth(i)),ot:v(isOTe),bonus:v(isBonusE)},b.parts)};
+    return Object.assign({gross:b.gross,er401:v(isErRet),erHsa:v(isHSAer),erHealth:v(isErHealth),erOther:v(i=>(i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!isErHealth(i))||isPerk(i)),erTax:erTaxes(m,f).tot,ot:v(isOTe),bonus:v(isBonusE)},b.parts)};
   const regs=m.ys.filter(s=>!isExtra(s));const lim=limFor(y);const age=ageFor(y);
   const cu=age>=60&&age<=63?(lim.c60||lim.c50):age>=50?lim.c50:0;
   const notes=[];
@@ -1842,7 +1852,7 @@ function renderYoy(){
     const tf=rows.filter(r=>!r.partial).map(r=>({y:r.y,n:tfdDay(r),proj:r.proj}));const done=tf.filter(t=>!t.proj);
     const early=done.reduce((a,t)=>!a||t.n<a.n?t:a,null),late=done.reduce((a,t)=>!a||t.n>a.n?t:a,null),cur=tf.find(t=>t.proj);
     const lf=[...rows].reverse().find(r=>!r.proj&&!r.partial);
-    const comp=r=>r.full.gross+r.full.er401+r.full.erHealth+r.full.erHsa+r.full.erOther;
+    const comp=r=>r.full.gross+r.full.er401+r.full.erHealth+r.full.erHsa+r.full.erOther+r.full.erTax;
     /* next three-paycheck months from the latest every-two-weeks payday */
     const lastBi=[...regsA].reverse().find(s=>!isSemi(s));let next=[];
     if(lastBi){const cnt={};for(let d=lastBi.payDate;d<addDays(todayISO,800);d=addDays(d,14)){const k=d.slice(0,7);cnt[k]=(cnt[k]||0)+1}
@@ -1866,14 +1876,14 @@ function renderYoy(){
     setSum("yoyRec",big?`Biggest deposit <strong>${fmt0(big.net.cur)}</strong> · ${streak}-year raise streak`:"");
   }
   /* total compensation */
-  {const cs=[["gross","Gross pay","--c-gross"],["er401","Employer 401(k)","--c-k-match"],["erHealth","Employer health premiums","--c-health"],["erHsa","Employer HSA","--c-er-hsa"],["erOther","Life, disability and other","--c-er-life"]].filter(([k])=>rows.some(r=>r.full[k]>0));
+  {const cs=[["gross","Gross pay","--c-gross"],["er401","Employer 401(k)","--c-k-match"],["erHealth","Employer health premiums","--c-health"],["erHsa","Employer HSA","--c-er-hsa"],["erOther","Life, disability and other","--c-er-life"],["erTax","Employer payroll taxes (est.)","--c-fica"]].filter(([k])=>rows.some(r=>r.full[k]>0));
     barChart($("yoyComp"),{years:Y,proj,series:cs.map(([k,,c])=>({c,vals:V(k)})),aria:"Total compensation by year"});
     $("yoyCompLeg").innerHTML=legend(cs.map(([,l,c])=>[c,l]));
     const firstEr=rows.find(r=>r.full.erHealth+r.full.erOther>0);
-    const tc=rows.reduce((a,r)=>a+yv(r,"gross","sofar")+yv(r,"er401","sofar")+yv(r,"erHealth","sofar")+yv(r,"erHsa","sofar")+yv(r,"erOther","sofar"),0);
+    const tc=rows.reduce((a,r)=>a+yv(r,"gross","sofar")+yv(r,"er401","sofar")+yv(r,"erHealth","sofar")+yv(r,"erHsa","sofar")+yv(r,"erOther","sofar")+yv(r,"erTax","sofar"),0);
     setSum("yoyComp",`<strong>${fmt0(tc)}</strong> so far`);
     $("yoyCompD").innerHTML=sel?`<b>${sel.y}</b> · `+cs.filter(([k])=>sel.full[k]>0.004).map(([k,l])=>`${l} ${fmt0(yv(sel,k))}`).join(" · ")+` · Total ${fmt0(cs.reduce((a,[k])=>a+yv(sel,k),0))}`+openBtn(sel.y):
-      `Gross pay plus what your employer paid on top. ${fmt0(tc)} so far.${firstEr?` Employer insurance costs first appear on stubs in ${firstEr.y}; earlier stubs don't list them.`:""}`;
+      `Gross pay plus what your employer paid on top, including estimated payroll taxes (its Social Security and Medicare match and federal unemployment). ${fmt0(tc)} so far.${firstEr?` Employer insurance costs first appear on stubs in ${firstEr.y}; earlier stubs don't list them.`:""}`;
   }
   /* where it went */
   const cats=CATS.filter(([k])=>rows.some(r=>r.full[k]>0.004));
@@ -2022,8 +2032,8 @@ function renderYoy(){
   /* by-year tables under each chart */
   {const g=r=>yv(r,"gross"),sum=k=>rs=>rs.reduce((a,r)=>a+yv(r,k),0),ofG=k=>rs=>sum(k)(rs)/sum("gross")(rs);
     yearTable("tbGross",rows,[["Gross",g,"$","sum"]].concat(cats.map(([k,l])=>[l,r=>yv(r,k),"$","sum"])).concat([["Kept",r=>r.full.net/r.full.gross,"%",ofG("net")]]));
-    const cmp=r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther");
-    yearTable("tbComp",rows,[["Gross",g,"$","sum"],["Employer 401(k)",r=>yv(r,"er401"),"$","sum"],["Employer health",r=>yv(r,"erHealth"),"$","sum"],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Life, disability, other",r=>yv(r,"erOther"),"$","sum"],["Total comp",cmp,"$","sum"],["Employer adds",r=>(cmp(r)-g(r))/g(r),"%",rs=>{const G=sum("gross")(rs);return(rs.reduce((a,r)=>a+cmp(r),0)-G)/G}]]);
+    const cmp=r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther")+yv(r,"erTax");
+    yearTable("tbComp",rows,[["Gross",g,"$","sum"],["Employer 401(k)",r=>yv(r,"er401"),"$","sum"],["Employer health",r=>yv(r,"erHealth"),"$","sum"],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Life, disability, other",r=>yv(r,"erOther"),"$","sum"],["Payroll taxes (est.)",r=>yv(r,"erTax"),"$","sum"],["Total comp",cmp,"$","sum"],["Employer adds",r=>(cmp(r)-g(r))/g(r),"%",rs=>{const G=sum("gross")(rs);return(rs.reduce((a,r)=>a+cmp(r),0)-G)/G}]]);
     const byY=new Map();for(const r of ev.raises){const y=+r.d.slice(0,4);(byY.get(y)||byY.set(y,[]).get(y)).push(r)}
     const chg=r=>{const p=rows.find(x=>x.y===r.y-1);if(p&&p.base)return r.base/p.base-1;const f=r.m.ys.find(x=>!isExtra(x)&&annualBase(x)),b0=f&&annualBase(f);return b0&&Math.abs(r.base/b0-1)>0.0005?r.base/b0-1:null},infl=r=>cpiOf(r.y)/cpiOf(r.y-1)-1;
     yearTable("tbRate",rows,[["Base pay",r=>r.base*rf(r.y),"$"],["Raise",chg,"pm"],["Prices",r=>chg(r)==null?null:infl(r),"pm"],["Real",r=>{const c=chg(r);return c==null?null:(1+c)/(1+infl(r))-1},"pmc"],[`In ${CPI_BASE} dollars`,r=>r.base*cpiOf(CPI_BASE)/cpiOf(r.y),"$"],["Per hour",r=>r.base*rf(r.y)/2080,"$c"],["Raise dates",r=>(byY.get(r.y)||[]).map(x=>`${nice(x.d)} ${sgn(x.pct)}`).join(", ")||"—","txt"]]);
