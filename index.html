@@ -1243,7 +1243,7 @@ function renderEmployer(m,f,gross,er){
     <div class="bd-list">${groups.map(g=>`${grpRow("er-"+g.k,g.c,g.name,fmt(g.v),pct(g.v),g.lines.length>1)}
       ${g.lines.length>1?g.lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.name)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${pct(x.v)}</span></div>`).join(""):""}</div>`).join("")}</div>
     <p class="note" style="margin:8px 0 0">Payroll taxes are estimated: your employer matches your Social Security and Medicare and pays federal unemployment. ${T.suta>0?(T.sutaEst?"Ohio unemployment uses the rate from your nearest year with a statement amount.":"Ohio unemployment comes from your employer statement."):"Ohio unemployment isn't included until you add amounts from your employer statement (All years → Total comp)."} Life insurance's taxable value (W2 GRP LF INS) is counted the way your employer's statement does it, even though Basic life already covers what the policy costs, so life insurance shows up twice.</p>
-    </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt0(gross)} + employer ${fmt0(er)}</small></div><b class="num">${fmt0(gross+er)}</b></div>${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}`;
+    </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt(gross)} + employer ${fmt(er)}</small></div><b class="num">${fmt(r2(gross+er))}</b></div>${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}`;
 }
 
 /* ---------- 401(k) total: you + employer ---------- */
