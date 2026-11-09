@@ -1830,7 +1830,7 @@ function lineChart(el,o){
 /* by-year table under a chart: cols = [header, value(row), kind, total] ; kind $ % $c n txt ; total "sum" or function(rows) */
 const EST_T=new Set(["tbComp","tb401"]);
 function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();const est=EST_T.has(id)&&rows.some(r=>r.est);
-  const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt0(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):v;
+  const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):v;
   const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):k==="pmi"?"n "+(v==null||Math.abs(v)<0.0005?"":v<0?"up":"down"):"n";
   const hasT=cols.some(c=>c[3]);
   el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
@@ -2087,14 +2087,14 @@ function renderYoy(){
     ["hr","Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:0,4],["tfd","Tax Freedom Day",r=>r.partial?0:tfdDay(r),5],["checks","Checks",r=>r.checks,3],["threes","3-check months",r=>r.threes,3]];
   const so=state.yoySort||{k:"y",d:-1};const cf=cols.find(c=>c[0]===so.k)||cols[0];
   const sorted=[...rows].sort((a,b)=>(cf[2](a)-cf[2](b))*so.d);
-  const cell=(c,r)=>{const v=c[2](r);return c[3]===1?fmt0(v):c[3]===2?(v*100).toFixed(1)+"%":c[3]===3?v:c[3]===4?(v?"$"+v.toFixed(2):"—"):c[3]===5?(v?dayLabel(r.y,v):"—"):`${r.y}${r.proj?"*":r.partial?"†":""}${r.est?'<span class="estm">‡</span>':""}`};
+  const cell=(c,r)=>{const v=c[2](r);return c[3]===1?fmt(v):c[3]===2?(v*100).toFixed(1)+"%":c[3]===3?v:c[3]===4?(v?"$"+v.toFixed(2):"—"):c[3]===5?(v?dayLabel(r.y,v):"—"):`${r.y}${r.proj?"*":r.partial?"†":""}${r.est?'<span class="estm">‡</span>':""}`};
   const T=k=>rows.reduce((a,r)=>a+(cols.find(c=>c[0]===k)[2](r)),0);
   const tG=T("gross");
   $("yoyTbl").innerHTML=`<thead><tr>${cols.map(c=>`<th class="${c[3]?"n":""}" data-sort="${c[0]}" aria-sort="${so.k===c[0]?(so.d>0?"ascending":"descending"):"none"}">${c[1]}</th>`).join("")}<th>Notes</th></tr></thead><tbody>`+
     sorted.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}">${cols.map(c=>`<td class="${c[3]?"n":""}">${cell(c,r)}</td>`).join("")}<td class="nt">${esc(r.notes.join(" · "))}</td></tr>`).join("")+
-    `<tr class="total"><td>All</td><td class="n"></td><td class="n">${fmt0(tG)}</td><td class="n">${fmt0(T("net"))}</td><td class="n">${pc1(T("net"),tG)}</td>`+
+    `<tr class="total"><td>All</td><td class="n"></td><td class="n">${fmt(tG)}</td><td class="n">${fmt(T("net"))}</td><td class="n">${pc1(T("net"),tG)}</td>`+
     ["fed","fica","state"].map(k=>`<td class="n">${pc1(rows.reduce((a,r)=>a+yv(r,k),0),tG)}</td>`).join("")+
-    `<td class="n">${fmt0(T("ret"))}</td><td class="n">${fmt0(T("er401"))}</td><td class="n">${fmt0(T("hl"))}</td><td class="n">${fmt0(T("xo"))}</td><td class="n">${fmt0(T("comp"))}</td><td class="n"></td><td class="n"></td><td class="n">${T("checks")}</td><td class="n">${T("threes")}</td><td></td></tr></tbody>`;
+    `<td class="n">${fmt(T("ret"))}</td><td class="n">${fmt(T("er401"))}</td><td class="n">${fmt(T("hl"))}</td><td class="n">${fmt(T("xo"))}</td><td class="n">${fmt(T("comp"))}</td><td class="n"></td><td class="n"></td><td class="n">${T("checks")}</td><td class="n">${T("threes")}</td><td></td></tr></tbody>`;
   $("yoyTblNote").textContent=`Tap a column to sort, or a row to open that year. Base pay is the per-check rate times checks per year. Kept, Federal, FICA and State + local are percents of gross.${proj.size?" * Projected to Dec 31; the All row includes the projection.":""}${rows.some(r=>r.partial)?" † Partial year.":""}${rows.some(r=>r.est)?" ‡ "+estNote().slice(2):""}`;
   setSum("yoyTbl",`${rows.length} years`);
 }
