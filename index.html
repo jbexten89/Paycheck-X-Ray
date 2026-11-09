@@ -668,8 +668,9 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div class="panel-head"><h2>Social Security benefit</h2></div>
     <div class="fields">
       <label class="field" for="sbLast">Last year of work<input id="sbLast" type="number" inputmode="numeric" step="1" min="2000" max="2080"></label>
-      <label class="field" for="sbEarn">Earnings a year until then<input id="sbEarn" type="number" inputmode="decimal" step="1000" min="0"></label>
+      <label class="field" for="sbEarn">Social Security wages a year until then<input id="sbEarn" type="number" inputmode="decimal" step="1000" min="0"></label>
     </div>
+    <p class="note" style="margin:0">W-2 Box 3: gross pay minus health, dental, vision, HSA and FSA deductions (your 401(k) still counts). Add any self-employment earnings you expect. Use today's dollars, no future raises.</p>
     <div class="statline" id="sbStats"></div>
     <div class="tbl-wrap"><table id="sbTbl"></table></div>
     <p class="note" id="sbNote" style="margin:0"></p>
