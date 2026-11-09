@@ -518,6 +518,20 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <div class="chart" id="yoyEarn"></div><div class="legend-row" id="yoyEarnLeg"></div><p class="yd" id="yoyEarnD"></p>
       <div class="tbl-wrap"><table class="yt ytab" id="tbEarn"></table></div>
       <p class="note" id="yoyEarnNote" style="margin:6px 0 0"></p>
+      <div id="ssaOld"></div>
+      <div id="ssaPaid"></div>
+      <details class="ohbox" id="ssaBox"><summary>Your SSA earnings record</summary>
+        <p class="note" style="margin:6px 0">From your statement at ssa.gov (Earnings record): one year per line with Taxed Social Security earnings, then Taxed Medicare earnings. You can paste the table straight from the page.</p>
+        <textarea id="ssaIn" rows="6" placeholder="2025 00,000 00,000&#10;2024 00,000 00,000"></textarea>
+        <p class="note" style="margin:10px 0 6px">Estimated total taxes paid, from the same page:</p>
+        <div class="fields">
+          <label class="field" for="ssaYouSS">Social Security, you<input id="ssaYouSS" type="number" inputmode="decimal" min="0"></label>
+          <label class="field" for="ssaErSS">Social Security, employers<input id="ssaErSS" type="number" inputmode="decimal" min="0"></label>
+          <label class="field" for="ssaYouMd">Medicare, you<input id="ssaYouMd" type="number" inputmode="decimal" min="0"></label>
+          <label class="field" for="ssaErMd">Medicare, employers<input id="ssaErMd" type="number" inputmode="decimal" min="0"></label>
+        </div>
+        <button type="button" class="btn small" id="ssaSave" style="margin-top:8px">Save</button>
+      </details>
     </section>
   </div>
   <section class="panel" data-k="yoyTbl">
@@ -648,6 +662,17 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div id="rtBar"></div>
     <div class="tbl-wrap"><table id="rtTbl"></table></div>
     <p class="note" id="rtNote" style="margin:0"></p>
+  </section>
+
+  <section class="panel" data-k="ssben">
+    <div class="panel-head"><h2>Social Security benefit</h2></div>
+    <div class="fields">
+      <label class="field" for="sbLast">Last year of work<input id="sbLast" type="number" inputmode="numeric" step="1" min="2000" max="2080"></label>
+      <label class="field" for="sbEarn">Earnings a year until then<input id="sbEarn" type="number" inputmode="decimal" step="1000" min="0"></label>
+    </div>
+    <div class="statline" id="sbStats"></div>
+    <div class="tbl-wrap"><table id="sbTbl"></table></div>
+    <p class="note" id="sbNote" style="margin:0"></p>
   </section>
 
   <section class="panel" data-k="sscap">
@@ -797,7 +822,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={retire:true,nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={ssben:true,retire:true,nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -1682,6 +1707,48 @@ $("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
   window.__fillOh=fill;}
 $("rptBtn").addEventListener("click",()=>makeReport(state.tab==="all"?"all":"year"));
 
+/* ---------- SSA record + Social Security benefit ---------- */
+const AWI={1989:20099.55,1990:21027.98,1991:21811.60,1992:22935.42,1993:23132.67,1994:23753.53,1995:24705.66,1996:25913.90,1997:27426.00,1998:28861.44,1999:30469.84,2000:32154.82,2001:32921.92,2002:33252.09,2003:34064.95,2004:35648.55,2005:36952.94,2006:38651.41,2007:40405.48,2008:41334.97,2009:40711.61,2010:41673.83,2011:42979.61,2012:44321.67,2013:44888.16,2014:46481.52,2015:48098.63,2016:48642.15,2017:50321.89,2018:52145.80,2019:54099.99,2020:55628.60,2021:60575.07,2022:63795.13,2023:66621.80,2024:69846.57,2025:72800.33};
+const AWI_Y=2025,BEND=[1340,8077]; /* SSA: 2025 wage index; 2027 bend points come from it */
+function ssaFill(){const S=state.settings.ssa||{},R=S.rec||{},P=S.paid||{};
+  if(document.activeElement!==$("ssaIn"))$("ssaIn").value=Object.keys(R).sort().reverse().map(y=>`${y} ${R[y][0]}${R[y][1]!=null&&R[y][1]!==R[y][0]?" "+R[y][1]:""}`).join("\n");
+  [["ssaYouSS","youSS"],["ssaErSS","erSS"],["ssaYouMd","youMd"],["ssaErMd","erMd"]].forEach(([id,k])=>{if(document.activeElement!==$(id))$(id).value=P[k]!=null?P[k]:""})}
+$("ssaSave").addEventListener("click",()=>{const rec={};
+  for(const ln of $("ssaIn").value.split(/\n/)){const mm=ln.match(/^\s*((?:19|20)\d\d)\b(.*)$/);if(!mm)continue;const ns=(mm[2].match(/[\d,]+(?:\.\d+)?/g)||[]).map(x=>+x.replace(/,/g,"")).filter(x=>isFinite(x));if(!ns.length)continue;rec[mm[1]]=[ns[0],ns.length>1?ns[1]:ns[0]]}
+  const paid={};[["ssaYouSS","youSS"],["ssaErSS","erSS"],["ssaYouMd","youMd"],["ssaErMd","erMd"]].forEach(([id,k])=>{const v=$(id).value.trim();if(v!==""&&isFinite(+v))paid[k]=+v});
+  state.settings.ssa={rec,paid};save();yoyCache=null;keepPos(()=>render());toast(`Saved ${Object.keys(rec).length} years of your SSA record.`)});
+function ssEarnings(){/* SSA record where you have it, otherwise your stubs (capped) */
+  const R=(state.settings.ssa||{}).rec||{},out={};
+  const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))];
+  for(const y of ys){const m=model(y);if(!m.latest)continue;const f=m.remaining?"proj":"ytd",w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f));out[y]={v:Math.min(w,limFor(y).ssBase),src:"stubs",proj:!!m.remaining}}
+  for(const y in R)if(!(out[y]&&out[y].proj))out[y]={v:+R[y][0],src:"ssa"};return out}
+function piaOf(A){const[b1,b2]=BEND;return Math.floor((.9*Math.min(A,b1)+.32*Math.max(0,Math.min(A,b2)-b1)+.15*Math.max(0,A-b2))*10)/10}
+function renderSsBen(){
+  const sec=document.querySelector('section[data-k="ssben"]');if(state.tab!=="plan"){sec.hidden=true;return}
+  const age=+state.settings.age||0,ay=+state.settings.ageYear||+todayISO.slice(0,4);if(!age||!state.stubs.length){sec.hidden=true;return}
+  const born=ay-age,fraM=(born>=1960?67*12:born>=1955?66*12+Math.min(10,(born-1954)*2):66*12);
+  const E=ssEarnings(),cur=+todayISO.slice(0,4),rt=state.settings.rt||{},w=state.settings.sb||{};
+  const lastDef=rt.date?+rt.date.slice(0,4):born+(rt.age!=null?+rt.age:65);
+  const last=w.last!=null?+w.last:lastDef,curE=E[cur]?E[cur].v:(E[cur-1]?E[cur-1].v:0),fut=w.earn!=null?+w.earn:Math.round(curE/1000)*1000;
+  [["sbLast",last],["sbEarn",fut]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
+  const base=limFor(cur).ssBase,idx=y=>AWI[y]&&y<AWI_Y?AWI[AWI_Y]/AWI[y]:1;
+  const calc=L=>{const list=[];for(const y in E){const yy=+y;if(yy>L)continue;if(yy===cur&&E[y].proj&&L<cur)continue;list.push(E[y].v*idx(yy))}
+    for(let y=cur+1;y<=L;y++)list.push(Math.min(fut,base));
+    const top=list.sort((a,b)=>b-a).slice(0,35),A=Math.floor(top.reduce((a,v)=>a+v,0)/420);return{A,pia:piaOf(A),n:list.filter(v=>v>0).length}};
+  const R=calc(last),R0=calc(Math.min(last,cur)),add=Math.floor(R.pia)-Math.floor(R0.pia);
+  const at=mo=>{const d=mo-fraM;const f=d<0?(-d<=36?1+d*5/900:1-0.2-(-d-36)*5/1200):1+Math.min(d,70*12-fraM)*(2/3)/100;return Math.floor(R.pia*f)};
+  const ages=[62,63,64,65,66,67,68,69,70];
+  const hasRec=Object.keys((state.settings.ssa||{}).rec||{}).length>0;
+  $("sbStats").innerHTML=`<div class="stat"><small>At full retirement age (${Math.floor(fraM/12)})</small><b>${fmt0(Math.floor(R.pia))}</b><small>a month, in today's dollars</small></div>
+    <div class="stat"><small>Working through ${last} adds</small><b>+${fmt0(add)}</b><small>a month, vs. stopping after ${cur}</small></div>`;
+  $("sbTbl").innerHTML=`<thead><tr><th>Start at</th><th class="n">Per month</th><th class="n">Per year</th><th class="n">vs full age</th></tr></thead><tbody>`+ages.map(a=>{const v=at(a*12);return`<tr${a*12===fraM?' class="sec"':""}><td>${a}${a*12===fraM?" (full)":""}</td><td class="n">${fmt0(v)}</td><td class="n">${fmt0(v*12)}</td><td class="n">${a*12===fraM?"—":(v>=R.pia?"+":"−")+Math.abs(Math.round((v/R.pia-1)*100))+"%"}</td></tr>`}).join("")+"</tbody>";
+  $("sbNote").textContent=`Estimate in today's dollars, the way the SSA figures it: your highest 35 years of earnings, each raised to ${AWI_Y} wage levels, averaged per month (${fmt0(R.A)}), then the benefit formula (90% / 32% / 15% at ${fmt0(BEND[0])} and ${fmt0(BEND[1])}). ${R.n} years with earnings, including future ones; only the best 35 count${hasRec?"":"; add your SSA record (All years → Taxes → SS record) to include years before your stubs, otherwise they count as zero"}. Future years use ${fmt0(Math.min(fut,base))} a year through ${last}. Starting before full retirement age is reduced for life; each year you wait past it adds 8%. Not counted: spousal benefits, the earnings test if you work while collecting before full age, and future cost-of-living raises (the SSA adds those every year).`;
+  setSum("ssben",`<strong>${fmt0(Math.floor(R.pia))}</strong>/mo at ${Math.floor(fraM/12)}`);
+  sec.hidden=false;
+}
+{const sbSet=(k,v)=>{const w=state.settings.sb=state.settings.sb||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
+  $("sbLast").addEventListener("change",e=>sbSet("last",e.target.value));$("sbEarn").addEventListener("change",e=>sbSet("earn",e.target.value));}
+
 /* ---------- next year at today's settings ---------- */
 function nextYear(){
   const y=state.year,ny=y+1,lastY=Math.max(...state.stubs.map(s=>+s.payDate.slice(0,4)));
@@ -1830,7 +1897,7 @@ function lineChart(el,o){
 /* by-year table under a chart: cols = [header, value(row), kind, total] ; kind $ % $c n txt ; total "sum" or function(rows) */
 const EST_T=new Set(["tbComp","tb401"]);
 function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();const est=EST_T.has(id)&&rows.some(r=>r.est);
-  const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):v;
+  const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):k==="$pm"?(isFinite(v)?(Math.abs(v)<0.5?"$0":(v>0?"+":"−")+fmt0(Math.abs(v))):"—"):v;
   const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):k==="pmi"?"n "+(v==null||Math.abs(v)<0.0005?"":v<0?"up":"down"):"n";
   const hasT=cols.some(c=>c[3]);
   el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
@@ -1991,9 +2058,19 @@ function renderYoy(){
     $("yoyEarnLeg").innerHTML=legend([["--c-ret","Social Security wages"],["--amber","Yearly cap","tick"]]);
     const es=sel&&E.get(sel.y);
     $("yoyEarnD").innerHTML=es?`<b>${sel.y}</b> · Social Security wages ${fmt0(es.ss)} · ${(es.ss/es.cap*100).toFixed(0)}% of the ${fmt0(es.cap)} cap · Social Security tax ${fmt0(es.ssT)}`:"Earnings Social Security credits you with each year. Compare with the earnings record on your statement at ssa.gov.";
-    yearTable("tbEarn",rows,[["SS wages",r=>e(r).ss,"$","sum"],["Cap",r=>e(r).cap,"$"],["Of cap",r=>e(r).ss/e(r).cap,"%"],["Medicare wages",r=>e(r).w,"$","sum"],["SS tax",r=>e(r).ssT,"$","sum"],["Medicare tax",r=>e(r).mdT,"$","sum"]]);
+    const REC=(state.settings.ssa||{}).rec||{},hasRec=Object.keys(REC).length>0,rv=r=>REC[r.y]?REC[r.y][0]:null;
+    const dif=r=>rv(r)==null||r.proj?null:rv(r)-e(r).ss;
+    const noteOf=r=>{const d=dif(r);if(d==null)return r.proj&&rv(r)==null?"":"";if(Math.abs(d)<=2)return"Match";if(d>0)return rv(r)>=e(r).cap-1?"Capped":"Other earnings";return"Check this"};
+    yearTable("tbEarn",rows,(hasRec?[["SSA record",r=>rv(r),"$","sum"],["Difference",r=>dif(r),"$pm"],["Note",r=>noteOf(r),"txt"]]:[]).concat([["SS wages",r=>e(r).ss,"$","sum"],["Cap",r=>e(r).cap,"$"],["Of cap",r=>e(r).ss/e(r).cap,"%"],["Medicare wages",r=>e(r).w,"$","sum"],["SS tax",r=>e(r).ssT,"$","sum"],["Medicare tax",r=>e(r).mdT,"$","sum"]]));
+    {const t=$("tbEarn");t.querySelectorAll("tbody tr").forEach(tr=>{const c=[...tr.cells].find(x=>x.textContent==="Check this");if(c)c.classList.add("warn")})}
+    {const old=Object.keys(REC).map(Number).filter(y=>y<rows[0].y).sort((a,b)=>b-a);
+      $("ssaOld").innerHTML=old.length?`<div class="er-head" style="margin-top:14px"><h3>Before your stubs</h3><span class="bd-sub" style="margin:0">${fmt0(old.reduce((a,y)=>a+REC[y][0],0))} over ${old.length} years</span></div><div class="tbl-wrap"><table><thead><tr><th>Year</th><th class="n">Social Security</th><th class="n">Medicare</th></tr></thead><tbody>${old.map(y=>`<tr><td>${y}</td><td class="n">${fmt0(REC[y][0])}</td><td class="n">${fmt0(REC[y][1]!=null?REC[y][1]:REC[y][0])}</td></tr>`).join("")}</tbody></table></div>`:""}
+    {const P=(state.settings.ssa||{}).paid||{},has=["youSS","erSS","youMd","erMd"].some(k=>P[k]>0);
+      $("ssaPaid").innerHTML=has?`<div class="er-head" style="margin-top:14px"><h3>Lifetime taxes paid in, per SSA</h3></div><div class="statline">
+        <div class="stat"><small>Social Security</small><b>${fmt0((P.youSS||0)+(P.erSS||0))}</b><small>${fmt0(P.youSS||0)} you + ${fmt0(P.erSS||0)} employers</small></div>
+        <div class="stat"><small>Medicare</small><b>${fmt0((P.youMd||0)+(P.erMd||0))}</b><small>${fmt0(P.youMd||0)} you + ${fmt0(P.erMd||0)} employers</small></div></div>`:""}
     const yrs=rows.filter(r=>!r.proj&&!r.partial);
-    $("yoyEarnNote").textContent=`From your stubs: gross pay plus taxable benefits, minus health, dental, vision, HSA and FSA deductions (W-2 boxes 3 and 5). Always as paid, even with After inflation on, so it matches your Social Security statement.${rows.some(r=>r.proj)?" The current year is projected.":""}${rows.some(r=>r.partial)?" Partial years are missing stubs.":""} Years before ${rows[0].y} aren't loaded. Your benefit uses your highest 35 years, adjusted for wage growth.`;
+    $("yoyEarnNote").textContent=`From your stubs: gross pay plus taxable benefits, minus health, dental, vision, HSA and FSA deductions (W-2 boxes 3 and 5). Always as paid, even with After inflation on, so it matches your Social Security statement.${rows.some(r=>r.proj)?" The current year is projected.":""}${rows.some(r=>r.partial)?" Partial years are missing stubs.":""} ${hasRec?" SSA record: Match is within $2; Capped means the SSA counts only up to that year's cap (for example when two employers each took Social Security); Other earnings is income the SSA has beyond these stubs, such as self-employment; Check this means the SSA shows less than your stubs, which may need a correction with the SSA.":` Years before ${rows[0].y} aren't loaded; add your SSA record below to compare and fill them in.`} Your benefit uses your highest 35 years, adjusted for wage growth (Plan → SS benefit).`;
     setSum("yoyEarn",`<strong>${fmt0(yrs.reduce((a,r)=>a+e(r).ss,0))}</strong> credited ${yrs.length?`${yrs[0].y}–${yrs[yrs.length-1].y}`:""}`)}
   /* extras */
   const bOther=r=>Math.max(0,yv(r,"bonus")-yv(r,"bonusNet")-yv(r,"bonusTax")-yv(r,"bonus401"));const hasBO=rows.some(r=>bOther(r)>1);
@@ -2108,7 +2185,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#yoyView .tog")){setTimeout(renderYoy,0);return}
   const rb=e.target.closest("#yoyReal [data-real]");if(rb){state.real=rb.dataset.real==="1";setOpen("real",state.real);renderYoy();return}
 });
-const TAB_OF={whatif:"plan",bonusEst:"plan",nextyr:"plan",retire:"plan",sscap:"plan",add:"stubs"};
+const TAB_OF={whatif:"plan",bonusEst:"plan",nextyr:"plan",retire:"plan",ssben:"plan",sscap:"plan",add:"stubs"};
 const tabOf=el=>TAB_OF[el.dataset&&el.dataset.k]||"year";
 function setTab(t){if(t===state.tab){window.scrollTo({top:0,behavior:"smooth"});return}state.tab=t;state.view=t==="all"?"all":"year";setOpen("tab",t);render();window.scrollTo(0,0)}
 function setView(v){setTab(v==="all"?"all":"year")}
@@ -2117,7 +2194,7 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
-const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",sscap:"SS cap",add:"Add stubs",
+const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
@@ -2176,7 +2253,7 @@ $("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");i
 document.addEventListener("click",e=>{if(!$("fabMenu").hidden&&!e.target.closest("#fabMenu,#fab"))fabClose()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")fabClose()});
 
-function render(){applyEst();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();
+function render(){applyEst();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();ssaFill();
   {const t=state.tab,on=state.stubs.length&&(t==="year"||t==="all");$("rptBar").hidden=!on;$("rptBtn").textContent=t==="all"?"Save all-years report as PDF":`Save ${state.year} report as PDF`}}
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
@@ -2201,7 +2278,7 @@ function renderMain(){
   renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);
   {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
   if(tab!=="year")$("chkBar").hidden=true;
-  renderRetire();
+  renderRetire();renderSsBen();
   {const cur=+todayISO.slice(0,4);$("yirBar").hidden=tab!=="year";$("yirBtn").innerHTML=`<span aria-hidden="true">✦</span> ${y}${y>=cur?" so far":""} in review`}
   if(!$("ssCap").innerHTML.trim())document.querySelector('section[data-k="sscap"]').hidden=true;
   {const asof=ma!==m?` · as of ${nice(ma.latest.payDate)}`:"";$("w2year").textContent=y+asof;
