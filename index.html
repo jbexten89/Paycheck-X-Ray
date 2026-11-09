@@ -448,7 +448,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     <div class="chart" id="yoyComp"></div><div class="legend-row" id="yoyCompLeg"></div><p class="yd" id="yoyCompD"></p>
     <div class="tbl-wrap"><table class="yt ytab" id="tbComp"></table></div>
     <details class="ohbox"><summary>Ohio unemployment from your employer statements</summary>
-      <p class="note" style="margin:6px 0">Type or paste one year per line, with the "OH UT ER" amount from that year's total-compensation statement (add employers together). Years you leave out are estimated from the nearest year.</p>
+      <p class="note" style="margin:6px 0">One year per line: the "OH UT ER" amount from that year's total-compensation statement first, then any other Ohio employer items (OH Debt Repay, OH WorkCmp ER), e.g. "2015 27 + 105 + 152.77". Add employers together. Years you leave out are estimated from the nearest year's OH UT ER rate.</p>
       <textarea id="ohUtIn" rows="5" placeholder="2025 00.00&#10;2024 00.00"></textarea>
       <button type="button" class="btn small" id="ohUtSave" style="margin-top:8px">Save</button>
     </details>
@@ -843,8 +843,11 @@ const isPerk=i=>i.sec==="taxable"&&!isGtl(i);
 /* employer payroll taxes, estimated: Social Security match (same as yours), Medicare match at 1.45%, federal unemployment 0.6% of the first $7,000 */
 /* Ohio unemployment: employer pays its own rate on the first $9,000 ($9,500 in 2018-19). Exact yearly amounts come from the
    employer's total-compensation statement, typed in by the user and kept in settings (never in this code). */
+/* employer lines that never had a current amount in the year are year-to-date carry-ins from a payroll conversion, not pay */
+const erLive=m=>{const live=new Set(m.ys.flatMap(x=>x.items).filter(i=>(i.sec==="memo"||i.sec==="taxable")&&Math.abs(+i.cur||0)>0.004).map(i=>i.sec+"|"+i.label));return i=>live.has(i.sec+"|"+i.label)};
 const ohBase=y=>y===2018||y===2019?9500:9000;
-function ohRate(y){const o=state.settings.ohUt||{},ks=Object.keys(o).map(Number).filter(k=>o[k]>0);if(!ks.length)return null;
+const ohUt=v=>v&&typeof v==="object"?+v.ut:+v||0,ohTot=v=>v&&typeof v==="object"?+v.tot:+v||0;
+function ohRate(y){const o0=state.settings.ohUt||{},o={};for(const k in o0)o[k]=ohUt(o0[k]);const ks=Object.keys(o).map(Number).filter(k=>o[k]>0);if(!ks.length)return null;
   const near=ks.sort((a,b)=>Math.abs(a-y)-Math.abs(b-y)||b-a)[0];return{y:near,rate:o[near]/ohBase(near)/(near===y&&ohEmps(near)>1?ohEmps(near):1),exact:near===y}}
 const ohEmps=y=>new Set(state.stubs.filter(s=>s.payDate.startsWith(y+"")).map(s=>s.employer||"")).size||1;
 function erTaxes(m,f){const W=g=>r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",g)-m.val(isSec125,g));
@@ -853,9 +856,9 @@ function erTaxes(m,f){const W=g=>r2(m.val(i=>i.sec==="earnings"||i.sec==="taxabl
   const firstPart=(cap)=>f==="cur"?Math.max(0,Math.min(cap,yw)-Math.min(cap,Math.max(0,yw-w))):Math.min(cap*ne,w);
   const futa=r2(firstPart(7000)*.006);
   const oh=state.settings.ohUt||{},B=ohBase(y);let suta=0,sutaEst=false;
-  if(oh[y]>0&&f!=="cur"&&(!m.remaining||f==="proj"||yw>=B*ne))suta=f==="ytd"&&yw<B*ne?r2(oh[y]*yw/(B*ne)):+oh[y];
+  if(ohTot(oh[y])>0&&f!=="cur"&&(!m.remaining||f==="proj"||yw>=B*ne))suta=f==="ytd"&&yw<B*ne?r2(ohTot(oh[y])*yw/(B*ne)):ohTot(oh[y]);
   else{const r=ohRate(y);if(r){suta=r2(firstPart(B)*r.rate);sutaEst=!r.exact}}
-  return{ss,med,futa,suta,sutaEst,tot:r2(ss+med+futa+suta)}}
+  const sutaOther=!!(oh[y]&&typeof oh[y]==="object"&&oh[y].tot>oh[y].ut+0.004);return{ss,med,futa,suta,sutaEst,sutaOther,tot:r2(ss+med+futa+suta)}}
 const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
 const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
 const isChild=i=>(i.sec==="pretax"||i.sec==="posttax")&&/CHILD|CHLD/i.test(i.label);
@@ -1207,7 +1210,7 @@ function renderBreakdown(m){
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
     <div class="stat"><small>All taxes</small><b>${(totalTax/g*100).toFixed(1)}%</b><small>${fmt0(totalTax)}</small></div>
     <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small></div>`;
-  const er=r2(m.val(i=>i.sec==="memo"||isPerk(i)||isGtl(i),f)+erTaxes(m,f).tot),erRet=m.val(isErRet,f);
+  const lv=erLive(m),er=r2(m.val(i=>(i.sec==="memo"||isPerk(i)||isGtl(i))&&lv(i),f)+erTaxes(m,f).tot),erRet=m.val(isErRet,f);
   renderEmployer(m,f,b.gross,er);
   void erRet;renderCheckUI(m);
 }
@@ -1227,11 +1230,11 @@ function erName(l){
 }
 function renderEmployer(m,f,gross,er){
   const box=$("erBlock");if(!(er>0)){box.innerHTML="";return}
-  const memo=[...new Map(m.ys.flatMap(x=>x.items).filter(i=>i.sec==="memo"||isPerk(i)||isGtl(i)).map(i=>[i.sec+i.label,i])).values()];
+  const memo=[...new Map(m.ys.flatMap(x=>x.items).filter(i=>(i.sec==="memo"||isPerk(i)||isGtl(i))&&erLive(m)(i)).map(i=>[i.sec+i.label,i])).values()];
   const groups=ER_GROUPS.map(([k,name,c,pred])=>{
     const lines=memo.filter(pred).map(i=>({name:(isGtl(i)?"IRS value of coverage over $50K":i.sec==="taxable"?i.label.replace(/\bGU\b/,"").trim().toLowerCase().replace(/^./,c=>c.toUpperCase()):erName(i.label))+(hasEst(m.ys,i.label)?"*":""),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
     return{k,name,c,v:r2(lines.reduce((a,x)=>a+x.v,0)),lines}}).filter(g=>g.v>0.004);
-  const T=erTaxes(m,f);if(T.tot>0.004)groups.push({k:"tax",name:"Payroll taxes (est.)",c:"--c-fica",v:T.tot,lines:[{name:"Social Security match",v:T.ss},{name:"Medicare match",v:T.med},{name:"Federal unemployment",v:T.futa},{name:"Ohio unemployment"+(T.sutaEst?" (est.)":""),v:T.suta}].filter(x=>x.v>0.004)});
+  const T=erTaxes(m,f);if(T.tot>0.004)groups.push({k:"tax",name:"Payroll taxes (est.)",c:"--c-fica",v:T.tot,lines:[{name:"Social Security match",v:T.ss},{name:"Medicare match",v:T.med},{name:"Federal unemployment",v:T.futa},{name:"Ohio unemployment"+(T.sutaEst?" (est.)":"")+(T.sutaOther?" + other Ohio items":""),v:T.suta}].filter(x=>x.v>0.004)});
   const pct=v=>(v/er*100).toFixed(1)+"%";
   const eo=isOpen("employer");box.classList.toggle("collapsed",!eo);
   box.innerHTML=`<button type="button" class="er-tog" aria-expanded="${eo}"><h3>${CHEV}Employer</h3><span class="num" style="font-size:20px;font-weight:800">${fmt(er)}</span></button>
@@ -1672,8 +1675,9 @@ $("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
   $("themeBtn").addEventListener("click",()=>{const order=["dark","light","auto"],t=order[(order.indexOf(ui.theme||"dark")+1)%3];setOpen("theme",t);apply();toast(`Theme: ${NM[t]}${t==="auto"?" (follows your iPhone)":""}`)});
   try{mq.addEventListener("change",()=>{if((ui.theme||"dark")==="auto")apply()})}catch(e){}
   window.__applyTheme=apply;}
-{const fill=()=>{const o=state.settings.ohUt||{};$("ohUtIn").value=Object.keys(o).sort().reverse().map(k=>`${k} ${(+o[k]).toFixed(2)}`).join("\n")};
-  $("ohUtSave").addEventListener("click",()=>{const o={};for(const ln of $("ohUtIn").value.split(/\n|;/)){const mm=ln.match(/(20\d\d)\D+?([\d,]+(?:\.\d+)?)/);if(mm)o[mm[1]]=r2(+mm[2].replace(/,/g,""))}
+{const fill=()=>{const o=state.settings.ohUt||{};$("ohUtIn").value=Object.keys(o).sort().reverse().map(k=>{const v=o[k];return typeof v==="object"&&v.parts?`${k} ${v.parts.map(x=>(+x).toFixed(2)).join(" + ")}`:`${k} ${ohTot(v).toFixed(2)}`}).join("\n")};
+  $("ohUtSave").addEventListener("click",()=>{const o={};for(const ln of $("ohUtIn").value.split(/\n|;/)){const mm=ln.match(/^\s*(20\d\d)\b(.*)$/);if(!mm)continue;const ns=(mm[2].match(/[\d,]*\.?\d+/g)||[]).map(x=>+x.replace(/,/g,"")).filter(x=>isFinite(x));if(!ns.length)continue;
+      o[mm[1]]=ns.length===1?r2(ns[0]):{ut:r2(ns[0]),tot:r2(ns.reduce((a,b)=>a+b,0)),parts:ns}}
     state.settings.ohUt=o;save();yoyCache=null;fill();keepPos(()=>render());toast(`Saved Ohio unemployment for ${Object.keys(o).length} year${Object.keys(o).length===1?"":"s"}.`)});
   window.__fillOh=fill;}
 $("rptBtn").addEventListener("click",()=>makeReport(state.tab==="all"?"all":"year"));
@@ -1745,8 +1749,8 @@ let yoyCache=null;
 function yoyRow(y){
   const m=model(y);if(!m.latest)return null;
   const f=m.remaining?"proj":"ytd";
-  const pack=f=>{const b=breakdown(m,f),v=p=>m.val(p,f);
-    return Object.assign({gross:b.gross,er401:v(isErRet),erHsa:v(isHSAer),erHealth:v(isErHealth),erOther:v(i=>(i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!isErHealth(i))||isPerk(i)||isGtl(i)),erTax:erTaxes(m,f).tot,ot:v(isOTe),bonus:v(isBonusE)},b.parts)};
+  const LV=erLive(m);const pack=f=>{const b=breakdown(m,f),v=p=>m.val(p,f);
+    return Object.assign({gross:b.gross,er401:v(isErRet),erHsa:v(isHSAer),erHealth:v(isErHealth),erOther:v(i=>((i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!isErHealth(i))||isPerk(i)||isGtl(i))&&LV(i)),erTax:erTaxes(m,f).tot,ot:v(isOTe),bonus:v(isBonusE)},b.parts)};
   const regs=m.ys.filter(s=>!isExtra(s));const lim=limFor(y);const age=ageFor(y);
   const cu=age>=60&&age<=63?(lim.c60||lim.c50):age>=50?lim.c50:0;
   const notes=[];
