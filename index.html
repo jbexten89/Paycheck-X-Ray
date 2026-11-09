@@ -24,7 +24,7 @@
   --accent:#3CC79A; --accent-ink:#04140E; --amber:#E3A04F; --amber-ink:#1A1004;
   --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-fsa:#4FC3C7; --c-gross:#59616D; --c-loan:#3E7CB8; --c-child:#C2A37A; --c-bonus-wh:#7D6B2C; --c-other:#6B7280;
   --c-k-you:#5FA8F5; --c-k-roth:#7FD1F0; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
-  --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2; --c-er-perk:#4FC3C7;
+  --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2; --c-er-perk:#4FC3C7; --c-er-gtl:#C5B8F7;
   --bad:#F0707C; --warn:#E3A04F; --good:#3CC79A; --info:#8FB3D9;
   --f-display:"Nunito Sans","Avenir Next",Avenir,system-ui,sans-serif;
   --f-body:"Nunito Sans","Avenir Next",Avenir,system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -831,7 +831,8 @@ const isRoth=i=>(i.sec==="pretax"||i.sec==="posttax")&&/ROTH/i.test(i.label)&&!i
 const isDefer=i=>isPreRet(i)||isRoth(i);
 const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
 /* taxable perks your employer gives (gift cards etc.); the life-insurance imputed value is left out because Basic Life already counts its cost */
-const isPerk=i=>i.sec==="taxable"&&!/GRP\s*LF|GTL|GROUP\s*TERM|\bLIFE\b|\bLF\b/i.test(i.label);
+const isGtl=i=>i.sec==="taxable"&&/GRP\s*LF|GTL|GROUP\s*TERM|\bLIFE\b|\bLF\b/i.test(i.label);
+const isPerk=i=>i.sec==="taxable"&&!isGtl(i);
 /* employer payroll taxes, estimated: Social Security match (same as yours), Medicare match at 1.45%, federal unemployment 0.6% of the first $7,000 */
 function erTaxes(m,f){const W=g=>r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",g)-m.val(isSec125,g));
   const ss=m.val(isSS,f),w=W(f),med=r2(w*.0145);let futa;
@@ -1188,7 +1189,7 @@ function renderBreakdown(m){
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
     <div class="stat"><small>All taxes</small><b>${(totalTax/g*100).toFixed(1)}%</b><small>${fmt0(totalTax)}</small></div>
     <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small></div>`;
-  const er=r2(m.val(i=>i.sec==="memo"||isPerk(i),f)+erTaxes(m,f).tot),erRet=m.val(isErRet,f);
+  const er=r2(m.val(i=>i.sec==="memo"||isPerk(i)||isGtl(i),f)+erTaxes(m,f).tot),erRet=m.val(isErRet,f);
   renderEmployer(m,f,b.gross,er);
   void erRet;renderCheckUI(m);
 }
@@ -1199,7 +1200,8 @@ const ER_GROUPS=[
   ["med","Health coverage","--c-er-med",i=>i.sec==="memo"&&!/FSA/i.test(i.label)&&/MEDICAL|DENTAL|VISION/i.test(i.label)],
   ["hsa","HSA deposit","--c-er-hsa",i=>isHSAer(i)],
   ["life","Life + disability","--c-er-life",i=>i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!/MEDICAL|DENTAL|VISION/i.test(i.label)],
-  ["perk","Gifts and perks","--c-er-perk",i=>isPerk(i)]];
+  ["perk","Gifts and perks","--c-er-perk",i=>isPerk(i)],
+  ["gtl","Life insurance taxable value (portal method)","--c-er-gtl",i=>isGtl(i)]];
 function erName(l){
   const map=[[/401K\s*MATCH/i,"401(k) match"],[/PENSION\s*45/i,"Pension 45+"],[/SAFE\s*HARBOR/i,"Safe harbor"],[/MEDICAL/i,"Medical"],[/DENTAL/i,"Dental"],[/VISION/i,"Vision"],
     [/PENSION\s*LT\s*45/i,"Pension (under 45)"],[/AD&D/i,"AD&D"],[/BASIC\s*LIFE/i,"Basic life"],[/LTD/i,"Long-term disability"],[/STD/i,"Short-term disability"],[/HSA/i,"HSA deposit"]];
@@ -1207,9 +1209,9 @@ function erName(l){
 }
 function renderEmployer(m,f,gross,er){
   const box=$("erBlock");if(!(er>0)){box.innerHTML="";return}
-  const memo=[...new Map(m.ys.flatMap(x=>x.items).filter(i=>i.sec==="memo"||isPerk(i)).map(i=>[i.sec+i.label,i])).values()];
+  const memo=[...new Map(m.ys.flatMap(x=>x.items).filter(i=>i.sec==="memo"||isPerk(i)||isGtl(i)).map(i=>[i.sec+i.label,i])).values()];
   const groups=ER_GROUPS.map(([k,name,c,pred])=>{
-    const lines=memo.filter(pred).map(i=>({name:(i.sec==="taxable"?i.label.replace(/\bGU\b/,"").trim().toLowerCase().replace(/^./,c=>c.toUpperCase()):erName(i.label))+(hasEst(m.ys,i.label)?"*":""),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+    const lines=memo.filter(pred).map(i=>({name:(isGtl(i)?"IRS value of coverage over $50K":i.sec==="taxable"?i.label.replace(/\bGU\b/,"").trim().toLowerCase().replace(/^./,c=>c.toUpperCase()):erName(i.label))+(hasEst(m.ys,i.label)?"*":""),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
     return{k,name,c,v:r2(lines.reduce((a,x)=>a+x.v,0)),lines}}).filter(g=>g.v>0.004);
   const T=erTaxes(m,f);if(T.tot>0.004)groups.push({k:"tax",name:"Payroll taxes (est.)",c:"--c-fica",v:T.tot,lines:[{name:"Social Security match",v:T.ss},{name:"Medicare match",v:T.med},{name:"Federal unemployment",v:T.futa}].filter(x=>x.v>0.004)});
   const pct=v=>(v/er*100).toFixed(1)+"%";
@@ -1219,7 +1221,7 @@ function renderEmployer(m,f,gross,er){
     <div class="bar" role="img" aria-label="${groups.map(g=>`${g.name} ${Math.round(g.v/er*100)}%`).join(", ")}">${groups.map(g=>`<div style="width:${(g.v/er*100).toFixed(3)}%;background:var(${g.c})" title="${g.name}: ${fmt(g.v)}"></div>`).join("")}</div>
     <div class="bd-list">${groups.map(g=>`${grpRow("er-"+g.k,g.c,g.name,fmt(g.v),pct(g.v),g.lines.length>1)}
       ${g.lines.length>1?g.lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.name)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${pct(x.v)}</span></div>`).join(""):""}</div>`).join("")}</div>
-    <p class="note" style="margin:8px 0 0">Payroll taxes are estimated: your employer matches your Social Security and Medicare and pays federal unemployment. State unemployment varies by employer and isn't included. Life insurance's taxable value (W2 GRP LF INS) is left out because Basic life already counts what that coverage costs, so an employer statement that adds both runs higher.</p>
+    <p class="note" style="margin:8px 0 0">Payroll taxes are estimated: your employer matches your Social Security and Medicare and pays federal unemployment. State unemployment varies by employer and isn't included. Life insurance's taxable value (W2 GRP LF INS) is counted the way your employer's statement does it, even though Basic life already covers what the policy costs, so life insurance shows up twice.</p>
     </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt0(gross)} + employer ${fmt0(er)}</small></div><b class="num">${fmt0(gross+er)}</b></div>${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}`;
 }
 
@@ -1722,7 +1724,7 @@ function yoyRow(y){
   const m=model(y);if(!m.latest)return null;
   const f=m.remaining?"proj":"ytd";
   const pack=f=>{const b=breakdown(m,f),v=p=>m.val(p,f);
-    return Object.assign({gross:b.gross,er401:v(isErRet),erHsa:v(isHSAer),erHealth:v(isErHealth),erOther:v(i=>(i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!isErHealth(i))||isPerk(i)),erTax:erTaxes(m,f).tot,ot:v(isOTe),bonus:v(isBonusE)},b.parts)};
+    return Object.assign({gross:b.gross,er401:v(isErRet),erHsa:v(isHSAer),erHealth:v(isErHealth),erOther:v(i=>(i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!isErHealth(i))||isPerk(i)||isGtl(i)),erTax:erTaxes(m,f).tot,ot:v(isOTe),bonus:v(isBonusE)},b.parts)};
   const regs=m.ys.filter(s=>!isExtra(s));const lim=limFor(y);const age=ageFor(y);
   const cu=age>=60&&age<=63?(lim.c60||lim.c50):age>=50?lim.c50:0;
   const notes=[];
