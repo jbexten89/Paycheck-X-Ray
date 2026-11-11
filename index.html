@@ -236,6 +236,24 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .tabbar[hidden],.ctlbar[hidden]{display:none}
 .grp-off{display:none!important}
 .wi-ly{margin:6px 0 10px}
+.yecard{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.ye{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line);cursor:pointer}
+.ye:first-child{border-top:0}
+.ye input{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--accent)}
+.ye b{display:block;font-size:15.5px;font-weight:700}.ye.warn b{color:var(--amber)}
+.ye small{display:block;color:var(--muted);font-size:13.5px;line-height:1.45;margin-top:3px}
+.ye em{font-style:normal;color:var(--ink)}
+.ye small b{display:inline;font-size:inherit;color:var(--ink)}
+.w2r{display:grid;grid-template-columns:minmax(0,1fr) 118px 62px;gap:4px 10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.w2l{font-size:14.5px}.w2l small{display:block;color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.w2l .box{color:var(--muted);font-size:12.5px;margin-right:6px}
+.w2r .w2in{width:100%}
+.w2res{text-align:right;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.w2r.ok .w2res{color:var(--good)}.w2r.bad .w2res{color:var(--amber)}
+.w2why{grid-column:1/-1;margin:2px 0 0;font-size:12.5px;color:var(--muted);line-height:1.4}
+.ye.done{opacity:.55}.ye.done b{text-decoration:line-through}
+.w2in{width:100px;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:right;font-size:16px;font-family:var(--f-num)}
+
 .ohbox{margin-top:12px}.ohbox summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:14px}
 .ohbox textarea{width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--f-num);font-size:16px}
 html.light{--bg:#F4F5F7;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#DCE0E5;--soft:#ECEFF2;--accent:#22A87B;--good:#1E9C72;--info:#3D6FA8;--bad:#D2475A;--c-gross:#9AA1AA;color-scheme:light}
@@ -555,6 +573,12 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
   <p class="note" style="margin:0 2px">Inflation uses the Consumer Price Index for All Urban Consumers (CPI-U) yearly averages from the Bureau of Labor Statistics. The latest year uses the months published so far.</p>
   </div>
 
+  <section class="panel yecard" data-k="yearend" hidden>
+    <div class="panel-head"><h2>Year-end checklist</h2></div>
+    <div id="yeList"></div>
+    <p class="note" id="yeNote" style="margin:0"></p>
+  </section>
+
   <section class="panel" data-k="cal" id="calPanel">
     <div class="panel-head">
       <h2>Pay calendar</h2>
@@ -600,6 +624,10 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <p class="note asof" hidden style="margin:0"></p>
       <div class="tbl-wrap"><table id="w2"></table></div>
       <p class="note" id="w2emp" hidden></p>
+      <details class="ohbox" id="w2chkBox"><summary>Check your W-2</summary>
+        <p class="note" style="margin:6px 0">Type the amounts from your W-2 (add W-2s together if you had more than one employer). Each box is compared with what your stubs add up to.</p>
+        <div id="w2chk"></div>
+      </details>
       <p class="note">Projected = latest year-to-date plus the latest check repeated for each payday left. HSA money your employer deposits directly is not on the stub, so Box 12 W may come in higher.</p>
     </section>
 
@@ -836,7 +864,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={yoySave:true,ssben:true,retire:true,nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={yearend:true,yoySave:true,ssben:true,retire:true,nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -1425,11 +1453,88 @@ function renderW2(m,y){
   const wn=$("w2emp");if(wn){const n=m.lastByEmp?m.lastByEmp.length:1;wn.hidden=n<2;wn.textContent=n<2?"":`Combined from ${n} employers: ${m.lastByEmp.map(g=>g.e||"unnamed").join(" and ")}. You'll get a separate W-2 from each.`}
   renderSsCap(m,y);
   setSum("w2",`Box 1 wages <strong>${fmt0(p[0][2])}</strong> · fed withheld ${fmt0(p[1][2])}`);
+  renderW2Check(m,y,box);
   $("w2").innerHTML=`<thead><tr><th>Box</th><th class="n">YTD</th><th class="n">Dec 31</th></tr></thead><tbody>`+
     a.map((r,k)=>r[2]||p[k][2]?`<tr><td><span class="box">${r[0]}</span>${r[1]}</td><td class="n">${fmt0(r[2])}</td><td class="n">${fmt0(p[k][2])}</td></tr>`:"").join("")+`</tbody>`;
 }
 
+/* ---------- W-2 check ---------- */
+const W2SHORT={"1":"Wages","2":"Federal tax","3":"SS wages","4":"SS tax","5":"Medicare wages","6":"Medicare tax","12 C":"Life insurance","12 D":"401(k)","12 W":"HSA","12 AA":"Roth 401(k)","12 DD":"Health cost","17":"Ohio tax","19":"School tax"};
+const W2WHY={"1":"Box 1 is gross minus every before-tax deduction (401(k), health, HSA, FSA). A difference usually means a deduction or a taxable perk (gift card, life insurance) was handled differently.",
+  "2":"Federal tax withheld should match your stubs to the cent. A difference may mean a stub is missing or a year-end adjustment was made.",
+  "3":"Social Security wages include your 401(k) but not health, HSA or FSA deductions, and stop at the yearly cap.","4":"Should be 6.2% of Box 3.",
+  "5":"Medicare wages, like Box 3 but with no cap.","6":"Should be 1.45% of Box 5, plus 0.9% on wages over $200,000.",
+  "12 C":"Taxable value of life insurance over $50,000 (W2 GRP LF INS on your stubs).","12 D":"Your pre-tax 401(k) for the year.",
+  "12 W":"HSA from you and your employer. A difference often means an employer deposit made outside payroll.","12 AA":"Roth 401(k).",
+  "12 DD":"Total cost of health coverage, yours and your employer's. Information only; not taxed.","17":"Ohio income tax withheld.","19":"School district / local tax withheld."};
+function renderW2Check(m,y,box){
+  const det=$("w2chkBox");const done=!m.remaining&&!m.partial,curY=+todayISO.slice(0,4);
+  det.hidden=!(done||y===curY);if(det.hidden)return;
+  const rows=box(m.remaining?"proj":"ytd"),W=((state.settings.w2||{})[y])||{};
+  let ok=0,bad=0,n=0;
+  $("w2chk").innerHTML=rows.filter(r=>Math.abs(r[2])>0.004||W[r[0]]!=null).map(r=>{
+    const v=W[r[0]],has=v!=null&&v!=="",d=has?r2(+v-r[2]):null,good=has&&Math.abs(d)<=1;if(has){n++;good?ok++:bad++}
+    return`<div class="w2r${has?(good?" ok":" bad"):""}"><div class="w2l"><span class="box">${r[0]}</span>${W2SHORT[r[0]]||r[1]}<small>Stubs ${fmt(r[2])}</small></div>
+      <input class="w2in" data-box="${r[0]}" type="number" inputmode="decimal" step="0.01" placeholder="Your W-2" value="${has?v:""}" aria-label="Your W-2 box ${r[0]}">
+      <span class="w2res">${has?(good?"✓":(d>0?"+":"−")+fmt(Math.abs(d)).slice(1)):""}</span>${has&&!good?`<p class="w2why">${W2WHY[r[0]]||""}</p>`:""}</div>`}).join("");
+  const sm=det.querySelector("summary");sm.textContent=n?`Check your W-2 · ${ok} of ${n} match${bad?` · ${bad} to look at`:""}`:"Check your W-2";
+  if(m.remaining)sm.textContent+=" (stubs projected to Dec 31)";
+}
+document.addEventListener("change",e=>{const t=e.target;if(!t.classList||!t.classList.contains("w2in"))return;const y=state.year,all=state.settings.w2=state.settings.w2||{},W=all[y]=all[y]||{};
+  const v=t.value.trim();if(v===""||!isFinite(+v))delete W[t.dataset.box];else W[t.dataset.box]=+v;save();keepPos(()=>render())});
+
+/* ---------- year-end checklist ---------- */
+function renderYearEnd(m,y){
+  const sec=document.querySelector('section[data-k="yearend"]');const cur=+todayISO.slice(0,4),mo=+todayISO.slice(5,7);
+  const show=y===cur&&m.remaining>0&&!m.partial&&mo>=10&&state.tab==="year";
+  if(!show){sec.hidden=true;return}
+  const n=m.remaining,items=[],L=limFor(y),age=ageFor(y),pds=m.pds.filter(d=>d>m.latest.payDate),lastPd=pds[pds.length-1];
+  const dl=d=>`${nice(d)}`;
+  /* HSA */
+  const hsaItems=m.latest.items.filter(isHSA);
+  if(hsaItems.length){const fam=hsaItems.some(i=>/FAM/i.test(i.label)),hLim=(fam?L.hsaFam:L.hsaSelf)+(age>=55?L.hsaCatch:0),hP=m.val(isHSAall,"proj"),room=r2(hLim-hP),now=r2(m.val(isHSA,"cur"));
+    if(room>1)items.push({k:"hsa",t:`HSA: ${fmt0(room)} of room left`,d:`Raise your HSA to about <b class="num">${fmt(now+room/n)}</b> per check (from ${fmt(now)}) for the last ${n} paydays, or make a one-time deposit to your HSA before Dec 31. After that, ${y}'s room is gone.`,due:pds[0]});
+    else if(room<-0.5)items.push({k:"hsa",t:`HSA: ${fmt0(-room)} over the limit`,d:`Lower your HSA to about <b class="num">${fmt(Math.max(0,now+room/n))}</b> per check. Over-contributions are taxed unless removed before you file.`,due:pds[0],warn:1})}
+  /* withholding */
+  if(/single/i.test(m.latest.filing||"Single")){const T=taxCalc(m);
+    if(T.gap>100)items.push({k:"wh",t:`Federal tax: on track to owe ${fmt0(T.gap)}`,d:`Add about <b class="num">${fmt0(Math.ceil(T.per))}</b> per check on W-4 line 4(c) for the ${n} paydays left, or set the money aside for April.${T.gap<1000?" Owing under $1,000 generally avoids an underpayment penalty.":""}`,due:pds[0],warn:T.gap>=1000});
+    else if(T.gap<-1500)items.push({k:"wh",t:`Federal tax: on track for a ${fmt0(-T.gap)} refund`,d:`That's money you lent the IRS. For next year, consider lowering withholding (a new W-4) so it lands in your checks instead.`})}
+  /* 401(k) */
+  {const cu=age>=60&&age<=63?L.c60:age>=50?L.c50:0,kLim=L.k401+cu,kP=m.val(isDefer,"proj"),kY=m.val(isDefer,"ytd"),room=r2(kLim-kP),now=r2(m.val(isDefer,"cur"));
+    if(room>500)items.push({k:"k401",t:`401(k): ${fmt0(room)} of room you won't use`,d:`You're on pace for ${fmt0(kP)} of your ${fmt0(kLim)} limit${cu?` (includes the ${fmt0(cu)} age-${age>=60&&age<=63?"60–63":"50"} catch-up)`:""}. To use all of it you'd need about <b class="num">${fmt0((kLim-kY)/n)}</b> per check (now ${fmt(now)}); any amount helps. Unused room doesn't carry over.`,due:pds[0]})}
+  /* bonus */
+  {const prev=state.stubs.filter(x=>isExtra(x)&&isBonusCheck(x)&&x.payDate.startsWith((y-1)+"")).sort((a,b)=>a.payDate<b.payDate?-1:1);
+    const got=m.ys.some(x=>isExtra(x)&&isBonusCheck(x)&&x.payDate>=`${y}-${prev.length?prev[0].payDate.slice(5,7):"11"}-01`);
+    if(prev.length&&!got){const amt=prev.reduce((a,x)=>a+x.items.filter(i=>i.sec==="earnings").reduce((b,i)=>b+i.cur,0),0),T=taxCalc(m),k=m.val(isDefer,"cur")/(m.val(i=>i.sec==="earnings","cur")||1);
+      const extra=Math.max(0,(T.top-.22))*amt*(1-k);
+      items.push({k:"bonus",t:`Bonus: usually arrives around ${dl(prev[0].payDate)}`,d:`Last year's was ${fmt0(amt)}. Bonuses are withheld at a flat 22% federal${T.top>.22?`, but your top bracket is ${Math.round(T.top*100)}%, so a bonus that size adds about <b class="num">${fmt0(extra)}</b> to what you'll owe in April`:""}. Plan → Bonus estimator shows what you'd keep.`})}}
+  /* Social Security cap */
+  {const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");if(ssW>L.ssBase)items.push({k:"ss",t:`Social Security stops this year`,d:`Your wages pass the ${fmt0(L.ssBase)} cap, so the last checks of the year will be bigger. See W-2 → Social Security cap.`})}
+  /* next year */
+  {const NL=LIMS[y+1];if(NL&&hsaItems.length){const fam=hsaItems.some(i=>/FAM/i.test(i.label)),age1=ageFor(y+1),lim=(fam?NL.hsaFam:NL.hsaSelf)+(age1>=55?NL.hsaCatch:0),er=m.val(isHSAer,"proj"),np=payDates(y+1).filter(d=>d.startsWith((y+1)+"")).length||26,need=Math.max(0,(lim-er)/np);
+    items.push({k:"next",t:`${y+1}: set your HSA to ${fmt(need)} per check`,d:`The ${y+1} limit is ${fmt0(lim)}${age1>=55?" with your catch-up":""}. With ${fmt0(er)} from your employer, ${fmt(need)} × ${np} paydays fills it. Make the change during open enrollment. Plan → Next year has the details.`})}}
+  const Y=((state.settings.ye||{})[y])||{},todo=items.filter(i=>!Y[i.k]),dn=items.filter(i=>Y[i.k]);
+  $("yeList").innerHTML=items.length?[...todo,...dn].map(i=>`<label class="ye${Y[i.k]?" done":""}${i.warn?" warn":""}"><input type="checkbox" data-ye="${i.k}"${Y[i.k]?" checked":""}><span><b>${i.t}</b><small>${i.d}${i.due&&!Y[i.k]?` <em>Next payday: ${dl(i.due)}.</em>`:""}</small></span></label>`).join(""):`<p class="note">Nothing to do: HSA, 401(k) and withholding are all on track.</p>`;
+  $("yeNote").textContent=`Built from your stubs through ${nice(m.latest.payDate)} and the ${n} paydays left. Check items off as you handle them.`;
+  setSum("yearend",todo.length?`<strong>${todo.length}</strong> to do before Dec 31`:"All done");
+  sec.hidden=false;
+}
+document.addEventListener("change",e=>{const t=e.target;if(!t.dataset||!t.dataset.ye)return;const y=state.year,all=state.settings.ye=state.settings.ye||{},Y=all[y]=all[y]||{};if(t.checked)Y[t.dataset.ye]=1;else delete Y[t.dataset.ye];save();keepPos(()=>render())});
+
 /* ---------- render: tax ---------- */
+function taxCalc(m){const st=taxIn(+m.latest.payDate.slice(0,4));
+  const wages=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj");
+  const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
+  const se=Math.max(0,+st.seProfit||0),oth=Math.max(0,+st.otherInc||0),est=Math.max(0,+st.estPaid||0);
+  const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*(0.062+SSR)+seBase*0.029:0;const halfSE=seTax/2;
+  const agi=wages+oth+se-halfSE;const pre=Math.max(0,agi-LIM.std-(LIM.exempt||0));
+  const qbi=LIM.noQbi?0:Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
+  const inc=bracketTax(taxable);const total=inc+seTax;const withheld=m.val(isFed,"proj")+est;
+  const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*SSR):0;
+  const gap=total-withheld-ssCredit;
+  const top=(LIM.br.find(([hi])=>taxable<=hi)||LIM.br[LIM.br.length-1])[1];
+  return{gap,per:m.remaining?gap/m.remaining:0,taxable,top}}
+
 function bracketTax(t){let tax=0,lo=0;for(const[hi,r]of LIM.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax}
 function renderTax(m){
   if(m.partial){$("fsLabel").textContent="";$("taxOut").innerHTML=`<p class="note">Only stubs through ${nice(m.latest.payDate)} are loaded for ${state.year}, so there's no full-year estimate yet. Add the rest of the year to see one.</p>`;setSum("tax",`Partial year (through ${nice(m.latest.payDate)})`);return}
@@ -2222,7 +2327,7 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
-const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
+const JUMP_NAMES={yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoySave:"Savings rate",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
@@ -2303,7 +2408,7 @@ function renderMain(){
   if(tab==="stubs")return;
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
   let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
-  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);
+  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);renderYearEnd(m,y);
   {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
   if(tab!=="year")$("chkBar").hidden=true;
   renderRetire();renderSsBen();
