@@ -300,6 +300,11 @@ body{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 74px)}
 .chkbar .btn{flex:none;width:var(--yr-btn-w,52px)}
 .chkbar select{flex:1;min-width:0}
 .chkbar .btn:disabled{opacity:.35;cursor:default}
+/* year and check rows: identical three-column grid so the arrows and middle boxes line up */
+.ctlbar .yearnav,.ctlbar .chkbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2.6fr) minmax(0,1fr);gap:6px;width:100%;max-width:none;flex:1 1 100%}
+.ctlbar .chkbar[hidden]{display:none}
+.ctlbar .yearnav .btn,.ctlbar .chkbar .btn{width:auto;min-width:0;padding:0;font-size:28px;font-weight:600}
+.ctlbar .yearnav select,.ctlbar .chkbar select{width:100%;min-width:0;text-align:center;text-align-last:center;padding-left:6px;padding-right:22px;text-overflow:ellipsis}
 .pd.have,.pd.bon,.pd.ext{cursor:pointer}
 .pd.bon{background:var(--c-k-p45);border-color:var(--c-k-p45);color:#1A1404;font-weight:700}
 .pd.ext{border-color:var(--c-k-p45);color:var(--c-k-p45)}
@@ -1200,7 +1205,7 @@ const SECN=[["earnings","Earnings"],["taxable","Taxable benefits (not paid in ca
 function renderCheckUI(m){
   const cur=state.mode==="cur";$("chkBar").hidden=!cur;$("stubDetail").hidden=!cur;if(!cur)return;
   const ys=m.ys,s=chosenCheck(m),i=ys.indexOf(s);pdfStub=s;
-  $("checkSel").innerHTML=[...ys].reverse().map(x=>`<option value="${esc(skey(x))}"${x===s?" selected":""}>${nice(x.payDate)}${isExtra(x)?(isBonusCheck(x)?" · bonus check":" · extra check"):""} · ${x.net&&x.net.cur!=null?fmt(x.net.cur):"—"}</option>`).join("");
+  $("checkSel").innerHTML=[...ys].reverse().map(x=>`<option value="${esc(skey(x))}"${x===s?" selected":""}>${nice(x.payDate)} · ${x.net&&x.net.cur!=null?fmt0(x.net.cur):"—"}${isExtra(x)?(isBonusCheck(x)?" ★":" +"):""}</option>`).join("");
   $("chkPrev").disabled=i<=0;$("chkNext").disabled=i>=ys.length-1;
   const regs=ys.filter(x=>!isExtra(x));let pv=isExtra(s)?null:regs[regs.indexOf(s)-1]||null;
   const pv0=pv;if(pv&&!s.items.some(x=>{const q=pv.items.find(j=>j.sec===x.sec&&j.label===x.label);return Math.abs(x.cur-(q?q.cur:0))>=0.005}))pv=null;
