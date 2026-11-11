@@ -1248,7 +1248,7 @@ function renderBreakdown(m){
   $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>${sub}</small></div>
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
     <div class="stat"><small>All taxes</small><b>${(totalTax/g*100).toFixed(1)}%</b><small>${fmt0(totalTax)}</small></div>
-    <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA · ${((b.parts.ret+m.val(isHSA,f)+m.val(isErRet,f)+m.val(isHSAer,f))/g*100).toFixed(1)}% with employer</small></div>`;
+    <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small><small>${((b.parts.ret+m.val(isHSA,f)+m.val(isErRet,f)+m.val(isHSAer,f))/g*100).toFixed(1)}% with employer</small></div>`;
   const lv=erLive(m),er=r2(m.val(i=>(i.sec==="memo"||isPerk(i)||isGtl(i))&&lv(i),f)+erTaxes(m,f).tot),erRet=m.val(isErRet,f);
   renderEmployer(m,f,b.gross,er);
   void erRet;renderCheckUI(m);
