@@ -507,7 +507,7 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <div class="tbl-wrap"><table class="yt ytab" id="tbBal"></table></div>
       <p class="note" id="yoyBalNote" style="margin:6px 0 0"></p>
       <details class="ohbox" id="balBox"><summary>Enter your balances</summary>
-        <p class="note" style="margin:6px 0">One year per line: the year, your 401(k) balance at Dec 31, then your HSA balance at Dec 31. Optional fourth number: what you spent from the HSA that year. For this year, use your balance today. Example: "2025 350000 40000 1200".</p>
+        <p class="note" style="margin:6px 0">One year per line: the year, your 401(k) balance at Dec 31, your HSA balance at Dec 31, what you spent from the HSA that year, and what you moved from HSA cash into investments that year. Write the HSA as cash/invested to split it. For this year, use balances as of today. Example: "2025 350000 8000/32000 1200 6000". Leave off numbers you don't have; "2025 350000 40000" works too.</p>
         <textarea id="balIn" rows="6" placeholder="2025 000000 00000&#10;2024 000000 00000"></textarea>
         <button type="button" class="btn small" id="balSave" style="margin-top:8px">Save</button>
       </details>
@@ -1836,8 +1836,12 @@ $("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
       o[mm[1]]=ns.length===1?r2(ns[0]):{ut:r2(ns[0]),tot:r2(ns.reduce((a,b)=>a+b,0)),parts:ns}}
     state.settings.ohUt=o;save();yoyCache=null;fill();keepPos(()=>render());toast(`Saved Ohio unemployment for ${Object.keys(o).length} year${Object.keys(o).length===1?"":"s"}.`)});
   window.__fillOh=fill;}
-{const fill=()=>{const B=state.settings.bal||{};if(document.activeElement!==$("balIn"))$("balIn").value=Object.keys(B).sort().reverse().map(y=>`${y} ${B[y].k||0} ${B[y].h||0}${B[y].sp?" "+B[y].sp:""}`).join("\n")};
-  $("balSave").addEventListener("click",()=>{const B={};for(const ln of $("balIn").value.split(/\n/)){const mm=ln.match(/^\s*((?:19|20)\d\d)\b(.*)$/);if(!mm)continue;const ns=(mm[2].match(/[\d,]+(?:\.\d+)?/g)||[]).map(x=>+x.replace(/,/g,""));if(!ns.length)continue;B[mm[1]]={k:ns[0]||0,h:ns[1]||0};if(ns[2])B[mm[1]].sp=ns[2]}
+{const fill=()=>{const B=state.settings.bal||{};if(document.activeElement!==$("balIn"))$("balIn").value=Object.keys(B).sort().reverse().map(y=>{const b=B[y],h=b.hi!=null?`${b.hc||0}/${b.hi}`:`${b.h||0}`;return`${y} ${b.k||0} ${h}${b.sp||b.mv?" "+(b.sp||0):""}${b.mv?" "+b.mv:""}`}).join("\n")};
+  $("balSave").addEventListener("click",()=>{const B={};for(const ln of $("balIn").value.split(/\n/)){const mm=ln.match(/^\s*((?:19|20)\d\d)\b(.*)$/);if(!mm)continue;
+      const toks=mm[2].trim().split(/\s+/).filter(Boolean),num=x=>+String(x).replace(/[$,]/g,"")||0;if(!toks.length)continue;
+      const e={k:num(toks[0])},ht=toks[1]||"0";
+      if(ht.includes("/")){const[c,i]=ht.split("/");e.hc=num(c);e.hi=num(i);e.h=r2(e.hc+e.hi)}else e.h=num(ht);
+      if(toks[2]&&num(toks[2]))e.sp=num(toks[2]);if(toks[3]&&num(toks[3]))e.mv=num(toks[3]);B[mm[1]]=e}
     state.settings.bal=B;save();yoyCache=null;keepPos(()=>render());toast(`Saved balances for ${Object.keys(B).length} year${Object.keys(B).length===1?"":"s"}.`)});
   window.__fillBal=fill;}
 $("rptBtn").addEventListener("click",()=>makeReport(state.tab==="all"?"all":"year"));
@@ -2208,18 +2212,21 @@ function renderYoy(){
       const T=by.map(y=>{const b=B[y],pb=B[y-1],k=+b.k||0,h=+b.h||0,sp=+b.sp||0,ck=inK(y),ch=inH(y);
         const gk=pb&&ck!=null?k-(+pb.k||0)-ck:null,gh=pb&&ch!=null?h-(+pb.h||0)-ch+sp:null;
         const rk=gk!=null?gk/((+pb.k||0)+ck/2):null,rh=gh!=null&&(+pb.h||0)+ch/2>0?gh/((+pb.h||0)+ch/2):null;
-        return{y,k,h,ck,ch,gk,gh,rk,rh,tot:k+h}});
+        const hi=b.hi!=null?+b.hi:null,hc=b.hc!=null?+b.hc:null,mv=+b.mv||0,phi=pb&&pb.hi!=null?+pb.hi:null;
+        const gi=hi!=null&&phi!=null?r2(hi-phi-mv):null,ri=gi!=null&&phi+mv/2>0?gi/(phi+mv/2):null,gc=gi!=null&&gh!=null?r2(gh-gi):null;
+        return{y,k,h,ck,ch,gk,gh,rk,rh,hi,hc,mv,gi,ri,gc,tot:k+h}});
+      const split=T.some(t=>t.hi!=null);
       const last=T[T.length-1],gT=T.reduce((a,t)=>a+(t.gk||0)+(t.gh||0),0),cT=T.reduce((a,t)=>a+(t.gk!=null?t.ck:0)+(t.gh!=null?t.ch:0),0),gy=T.filter(t=>t.gk!=null);
-      $("yoyBalStats").innerHTML=`<div class="stat"><small>Balance${last.y>=cur?" now":", end of "+last.y}</small><b>${fmt0(last.tot)}</b><small>401(k) ${fmt0(last.k)} · HSA ${fmt0(last.h)}</small></div>`+
+      $("yoyBalStats").innerHTML=`<div class="stat"><small>Balance${last.y>=cur?" now":", end of "+last.y}</small><b>${fmt0(last.tot)}</b><small>401(k) ${fmt0(last.k)} · HSA ${fmt0(last.h)}${last.hi!=null?` (${fmt0(last.hi)} invested, ${last.h?Math.round(last.hi/last.h*100):0}%)`:""}</small></div>`+
         (gy.length?`<div class="stat"><small>Investment growth${gy.length>1?`, ${gy[0].y}–${gy[gy.length-1].y}`:` in ${gy[0].y}`}</small><b>${gT>=0?"+":"−"}${fmt0(Math.abs(gT))}</b><small>on top of ${fmt0(cT)} put in</small></div>`:"");
-      barChart($("yoyBal"),{years:by,proj:new Set(by.filter(y=>y>=cur)),series:[{c:"--c-ret",vals:T.map(t=>t.k)},{c:"--c-er-hsa",vals:T.map(t=>t.h)}],aria:"401(k) and HSA balances by year"});
-      $("yoyBalLeg").innerHTML=legend([["--c-ret","401(k)"],["--c-er-hsa","HSA"]]);
+      barChart($("yoyBal"),{years:by,proj:new Set(by.filter(y=>y>=cur)),series:split?[{c:"--c-ret",vals:T.map(t=>t.k)},{c:"--c-er-hsa",vals:T.map(t=>t.hi!=null?t.hc:t.h)},{c:"--c-er-perk",vals:T.map(t=>t.hi!=null?t.hi:0)}]:[{c:"--c-ret",vals:T.map(t=>t.k)},{c:"--c-er-hsa",vals:T.map(t=>t.h)}],aria:"401(k) and HSA balances by year"});
+      $("yoyBalLeg").innerHTML=legend(split?[["--c-ret","401(k)"],["--c-er-hsa","HSA cash"],["--c-er-perk","HSA invested"]]:[["--c-ret","401(k)"],["--c-er-hsa","HSA"]]);
       const ts=sel&&T.find(t=>t.y===sel.y);
-      $("yoyBalD").innerHTML=ts?`<b>${ts.y}</b> · 401(k) ${fmt0(ts.k)}${ts.gk!=null?` (growth ${ts.gk>=0?"+":"−"}${fmt0(Math.abs(ts.gk))}, ${(ts.rk*100).toFixed(1)}%)`:""} · HSA ${fmt0(ts.h)}${ts.gh!=null?` (growth ${ts.gh>=0?"+":"−"}${fmt0(Math.abs(ts.gh))})`:""}`:"Year-end balances from your statements. Tap a year for its growth.";
+      $("yoyBalD").innerHTML=ts?`<b>${ts.y}</b> · 401(k) ${fmt0(ts.k)}${ts.gk!=null?` (growth ${ts.gk>=0?"+":"−"}${fmt0(Math.abs(ts.gk))}, ${(ts.rk*100).toFixed(1)}%)`:""} · HSA ${fmt0(ts.h)}${ts.gh!=null?` (growth ${ts.gh>=0?"+":"−"}${fmt0(Math.abs(ts.gh))})`:""}${ts.gi!=null?` · HSA funds ${ts.gi>=0?"+":"−"}${fmt0(Math.abs(ts.gi))} (${(ts.ri*100).toFixed(1)}%)`:""}`:"Year-end balances from your statements. Tap a year for its growth.";
       const pct=v=>v==null?"—":(v>=0?"+":"−")+Math.abs(v*100).toFixed(1)+"%",sg=v=>v==null?"—":(v>=0?"+":"−")+fmt0(Math.abs(v));
-      $("tbBal").innerHTML=`<thead><tr><th>Year</th><th class="n">401(k) balance</th><th class="n">Put in</th><th class="n">Growth</th><th class="n">Return</th><th class="n">HSA balance</th><th class="n">Put in</th><th class="n">Growth</th><th class="n">Total</th></tr></thead><tbody>`+
-        [...T].reverse().map(t=>`<tr><td>${t.y}${t.y>=cur?'<span class="pj">so far</span>':""}</td><td class="n">${fmt0(t.k)}</td><td class="n">${t.ck!=null?fmt0(t.ck):"—"}</td><td class="n ${t.gk==null?"":t.gk>=0?"up":"down"}">${sg(t.gk)}</td><td class="n">${pct(t.rk)}</td><td class="n">${fmt0(t.h)}</td><td class="n">${t.ch!=null?fmt0(t.ch):"—"}</td><td class="n ${t.gh==null?"":t.gh>=0?"up":"down"}">${sg(t.gh)}</td><td class="n">${fmt0(t.tot)}</td></tr>`).join("")+"</tbody>";
-      $("yoyBalNote").textContent=`Growth = this year's balance − last year's − what went in (you + employer, plus 401(k) loan repayments). Return is growth divided by last year's balance plus half the year's deposits, a standard approximation. A year needs the year before it to show growth. Not counted: 401(k) loans taken out (they lower the balance without being a loss) and fees beyond what the statement shows. HSA growth adds back the spending you enter.${by.some(y=>y>=cur)?` ${cur} uses deposits so far, so enter your balance as of today.`:""}`;
+      $("tbBal").innerHTML=`<thead><tr><th>Year</th><th class="n">401(k) balance</th><th class="n">Put in</th><th class="n">Growth</th><th class="n">Return</th><th class="n">HSA balance</th><th class="n">Put in</th><th class="n">Growth</th>${split?'<th class="n">HSA cash</th><th class="n">HSA invested</th><th class="n">% invested</th><th class="n">Moved in</th><th class="n">Fund growth</th><th class="n">Fund return</th>':""}<th class="n">Total</th></tr></thead><tbody>`+
+        [...T].reverse().map(t=>`<tr><td>${t.y}${t.y>=cur?'<span class="pj">so far</span>':""}</td><td class="n">${fmt0(t.k)}</td><td class="n">${t.ck!=null?fmt0(t.ck):"—"}</td><td class="n ${t.gk==null?"":t.gk>=0?"up":"down"}">${sg(t.gk)}</td><td class="n">${pct(t.rk)}</td><td class="n">${fmt0(t.h)}</td><td class="n">${t.ch!=null?fmt0(t.ch):"—"}</td><td class="n ${t.gh==null?"":t.gh>=0?"up":"down"}">${sg(t.gh)}</td>${split?`<td class="n">${t.hc!=null?fmt0(t.hc):"—"}</td><td class="n">${t.hi!=null?fmt0(t.hi):"—"}</td><td class="n">${t.hi!=null&&t.h?Math.round(t.hi/t.h*100)+"%":"—"}</td><td class="n">${t.hi!=null?fmt0(t.mv):"—"}</td><td class="n ${t.gi==null?"":t.gi>=0?"up":"down"}">${sg(t.gi)}</td><td class="n">${pct(t.ri)}</td>`:""}<td class="n">${fmt0(t.tot)}</td></tr>`).join("")+"</tbody>";
+      $("yoyBalNote").textContent=`Growth = this year's balance − last year's − what went in (you + employer, plus 401(k) loan repayments). Return is growth divided by last year's balance plus half the year's deposits, a standard approximation. A year needs the year before it to show growth. Not counted: 401(k) loans taken out (they lower the balance without being a loss) and fees beyond what the statement shows. HSA growth adds back the spending you enter.${split?" HSA fund growth = invested balance − last year's invested balance − what you moved in; the rest of HSA growth is cash interest. A split year needs the year before it split too.":""}${by.some(y=>y>=cur)?` ${cur} uses deposits so far, so enter your balance as of today.`:""}`;
       setSum("yoyBal",`<strong>${fmt0(last.tot)}</strong> ${last.y>=cur?"now":"at end of "+last.y}`)}}
   {const E=new Map(rows.map(r=>{const m=r.m,f=r.proj?"proj":"ytd",L=limFor(r.y);
       const w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f));
