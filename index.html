@@ -482,6 +482,13 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
       <div class="chart" id="yoy401"></div><div class="legend-row" id="yoy401Leg"></div><p class="yd" id="yoy401D"></p>
       <div class="tbl-wrap"><table class="yt ytab" id="tb401"></table></div>
     </section>
+    <section class="panel" data-k="yoySave">
+      <div class="panel-head"><h2>Savings rate</h2></div>
+      <div class="statline" id="yoySaveStats"></div>
+      <div class="chart" id="yoySave"></div><div class="legend-row" id="yoySaveLeg"></div><p class="yd" id="yoySaveD"></p>
+      <div class="tbl-wrap"><table class="yt ytab" id="tbSave"></table></div>
+      <p class="note" id="yoySaveNote" style="margin:6px 0 0"></p>
+    </section>
     <section class="panel" data-k="yoyHealth">
       <div class="panel-head"><h2>Health costs</h2></div>
       <div class="chart" id="yoyHealth"></div><div class="legend-row" id="yoyHealthLeg"></div><p class="yd" id="yoyHealthD"></p>
@@ -824,7 +831,7 @@ const todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const UI_DEFAULT={ssben:true,retire:true,nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+const UI_DEFAULT={yoySave:true,ssben:true,retire:true,nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
 let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
 const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
 function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
@@ -1236,7 +1243,7 @@ function renderBreakdown(m){
   $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>${sub}</small></div>
     <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
     <div class="stat"><small>All taxes</small><b>${(totalTax/g*100).toFixed(1)}%</b><small>${fmt0(totalTax)}</small></div>
-    <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small></div>`;
+    <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA · ${((b.parts.ret+m.val(isHSA,f)+m.val(isErRet,f)+m.val(isHSAer,f))/g*100).toFixed(1)}% with employer</small></div>`;
   const lv=erLive(m),er=r2(m.val(i=>(i.sec==="memo"||isPerk(i)||isGtl(i))&&lv(i),f)+erTaxes(m,f).tot),erRet=m.val(isErRet,f);
   renderEmployer(m,f,b.gross,er);
   void erRet;renderCheckUI(m);
@@ -1897,7 +1904,7 @@ function lineChart(el,o){
   el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||"")}">${g}</svg>`;
 }
 /* by-year table under a chart: cols = [header, value(row), kind, total] ; kind $ % $c n txt ; total "sum" or function(rows) */
-const EST_T=new Set(["tbComp","tb401"]);
+const EST_T=new Set(["tbComp","tb401","tbSave"]);
 function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();const est=EST_T.has(id)&&rows.some(r=>r.est);
   const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):k==="$pm"?(isFinite(v)?(Math.abs(v)<0.5?"$0":(v>0?"+":"−")+fmt0(Math.abs(v))):"—"):v;
   const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):k==="pmi"?"n "+(v==null||Math.abs(v)<0.0005?"":v<0?"up":"down"):"n";
@@ -2053,6 +2060,20 @@ function renderYoy(){
       $("yoyHsaLeg").innerHTML=legend([["--c-er-hsa","You"],["--c-k-match","Employer"],["--amber","IRS limit","tick"]]);
       const hs=sel&&hr.find(r=>r.y===sel.y);
       $("yoyHsaD").innerHTML=hs?`<b>${hs.y}</b> · You ${fmt0(yv(hs,"hsa"))} · Employer ${fmt0(yv(hs,"erHsa"))} · Total ${fmt0(yv(hs,"hsa")+yv(hs,"erHsa"))} · Limit ${fmt0(hl(hs)*rf(hs.y))}`+(hl(hs)?(hs.full.hsa+hs.full.erHsa>hl(hs)+0.5?` · <span class="warn">${fmt0((hs.full.hsa+hs.full.erHsa-hl(hs))*rf(hs.y))} over</span>`:` · ${fmt0((hl(hs)-hs.full.hsa-hs.full.erHsa)*rf(hs.y))} unused`):""):"Your HSA deposits plus your employer's, against each year's IRS limit (family or self-only from your stubs, plus the catch-up from age 55).";}}
+  {const sv=(r,w)=>{const P=w==="sofar"?r.sofar:r.full;return{k:P.ret||0,h:P.hsa||0,ek:P.er401||0,eh:P.erHsa||0,g:P.gross||0}};
+    const you=(r,w)=>{const x=sv(r,w);return x.k+x.h},emp=(r,w)=>{const x=sv(r,w);return x.ek+x.eh};
+    barChart($("yoySave"),{years:Y,proj,series:[{c:"--c-ret",vals:rows.map(r=>sv(r).k*rf(r.y))},{c:"--c-er-hsa",vals:rows.map(r=>sv(r).h*rf(r.y))},{c:"--c-k-match",vals:rows.map(r=>sv(r).ek*rf(r.y))},{c:"--c-er-perk",vals:rows.map(r=>sv(r).eh*rf(r.y))}],aria:"Money saved each year, you and your employer"});
+    $("yoySaveLeg").innerHTML=legend([["--c-ret","Your 401(k)"],["--c-er-hsa","Your HSA"],["--c-k-match","Employer 401(k)"],["--c-er-perk","Employer HSA"]]);
+    const done=rows.filter(r=>!r.proj),G=done.reduce((a,r)=>a+sv(r).g,0),YU=done.reduce((a,r)=>a+you(r),0),EM=done.reduce((a,r)=>a+emp(r),0);
+    const span=done.length?`${done[0].y}–${done[done.length-1].y}`:"";
+    $("yoySaveStats").innerHTML=done.length?`<div class="stat"><small>You saved, ${span}</small><b>${(YU/G*100).toFixed(1)}%</b><small>${fmt0(YU)} of ${fmt0(G)} gross</small></div>
+      <div class="stat"><small>With employer money</small><b>${((YU+EM)/G*100).toFixed(1)}%</b><small>${fmt0(YU+EM)} saved in all</small></div>`:"";
+    const ss=sel&&rows.find(r=>r.y===sel.y);
+    $("yoySaveD").innerHTML=ss?`<b>${ss.y}</b> · You ${fmt0(you(ss)*rf(ss.y))} (${(you(ss)/sv(ss).g*100).toFixed(1)}%) · Employer ${fmt0(emp(ss)*rf(ss.y))} · Total ${((you(ss)+emp(ss))/sv(ss).g*100).toFixed(1)}% of gross`:"Your 401(k) and HSA deposits plus your employer's, each year. Tap a year for its rates.";
+    yearTable("tbSave",rows,[["Your 401(k)",r=>sv(r).k*rf(r.y),"$","sum"],["Your HSA",r=>sv(r).h*rf(r.y),"$","sum"],["You saved",r=>you(r)/sv(r).g,"%",rs=>{const d=rs.filter(r=>!r.proj);return d.reduce((a,r)=>a+you(r),0)/d.reduce((a,r)=>a+sv(r).g,0)}],
+      ["Employer 401(k)",r=>sv(r).ek*rf(r.y),"$","sum"],["Employer HSA",r=>sv(r).eh*rf(r.y),"$","sum"],["Total saved",r=>(you(r)+emp(r))*rf(r.y),"$","sum"],["With employer",r=>(you(r)+emp(r))/sv(r).g,"%",rs=>{const d=rs.filter(r=>!r.proj);return d.reduce((a,r)=>a+you(r)+emp(r),0)/d.reduce((a,r)=>a+sv(r).g,0)}]]);
+    $("yoySaveNote").textContent=`Rates are a share of gross pay. Your 401(k) includes pre-tax and Roth; HSA is what came out of your checks. Employer money is the 401(k) match, safe harbor and pension plus its HSA deposits${rows.some(r=>r.est)?"; 2011 to early 2014 employer 401(k) is estimated (*)":""}. The All row and the rates above cover full years only${rows.some(r=>r.proj)?`; ${rows.find(r=>r.proj).y} is projected to Dec 31`:""}.`;
+    setSum("yoySave",done.length?`<strong>${(YU/G*100).toFixed(1)}%</strong> you · <strong>${((YU+EM)/G*100).toFixed(1)}%</strong> with employer`:"")}
   {const E=new Map(rows.map(r=>{const m=r.m,f=r.proj?"proj":"ytd",L=limFor(r.y);
       const w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f));
       return[r.y,{w,ss:Math.min(w,L.ssBase),cap:L.ssBase,ssT:m.val(isSS,f),mdT:m.val(isMedi,f)}]}));const e=r=>E.get(r.y);
@@ -2198,10 +2219,10 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 /* ---------- jump to sections ---------- */
 const JUMP_NAMES={cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
-  yoy401:"401(k)",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
+  yoy401:"401(k)",yoySave:"Savings rate",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
 const YGROUPS=[["pay","Pay",["yoyTop","yoyRec","yoyGross","yoyComp","yoyRate","yoyHour"]],["tax","Taxes",["yoyTax","yoyTfd","yoyEarn"]],
-  ["save","Savings",["yoy401","yoyHealth"]],["extra","Extras",["yoyExtra","yoyObl","yoyPto"]],["table","Table",["yoyTbl"]]];
+  ["save","Savings",["yoySave","yoy401","yoyHealth"]],["extra","Extras",["yoyExtra","yoyObl","yoyPto"]],["table","Table",["yoyTbl"]]];
 const ygOf=k=>(YGROUPS.find(g=>g[2].includes(k))||YGROUPS[0])[0];
 function applyGroup(){const g=YGROUPS.some(x=>x[0]===state.yg)?state.yg:"pay";
   document.querySelectorAll("#yoyView section.panel").forEach(sec=>sec.classList.toggle("grp-off",ygOf(sec.dataset.k||sec.id)!==g));
