@@ -2281,7 +2281,7 @@ function render(){applyEst();renderMain();renderBackupNote();buildJump();if(wind
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
-  $("yearSel").innerHTML=(years.length?years:[state.year]).map(y=>`<option${y===state.year?" selected":""}>${y}</option>`).join("");
+  $("yearSel").innerHTML=(years.length?[...years].reverse():[state.year]).map(y=>`<option${y===state.year?" selected":""}>${y}</option>`).join("");
   {const i=years.indexOf(state.year);$("yearPrev").disabled=i<=0;$("yearNext").disabled=i<0||i>=years.length-1}
   const y=state.year;LIM=limFor(y);SSR=LIM.ssRate||.062;const m=model(y);
   renderStubs();
