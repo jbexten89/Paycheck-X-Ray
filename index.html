@@ -235,6 +235,7 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:90;display:grid;grid-template-columns:repeat(4,1fr);background:color-mix(in srgb,var(--bg) 92%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 6px) max(8px,env(safe-area-inset-left,0px))}
 .tabbar[hidden],.ctlbar[hidden]{display:none}
 .grp-off{display:none!important}
+html:not(.rpt) .grid2>.solo{grid-column:1/-1}
 .wi-ly{margin:6px 0 10px}
 .yecard{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .ye{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line);cursor:pointer}
@@ -2427,8 +2428,11 @@ const YGROUPS=[["pay","Pay",["yoyTop","yoyRec","yoyGross","yoyComp","yoyRate","y
 const ygOf=k=>(YGROUPS.find(g=>g[2].includes(k))||YGROUPS[0])[0];
 function applyGroup(){const g=YGROUPS.some(x=>x[0]===state.yg)?state.yg:"pay";
   document.querySelectorAll("#yoyView section.panel").forEach(sec=>sec.classList.toggle("grp-off",ygOf(sec.dataset.k||sec.id)!==g));
-  document.querySelectorAll("#yoyView > .grid2").forEach(gr=>gr.classList.toggle("grp-off",![...gr.children].some(c=>!c.classList.contains("grp-off"))))}
-function setGroup(g){state.yg=g;setOpen("yg",g);applyGroup();renderYoy();buildJump();window.scrollTo(0,0)}
+  document.querySelectorAll("#yoyView > .grid2").forEach(gr=>gr.classList.toggle("grp-off",![...gr.children].some(c=>!c.classList.contains("grp-off"))));fixSolo()}
+/* a half-width panel left without a partner in its row takes the full row */
+function fixSolo(){document.querySelectorAll(".grid2").forEach(gr=>{const v=[...gr.children].filter(c=>c.matches("section.panel")&&!c.hidden&&!c.classList.contains("grp-off")&&!/1\s*\/\s*-1/.test(c.style.gridColumn));v.forEach(c=>c.classList.remove("solo"));
+  let run=[];const flush=()=>{if(run.length%2)run[run.length-1].classList.add("solo");run=[]};[...gr.children].forEach(c=>{if(!c.matches("section.panel")||c.hidden||c.classList.contains("grp-off"))return;if(/1\s*\/\s*-1/.test(c.style.gridColumn))flush();else run.push(c)});flush()})}
+function setGroup(g){state.yg=g;setOpen("yg",g);applyGroup();renderYoy();fixSolo();buildJump();window.scrollTo(0,0)}
 function jumpSections(){
   const all=state.view==="all";
   const els=all?[$("yoyTop"),...document.querySelectorAll("#yoyView section.panel[data-k]")]
@@ -2501,7 +2505,7 @@ function renderMain(){
   $("yearField").hidden=!(tab==="year"||tab==="plan");$("yoyView").hidden=!all;if(tab!=="year")$("chkBar").hidden=true;
   panels.forEach(p=>p.hidden=tabOf(p)!==tab);if(addSec)addSec.hidden=tab!=="stubs";
   $("yirBar").hidden=true;
-  if(all){applyGroup();renderYoy();return}
+  if(all){applyGroup();renderYoy();fixSolo();return}
   if(tab==="stubs")return;
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
   let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
