@@ -18,10 +18,10 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap">
 <style>
 /* Layout: one working column of stacked panels, pairs side by side on wide screens. Pay calendar on top, then where the money went, then checks, W-2, taxes, savings, and the stub inbox. */
-/* Palette: near-black ground, charcoal panels, mint-green primary, amber for warnings. Dark by design. */
+/* Palette: near-black ground, charcoal panels, electric-blue primary, amber for warnings. Dark by design. */
 :root{
   --bg:#07080A; --surface:#111317; --ink:#ECEEF0; --muted:#9BA1A8; --line:#23272D; --soft:#1A1D22;
-  --accent:#3CC79A; --accent-ink:#04140E; --amber:#E3A04F; --amber-ink:#1A1004;
+  --accent:#2F8CFF; --accent-ink:#020B1A; --amber:#E3A04F; --amber-ink:#1A1004;
   --c-net:#3CC79A; --c-fed:#E36D78; --c-fica:#E3A04F; --c-state:#9D8CF2; --c-ret:#5FA8F5; --c-health:#F07FB4; --c-fsa:#4FC3C7; --c-gross:#59616D; --c-loan:#3E7CB8; --c-child:#C2A37A; --c-bonus-wh:#7D6B2C; --c-other:#6B7280;
   --c-k-you:#5FA8F5; --c-k-roth:#7FD1F0; --c-k-match:#3CC79A; --c-k-p45:#E8C547; --c-k-sh:#9D8CF2;
   --c-er-ret:#5FA8F5; --c-er-med:#F07FB4; --c-er-hsa:#E8C547; --c-er-life:#9D8CF2; --c-er-perk:#4FC3C7; --c-er-gtl:#C5B8F7;
@@ -256,7 +256,7 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 
 .ohbox{margin-top:12px}.ohbox summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:14px}
 .ohbox textarea{width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--f-num);font-size:16px}
-html.light{--bg:#F4F5F7;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#DCE0E5;--soft:#ECEFF2;--accent:#22A87B;--good:#1E9C72;--info:#3D6FA8;--bad:#D2475A;--c-gross:#9AA1AA;color-scheme:light}
+html.light{--bg:#F4F5F7;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#DCE0E5;--soft:#ECEFF2;--accent:#1F6FE0;--good:#1E9C72;--info:#3D6FA8;--bad:#D2475A;--c-gross:#9AA1AA;color-scheme:light}
 html.light .panel{box-shadow:0 1px 2px rgba(16,24,32,.05)}
 html.light body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#16191D;z-index:500}
 .hdrbtns{display:flex;gap:8px;align-self:center}
@@ -268,7 +268,7 @@ html.hide .money,html.hide .w2in,html.hide #nyHsa{-webkit-text-security:disc;tex
 .field input{box-sizing:border-box;min-height:40px}
 .yirbar[hidden],.rptbar[hidden]{display:none}
 .rptbar{display:flex;justify-content:flex-end;margin-top:-8px}
-html.rpt,html.rpt.light{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#E1E4E8;--soft:#F2F4F6;--accent-ink:#04140E;--c-gross:#9AA1AA;color-scheme:light}
+html.rpt,html.rpt.light{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#E1E4E8;--soft:#F2F4F6;--accent-ink:#020B1A;--c-gross:#9AA1AA;color-scheme:light}
 html.rpt body{background:#fff}
 html.rpt .wrap{width:800px;max-width:none}
 html.rpt .panel{box-shadow:none}
@@ -287,7 +287,7 @@ html.rpt *{transition:none!important;animation:none!important}
 .bknote .bkgo{background:var(--amber-ink);color:var(--amber);border-color:var(--amber-ink)}.bknote .bklater{color:var(--amber-ink);border-color:color-mix(in srgb,var(--amber-ink) 40%,transparent);background:transparent}
 .yirbtn{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 16%,var(--surface)),var(--surface));color:var(--ink);font-weight:700;font-size:15px}
 .yirbtn span{color:var(--accent)}
-.yir{--ink:#ECEEF0;--muted:#A3A9B0;--accent:#3CC79A;--line:#23272D;--surface:#111317;color:var(--ink);position:fixed;inset:0;z-index:300;background:radial-gradient(120% 80% at 30% 10%,#123327,#07080A 70%);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.yir{--ink:#ECEEF0;--muted:#A3A9B0;--accent:#2F8CFF;--line:#23272D;--surface:#111317;color:var(--ink);position:fixed;inset:0;z-index:300;background:radial-gradient(120% 80% at 30% 10%,#0F2245,#07080A 70%);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .yir-track{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .yir-track::-webkit-scrollbar{display:none}
 .yir-card{flex:0 0 100%;scroll-snap-align:center;box-sizing:border-box;padding:40px 32px;display:flex;flex-direction:column;justify-content:center;gap:12px}
@@ -1158,7 +1158,7 @@ async function makeReport(kind){
     const doc=new window.jspdf.jsPDF({unit:"pt",format:"letter"}),PW=612,PH=792,M=40,CW=PW-2*M,TOP=48,BOT=PH-46;
     /* cover */
     const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))].sort((a,b)=>a-b);
-    doc.setFillColor(60,199,154);doc.rect(0,0,PW,10,"F");
+    doc.setFillColor(47,140,255);doc.rect(0,0,PW,10,"F");
     doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(46,162,124);doc.text("PAYCHECK X-RAY",M,90);
     doc.setFontSize(34);doc.setTextColor(22,25,29);doc.text(kind==="all"?`${ys[0]}–${ys[ys.length-1]}`:String(state.year),M,140);
     doc.setFont("helvetica","normal");doc.setFontSize(15);doc.setTextColor(92,99,108);doc.text(kind==="all"?"All-years pay report":"Year pay report",M,166);
@@ -1223,7 +1223,7 @@ async function stubToPdf(s){
    box.forEach(([l,v],i)=>{const x=L+i*(bw+6);if(i===3)doc.setFillColor(232,248,241);else doc.setFillColor(244,245,247);doc.roundedRect(x,y,bw,44,4,4,"F");
      doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(110,116,124);doc.text(l.toUpperCase(),x+9,y+15);
      doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(17,19,23);doc.text(money(v),x+9,y+34)});y+=60}
-  doc.setDrawColor(60,199,154);doc.setLineWidth(2);doc.line(L,y,R,y);y+=20;
+  doc.setDrawColor(47,140,255);doc.setLineWidth(2);doc.line(L,y,R,y);y+=20;
   const C1=R-110,C2=R;
   const head=()=>{doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(120,126,134);doc.text("THIS CHECK",C1,y,{align:"right"});doc.text("YEAR TO DATE",C2,y,{align:"right"});y+=6};
   const page=()=>{if(y>748){doc.addPage();y=64}};
@@ -1817,12 +1817,12 @@ async function saveYir(d){
   const W=1080,H=1350,c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
   const bg=g.createLinearGradient(0,0,W,H);bg.addColorStop(0,"#10241D");bg.addColorStop(1,"#07080A");g.fillStyle=bg;g.fillRect(0,0,W,H);
   const F=(w,px)=>`${w} ${px}px "Nunito Sans", -apple-system, "Segoe UI", sans-serif`;
-  g.fillStyle="#3CC79A";g.font=F(700,34);g.fillText("PAYCHECK X-RAY",90,140);
+  g.fillStyle="#2F8CFF";g.font=F(700,34);g.fillText("PAYCHECK X-RAY",90,140);
   g.fillStyle="#ECEEF0";g.font=F(700,120);g.fillText(String(d.y),86,280);
   g.fillStyle="#9BA1A8";g.font=F(500,44);g.fillText(d.cur?"so far, at a glance":"at a glance",90,350);
   d.sum.forEach(([l,v],i)=>{const col=i%2,row=Math.floor(i/2),x=90+col*470,yy=490+row*230;
-    g.fillStyle="#9BA1A8";g.font=F(500,38);g.fillText(l,x,yy);g.fillStyle=i===1?"#3CC79A":"#ECEEF0";g.font=F(700,74);g.fillText(v,x,yy+86)});
-  g.fillStyle="#3CC79A";g.fillRect(90,H-150,120,8);
+    g.fillStyle="#9BA1A8";g.font=F(500,38);g.fillText(l,x,yy);g.fillStyle=i===1?"#2F8CFF":"#ECEEF0";g.font=F(700,74);g.fillText(v,x,yy+86)});
+  g.fillStyle="#2F8CFF";g.fillRect(90,H-150,120,8);
   const blob=await new Promise(r=>c.toBlob(r,"image/png"));const name=`paycheck-${d.y}-review.png`;
   try{const f=new File([blob],name,{type:"image/png"});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:`${d.y} in review`});return}}catch(e){if(e&&e.name==="AbortError")return}
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();toast("Image saved.");
