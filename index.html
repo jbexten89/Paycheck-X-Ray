@@ -418,10 +418,42 @@ header.top .eyebrow{color:var(--accent);opacity:1;font-size:12px}
 .ctlbar{--ctl-gap:22px;position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--ctl-gap));z-index:60;background:var(--bg);box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax -1px);margin-top:-10px;padding:8px 0;border-bottom:1px solid transparent}
 html,body{overflow-x:clip;max-width:100%}
 .ctlbar.stuck{border-bottom-color:var(--line);clip-path:inset(-400px -100vmax -1px)}
-section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 34px + var(--ctl-h,56px))}</style>
+section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 34px + var(--ctl-h,56px))}
+/* Desktop: sidebar with title, tabs, pickers and section list; content to the right. Phones unchanged. */
+.side{display:contents}.kbd{display:none}
+@media (min-width:1100px){
+html:not(.rpt) body{padding:28px 40px 56px calc(272px + 40px)}
+html:not(.rpt) .wrap{max-width:1240px}
+html:not(.rpt) .side{display:flex;flex-direction:column;gap:18px;position:fixed;top:0;left:0;bottom:0;width:272px;box-sizing:border-box;padding:28px 20px 20px;border-right:1px solid var(--line);background:var(--surface);overflow-y:auto;z-index:80;scrollbar-width:thin}
+html:not(.rpt) .side header.top{flex-direction:column;align-items:flex-start;gap:12px;order:1}
+html:not(.rpt) .side h1{font-size:28px}
+html:not(.rpt) .side .hdrbtns{align-self:flex-start}
+html:not(.rpt) .side .tabbar{order:2;position:static;display:flex;flex-direction:column;gap:2px;background:none;border:0;padding:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+html:not(.rpt) .side .tabbar button{flex-direction:row;gap:12px;padding:9px 12px;border-radius:10px;font-size:14.5px}
+html:not(.rpt) .side .tabbar svg{width:20px;height:20px}
+html:not(.rpt) .side .tabbar button:hover{background:var(--soft);color:var(--ink)}
+html:not(.rpt) .side .tabbar button.on{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+html:not(.rpt) .side .ctlbar{order:3;position:static;margin:0;padding:16px 0 0;border:0;border-top:1px solid var(--line);box-shadow:none;clip-path:none;background:none}
+html:not(.rpt) .side .ctlbar .row-actions{flex-wrap:wrap}
+html:not(.rpt) .side .ctlbar .yearnav,html:not(.rpt) .side .ctlbar .chkbar{grid-template-columns:36px minmax(0,1fr) 36px}
+html:not(.rpt) .side .ctlbar .yearnav .btn,html:not(.rpt) .side .ctlbar .chkbar .btn{font-size:22px}
+html:not(.rpt) .side .ctlbar .chkbar{margin-top:8px}
+html:not(.rpt) .side .jumpbar{flex-direction:column;flex-wrap:nowrap;gap:2px;margin-top:14px}
+html:not(.rpt) .side .jumpbar .jchip{width:100%;box-sizing:border-box;text-align:left;justify-content:flex-start;border-color:transparent;background:none;border-radius:8px;padding:7px 12px}
+html:not(.rpt) .side .jumpbar .jchip:hover{background:var(--soft);color:var(--ink)}
+html:not(.rpt) .side .jumpbar .jchip.on{background:var(--accent);color:var(--accent-ink)}
+html:not(.rpt) .side .kbd{display:block;order:4;margin:auto 0 0;font-size:12px;color:var(--muted)}
+.side .kbd b{display:inline-block;min-width:14px;text-align:center;padding:0 4px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--ink)}
+html:not(.rpt) .fab,html:not(.rpt) .fabmenu{display:none!important}
+html:not(.rpt) .btn:hover,html:not(.rpt) .themebtn:hover,html:not(.rpt) .seg button:hover{filter:brightness(1.15)}
+html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
+}
+@media (min-width:1600px){html:not(.rpt) .wrap{max-width:1360px}}
+</style>
 </head>
 <body>
 <div class="wrap">
+  <aside class="side" id="side">
   <header class="top">
     <div class="meta">
       <span class="eyebrow">Bi-weekly pay stubs</span>
@@ -440,9 +472,12 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
     </div>
     <nav class="jumpbar" id="jumpBar" aria-label="Jump to a section"></nav>
   </div>
+  <nav class="tabbar" id="tabBar" aria-label="Main"><button type="button" data-tab="year"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Year</span></button><button type="button" data-tab="all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M6.5 20v-6M11 20V9M15.5 20v-8M20 20V5" stroke-width="2.6"/></svg><span>All years</span></button><button type="button" data-tab="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span>Plan</span></button><button type="button" data-tab="stubs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 12.5h6M10 16h6"/></svg><span>Stubs</span></button></nav>
+  <p class="kbd" id="kbdHint">Keys: <b>1</b>–<b>4</b> tabs · <b>←</b> <b>→</b> year · <b>H</b> hide $</p>
+  </aside>
   <button type="button" class="fab" id="fab" aria-label="Jump to a section" aria-haspopup="true" aria-expanded="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   <div class="fabmenu" id="fabMenu" role="menu" hidden></div>
-  <nav class="tabbar" id="tabBar" aria-label="Main"><button type="button" data-tab="year"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Year</span></button><button type="button" data-tab="all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M6.5 20v-6M11 20V9M15.5 20v-8M20 20V5" stroke-width="2.6"/></svg><span>All years</span></button><button type="button" data-tab="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span>Plan</span></button><button type="button" data-tab="stubs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7.5L19 8v12.5H7z"/><path d="M14.5 3.5V8H19M10 12.5h6M10 16h6"/></svg><span>Stubs</span></button></nav>
+  
 
   <div class="verdict owe bknote" id="bkNote" hidden><span class="note" id="bkMsg"></span><div class="bkbtns"><button type="button" class="btn small bkgo" id="bkGo">Save backup</button><button type="button" class="btn ghost small bklater" id="bkLater">Later</button></div></div>
   <div class="yirbar" id="yirBar" hidden><button type="button" class="yirbtn" id="yirBtn"></button></div>
@@ -2416,15 +2451,21 @@ function jumpTo(i){
   const j=jumpList[+i];if(!j)return;const sec=j.el;
   if(sec.classList.contains("collapsed")&&sec.dataset.k){applyPanel(sec,true);setOpen(sec.dataset.k,true);if(state.view==="all")renderYoy()}
   /* aim for where the bar will sit once it is pinned, not where it is right now */
-  const bar=$("ctlBar"),pinB=()=>(parseFloat(getComputedStyle(bar).top)||0)+bar.offsetHeight;
+  const bar=$("ctlBar"),pinB=()=>DESK.matches?16:(parseFloat(getComputedStyle(bar).top)||0)+bar.offsetHeight;
   const want=()=>{const maxY=document.documentElement.scrollHeight-window.innerHeight;return Math.min(maxY,Math.max(0,sec.getBoundingClientRect().top+window.scrollY-pinB()-8))};
   const ty=want();jumpHold={i:+i,y:ty,t:Date.now()};spyOn=-1;spy();
   window.scrollTo({top:ty,behavior:"smooth"});
   clearTimeout(jumpFix);jumpFix=setTimeout(()=>{const t2=want();if(Math.abs(t2-window.scrollY)>3){jumpHold={i:+i,y:t2,t:Date.now()};window.scrollTo({top:t2,behavior:"smooth"})}},700);
 }
 let spyOn=-1,jumpHold=null,jumpFix=0;
+const DESK=matchMedia("(min-width:1100px)");
+document.addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const t=e.target;if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;if(document.querySelector(".yir:not([hidden])"))return;
+  const tabs=["year","all","plan","stubs"];
+  if(/^[1-4]$/.test(e.key)){const b=document.querySelector(`#tabBar [data-tab="${tabs[+e.key-1]}"]`);if(b){b.click();e.preventDefault()}}
+  else if(e.key==="ArrowLeft"||e.key==="ArrowRight"){const b=$(e.key==="ArrowLeft"?"yearPrev":"yearNext");if(b&&!$("yearField").hidden&&!b.disabled){b.click();e.preventDefault()}}
+  else if(e.key==="h"||e.key==="H"){$("hideBtn").click();e.preventDefault()}});
 function spy(){
-  if(!jumpList.length)return;const barB=$("ctlBar").getBoundingClientRect().bottom+24;let on=0;
+  if(!jumpList.length)return;const barB=DESK.matches?120:$("ctlBar").getBoundingClientRect().bottom+24;let on=0;
   jumpList.forEach((j,i)=>{if(j.el.getBoundingClientRect().top<=barB)on=i});
   if((window.innerHeight+window.scrollY)>=document.documentElement.scrollHeight-4)on=jumpList.length-1;
   if(jumpHold){if(Date.now()-jumpHold.t<1500||Math.abs(window.scrollY-jumpHold.y)<30)on=jumpHold.i;else jumpHold=null}
