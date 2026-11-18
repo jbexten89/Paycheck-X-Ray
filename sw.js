@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Pay data never passes through here; it lives in the browser's localStorage.
-const CACHE = "pxr-v122";
+const CACHE = "pxr-v123";
 const SHELL = ["./", "index.html", "head.js", "app.js", "ocr.js", "photo.js", "layout.js", "sw-register.js", "lib/fonts/nunito-sans-latin-opsz-normal.woff2", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 // The PDF and photo libraries in lib/ are saved the first time they are used.
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" }))))); self.skipWaiting(); });

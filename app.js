@@ -1166,6 +1166,32 @@ function renderSsBen(){
     <div class="stat"><small>Working through ${last} adds</small><b>+${fmt0(add)}</b><small>a month, vs. stopping after ${cur}${!hasRec&&R0.n<35?`. Likely too high: years before your stubs count as $0 until you add your SSA record`:""}</small></div>`;
   $("sbTbl").innerHTML=`<thead><tr><th>Start at</th><th class="n">Per month</th><th class="n">Per year</th><th class="n">vs full age</th></tr></thead><tbody>`+ages.map(a=>{const v=at(a*12);return`<tr${a*12===fraM?' class="sec"':""}><td>${a}${a*12===fraM?" (full)":""}</td><td class="n">${fmt0(v)}</td><td class="n">${fmt0(v*12)}</td><td class="n">${a*12===fraM?"—":(v>=R.pia?"+":"−")+Math.abs(Math.round((v/R.pia-1)*100))+"%"}</td></tr>`}).join("")+"</tbody>";
   $("sbNote").textContent=`Estimate in today's dollars, the way the SSA figures it: your highest 35 years of earnings, each raised to ${AWI_Y} wage levels, averaged per month (${fmt0(R.A)}), then the benefit formula (90% / 32% / 15% at ${fmt0(BEND[0])} and ${fmt0(BEND[1])}). ${R.n} years with earnings, including future ones; only the best 35 count${hasRec?"":"; add your SSA record (All years → Taxes → SS record) to include years before your stubs, otherwise they count as zero"}. Future years use ${fmt0(Math.min(fut,base))} a year through ${last}. Starting before full retirement age is reduced for life; each year you wait past it adds 8%. Not counted: spousal benefits, the earnings test if you work while collecting before full age, and future cost-of-living raises (the SSA adds those every year).`;
+  /* step-by-step breakdown with the person's own numbers */
+  {const used=R.top.filter(x=>x.v>0),past=used.filter(x=>!x.fut),futN=used.filter(x=>x.fut).length,tot=R.top.reduce((a,x)=>a+x.v,0),zeros=35-used.length;
+    const A=R.A,[b1,b2]=BEND,p1=Math.min(A,b1),p2=Math.max(0,Math.min(A,b2)-b1),p3=Math.max(0,A-b2),raw=.9*p1+.32*p2+.15*p3;
+    const yrs=past.map(x=>x.y).sort((a,b)=>a-b),low=used[used.length-1];
+    const m=v=>fmt(v),row=(a,b,c)=>`<tr><td>${a}</td><td class="f">${b}</td><td class="n">${c}</td></tr>`;
+    $("sbHow").innerHTML=
+      `<h3>1. Your highest 35 years</h3><p class="note" style="margin:0">Each year's Social Security wages (capped), raised to ${AWI_Y} wage levels, then the top 35 kept.</p>
+      <div class="tbl-wrap"><table><tbody>`+
+      row("Past years that count",past.length?`${past.length} years, ${yrs[0]}–${yrs[yrs.length-1]}${yrs.length<yrs[yrs.length-1]-yrs[0]+1?" (not every year)":""}`:"none",fmt0(past.reduce((a,x)=>a+x.v,0)))+
+      (futN?row("Future years",`${futN} × ${fmt0(Math.min(fut,base))} through ${last}`,fmt0(futN*Math.min(fut,base))):"")+
+      (zeros>0?row("Zero years",`${zeros} ${zeros===1?"year":"years"} with no earnings fill out the 35`,"$0"):"")+
+      `<tr class="total"><td>Total, 35 years</td><td class="f">${low?`lowest that counts: ${low.fut?"a future year":low.y} at ${fmt0(low.v)}`:""}</td><td class="n">${fmt0(tot)}</td></tr></tbody></table></div>
+      <h3>2. Monthly average (AIME)</h3><div class="tbl-wrap"><table><tbody>`+
+      row("Total ÷ 420 months",`${fmt0(tot)} ÷ 420, rounded down`,fmt0(A))+
+      `</tbody></table></div>
+      <h3>3. Benefit formula (${AWI_Y+2} dividing lines)</h3><div class="tbl-wrap"><table><tbody>`+
+      row("90% of the first "+fmt0(b1),`0.90 × ${m(p1)}`,m(.9*p1))+
+      row(`32% from ${fmt0(b1)} to ${fmt0(b2)}`,`0.32 × ${m(p2)}`,m(.32*p2))+
+      row(`15% above ${fmt0(b2)}`,`0.15 × ${m(p3)}`,m(.15*p3))+
+      `<tr class="total"><td>At full retirement age (${Math.floor(fraM/12)})</td><td class="f">${m(raw)} rounded down to the dime</td><td class="n">${m(R.pia)}</td></tr></tbody></table></div>
+      <h3>4. When you start</h3><div class="tbl-wrap"><table><tbody>`+
+      row("At 62",`${Math.floor(fraM/12)*12-62*12} months early: −5/9% a month for 36 months, −5/12% after`,fmt0(at(62*12)))+
+      row(`At ${Math.floor(fraM/12)}`,"full benefit",fmt0(at(fraM)))+
+      row("At 70",`${70*12-fraM} months late: +2/3% a month`,fmt0(at(70*12)))+
+      `</tbody></table></div>
+      <h3>Will it match Social Security's number?</h3><p class="note" style="margin:0">Close, if the inputs match. Social Security's own estimate (ssa.gov, my Social Security) assumes you keep earning about what you earned last year until you start benefits; here you pick the last year and the amount. It also scales your earnings to wages in the year you turn 60 and uses the dividing lines for the year you turn 62. Those aren't known yet, so this uses the latest published ones, which keeps it in today's dollars. Expect it to land within a few percent once your SSA record is entered. The real check is reading this against your statement on ssa.gov.</p>`}
   setSum("ssben",`<strong>${fmt0(Math.floor(R.pia))}</strong>/mo at ${Math.floor(fraM/12)}`);
   sec.hidden=false;
 }
