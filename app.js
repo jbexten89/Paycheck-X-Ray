@@ -1874,10 +1874,12 @@ function renderHome(m,y){
   if(T&&T.gap>500&&m.remaining)att.push(["tax",`Withholding short by ${fmt0(T.gap)}`,1]);
   const lb=state.settings.lastBackup,bd=lb?Math.round((dObj(todayISO)-dObj(String(lb.at).slice(0,10)))/864e5):null;if(!lb||bd>30)att.push(["backup",lb?`Last backup ${bd} days ago`:"No backup yet",1]);
   if(!document.querySelector('section[data-k="yearend"]').hidden)att.push(["yearend","Year-end checklist",0]);
+  {const cur=+todayISO.slice(0,4);if(y<cur||+todayISO.slice(5,7)>=12)att.push(["yir",`✦ ${y}${y>=cur?" so far":""} in review →`,0])}
   $("homeAtt").innerHTML=att.map(([k,t,w])=>`<button type="button" class="${w?"warn":""}" data-go="${k}">${esc(t)}</button>`).join("");
   setSum("home",`<strong>${fmt0(net(s))}</strong> last check${nxt?` · next ${nice(nxt)}`:""}`);
   sec.hidden=false}
 $("homeAtt").addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(!b)return;const k=b.dataset.go;
+  if(k==="yir"){$("yirBtn").click();return}
   if(k==="backup"){const n=$("bkNote");if(n&&!n.hidden){n.scrollIntoView({behavior:"smooth",block:"center"});return}setTab("stubs");return}
   goSection(k)});
 
@@ -1953,7 +1955,9 @@ function renderMain(){
   {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
   if(tab!=="year")$("chkBar").hidden=true;
   renderRetire();renderLastYr();renderSsBen();
-  {const cur=+todayISO.slice(0,4);$("yirBar").hidden=tab!=="year";$("yirBtn").innerHTML=`<span aria-hidden="true">✦</span> ${y}${y>=cur?" so far":""} in review`}
+  /* Year in review: only once a year is wrapping up (December on) or over. In the newest year it's a link in At a glance; older years keep the button */
+  {const cur=+todayISO.slice(0,4),due=y<cur||+todayISO.slice(5,7)>=12,homeOn=!document.querySelector('section[data-k="home"]').hidden;
+   $("yirBar").hidden=tab!=="year"||!due||homeOn;$("yirBtn").innerHTML=`<span aria-hidden="true">✦</span> ${y}${y>=cur?" so far":""} in review`}
   if(!$("ssCap").innerHTML.trim())document.querySelector('section[data-k="sscap"]').hidden=true;
   {const asof=ma!==m?` · as of ${nice(ma.latest.payDate)}`:"";$("w2year").textContent=y+asof;
    document.querySelectorAll(".asof").forEach(e=>{e.hidden=!asof;e.textContent=asof?`Showing the year as of the ${nice(ma.latest.payDate)} check, as if it were the latest. Switch to Year to date to see the whole year.`:""})}
