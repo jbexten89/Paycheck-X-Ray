@@ -436,6 +436,9 @@ html{touch-action:manipulation}
 .chglist small{grid-column:2/-1;color:var(--muted);font-size:13px;line-height:1.35}.chglist li.head{font-size:15px}
 .lyh{font-size:15px;margin:18px 0 6px}#ly55 p{margin:0 0 8px;line-height:1.45}#lyTbl td:first-child{white-space:nowrap}#ly55 .pill55{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;margin-bottom:8px}
 #ly55 .pill55.yes{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}#ly55 .pill55.no{background:var(--soft);color:var(--muted)}
+.field select{width:100%;min-height:40px;box-sizing:border-box;text-align:left;text-align-last:left;padding:7px 10px;background:var(--surface);color:var(--ink)}
+#ohFix p{margin:10px 0 0;line-height:1.45}
+#ohTbl tr.ohr td{border-bottom:0;padding-bottom:2px}#ohTbl tr.ohd td{padding-top:0;font-size:12.5px;color:var(--muted)}#ohTbl th:first-child{text-transform:none}
 .sbbon{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0 6px;font-size:14px}
 .sbhow{margin:10px 0}.sbhow>summary{color:var(--accent);font-weight:600;cursor:pointer;padding:8px 0}
 .sbhow table td:first-child{white-space:nowrap}.sbhow table td.f{color:var(--muted);font-size:13px}.sbhow h3{font-size:14px;margin:14px 0 4px}.sbhow h3:first-child{margin-top:4px}
@@ -742,6 +745,21 @@ html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
       <div id="taxOut"></div>
     </section>
   </div>
+
+  <section class="panel" data-k="ohtax">
+    <div class="panel-head"><h2>Ohio &amp; local tax check</h2></div>
+    <p class="note asof" hidden style="margin:0"></p>
+    <div class="fields">
+      <label class="field" for="sdRate">School district tax rate %<input id="sdRate" type="number" inputmode="decimal" step="0.25" min="0" max="5"></label>
+      <label class="field" for="sdBase">School district tax base<select id="sdBase"><option value="trad">Traditional</option><option value="earned">Earned income</option></select></label>
+      <label class="field" for="cityRate">Tax rate of the city you live in %<input id="cityRate" type="number" inputmode="decimal" step="0.05" min="0" max="5" placeholder="0 if none"></label>
+      <label class="field" for="cityCredit">Its credit for tax paid where you work %<input id="cityCredit" type="number" inputmode="decimal" step="5" min="0" max="100" placeholder="0"></label>
+      <label class="field" for="cityPaid">City tax already paid this year<input id="cityPaid" type="number" inputmode="decimal" step="50" min="0" placeholder="0"></label>
+    </div>
+    <div class="tbl-wrap"><table id="ohTbl"></table></div>
+    <div id="ohFix"></div>
+    <p class="note" id="ohNote" style="margin:0"></p>
+  </section>
 
   <section class="panel" data-k="savings">
     <div class="panel-head"><h2>Savings pace</h2>

@@ -1720,7 +1720,7 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
-const JUMP_NAMES={home:"At a glance",changes:"What changed",lastyr:"Last year",yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
+const JUMP_NAMES={home:"At a glance",ohtax:"Ohio & local",changes:"What changed",lastyr:"Last year",yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoySave:"Savings rate",yoyBal:"Balances",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
@@ -1942,6 +1942,56 @@ function renderLastYr(){
 {const lySet=(k,v)=>{const w=state.settings.ly=state.settings.ly||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
   $("lyPto").addEventListener("change",e=>lySet("pto",e.target.value));$("lyBonus").addEventListener("change",e=>lySet("bonus",e.target.value))}
 
+
+/* ---------- Ohio, school district and city: expected tax vs what's withheld ---------- */
+/* Ohio rate schedules (R.C. 5747.02): 2026 on is a flat $332 + 2.75% over $26,050; exemptions not indexed for 2025-26 */
+function ohioTax(y,t){if(t<=26050)return 0;
+  if(y>=2026)return 332+.0275*(t-26050);
+  if(y===2025)return t<=100000?342+.0275*(t-26050):2394.32+.03125*(t-100000);
+  if(y===2024)return t<=100000?360.69+.0275*(t-26050):2394.32+.035*(t-100000);
+  return null}
+const ohExempt=magi=>magi<=40000?2400:magi<=80000?2150:magi<750000?1900:0;
+const isOH=i=>isStateLocal(i)&&/^OH\b|OHIO/i.test(i.label),isSD=i=>isStateLocal(i)&&!isOH(i)&&/SCHL|SCHOOL|\bSD\b|SDW/i.test(i.label),isCityTax=i=>isStateLocal(i)&&!isOH(i)&&!isSD(i);
+function renderOhio(m,y){
+  const sec=document.querySelector('section[data-k="ohtax"]');if(state.tab!=="year"||!m.latest){sec.hidden=true;return}
+  /* rates are set from a year forward (people move); "paid" is for one year only */
+  const LY=(state.settings.loc||{}).y||{},locAt=k=>{const ys=Object.keys(LY).map(Number).filter(x=>x<=y&&LY[x]&&LY[x][k]!=null).sort((a,b)=>b-a);return ys.length?{v:LY[ys[0]][k],from:ys[0]}:null};
+  const loc={sdRate:locAt("sdRate")?.v,sdBase:locAt("sdBase")?.v,cityRate:locAt("cityRate")?.v,cityCredit:locAt("cityCredit")?.v},paid={city:(LY[y]||{}).cityPaid},st=taxIn(y),setFrom=["sdRate","sdBase","cityRate","cityCredit"].map(locAt).filter(Boolean).map(x=>x.from);
+  const f="proj",earn=m.val(i=>i.sec==="earnings"||i.sec==="taxable",f),box1=earn-m.val(i=>i.sec==="pretax",f),medW=earn-m.val(isSec125,f);
+  const se=Math.max(0,+st.seProfit||0),oth=Math.max(0,+st.otherInc||0),seTax=se>=400?se*.9235*.153:0;
+  const fagi=box1+oth+se-seTax/2,bid=Math.min(se,250000),ohAGI=fagi-bid,ex=ohExempt(fagi),ohBase=Math.max(0,ohAGI-ex);
+  const ohT=ohioTax(y,ohBase),ohW=m.val(isOH,f);
+  /* school district rate: what you entered, or what this year's withholding works out to */
+  const sdW=m.val(isSD,f),sdInf=sdW>0&&box1>0?Math.round(sdW/box1*400)/4:null,sdRate=loc.sdRate!=null?+loc.sdRate:sdInf,sdBase=loc.sdBase==="earned"?"earned":"trad";
+  const sdTaxable=sdBase==="earned"?box1+se:Math.max(0,fagi-ex),sdT=sdRate!=null?sdTaxable*sdRate/100:null;
+  const cityRate=loc.cityRate!=null?+loc.cityRate:null,cityCr=Math.min(100,Math.max(0,+loc.cityCredit||0)),workW=m.val(isCityTax,f),cityPaid=+paid.city||0;
+  const cityWages=medW+se,cityGross=cityRate?cityWages*cityRate/100:0,cityT=cityRate!=null?Math.max(0,cityGross-Math.min(workW,cityGross)*cityCr/100):null;
+  [["sdRate",sdRate!=null?String(sdRate):""],["cityRate",cityRate!=null?String(cityRate):""],["cityCredit",loc.cityCredit!=null?String(loc.cityCredit):""],["cityPaid",paid.city!=null?String(paid.city):""]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=v});
+  $("sdBase").value=sdBase;
+  const rows=[];
+  if(ohT!=null)rows.push(["Ohio income tax",ohT,ohW,`${fmt0(ohBase)} after the ${fmt0(ex)} exemption${bid?` and ${fmt0(bid)} business income deduction`:""}`]);
+  if(sdT!=null)rows.push(["School district",sdT,sdW,`${sdRate}% of ${fmt0(sdTaxable)} (${sdBase==="earned"?"earned income":"traditional"} base)`]);
+  if(cityT!=null&&cityRate>0)rows.push(["City you live in",cityT,cityPaid,`${cityRate}% of ${fmt0(cityWages)}${workW>0&&cityCr?` minus ${cityCr}% credit for ${fmt0(workW)} paid where you work`:""}${cityPaid?" · paid so far":""}`]);
+  const diff=r=>r[2]-r[1],tot=rows.reduce((a,r)=>a+diff(r),0);
+  $("ohTbl").innerHTML=rows.length?`<thead><tr><th>${y}</th><th class="n">Owed</th><th class="n">${m.remaining?"Withheld*":"Withheld"}</th><th class="n">Refund / owe</th></tr></thead><tbody>`+
+    rows.map(r=>{const d=diff(r);return`<tr class="ohr"><td>${r[0].replace("Ohio income tax","Ohio").replace("City you live in","City")}</td><td class="n">${fmt0(r[1])}</td><td class="n">${fmt0(r[2])}</td><td class="n ${Math.abs(d)<25?"":d>0?"up":"down"}">${Math.abs(d)<0.5?"$0":(d>0?"+":"−")+fmt0(Math.abs(d))}</td></tr><tr class="ohd"><td colspan="4">${esc(r[3])}</td></tr>`}).join("")+
+    (rows.length>1?`<tr class="total"><td>All</td><td class="n">${fmt0(rows.reduce((a,r)=>a+r[1],0))}</td><td class="n">${fmt0(rows.reduce((a,r)=>a+r[2],0))}</td><td class="n ${tot>=0?"up":"down"}">${(tot>=0?"+":"−")+fmt0(Math.abs(tot))}</td></tr>`:"")+"</tbody>":"";
+  /* what to do about a shortfall */
+  const n=m.remaining,fx=[],live=n>0||y>=+todayISO.slice(0,4);
+  for(const r of rows){const d=diff(r);if(d>-25||!live)continue;const short=-d;
+    if(r[0]==="City you live in")fx.push(`<p><b>City:</b> about ${fmt0(short)} due when you file, since nothing is withheld for it. You can ask payroll to withhold it each check (${n?`about ${fmt0(Math.ceil(short/n))} for the ${n} paydays left`:"for next year"}), or pay quarterly estimates to the city.</p>`);
+    else fx.push(`<p><b>${r[0]==="Ohio income tax"?"Ohio":"School district"}:</b> short about ${fmt0(short)}. ${n?`Adding about <b class="num">${fmt0(Math.ceil(short/n))}</b> per check of extra ${r[0]==="Ohio income tax"?"Ohio":"school district"} withholding (Ohio form IT 4) for the ${n} paydays left would cover it.`:"Next year, add extra withholding on Ohio form IT 4."}</p>`)}
+  $("ohFix").innerHTML=fx.join("");
+  $("ohNote").textContent=(ohT==null?`Ohio's tax tables before 2024 aren't built in, so Ohio isn't checked for ${y}. `:"")+
+    (m.remaining?`*Withheld by Dec 31 if your checks stay the same; for the city, what you've paid. `:"")+(setFrom.length?`Rates you entered apply from ${Math.min(...setFrom)} on, until you change them in a later year. `:"Rates you enter apply to this year and later years. ")+`Single filer, no credits. Ohio starts from federal adjusted gross income; side-business profit gets Ohio's business income deduction (first $250,000). Cities tax wages before 401(k) (W-2 box 5) plus business profit; each city sets its own rate and its credit for tax paid to the city you work in. School district rate and base: look yours up with The Finder at tax.ohio.gov.${sdInf!=null&&loc.sdRate==null?` The ${sdInf}% shown is what your withholding works out to.`:""}`;
+  setSum("ohtax",rows.length?`<strong>${(tot>=0?"+":"−")+fmt0(Math.abs(tot))}</strong> ${tot>=0?"refund":"owed"} for ${y}`:"Add your rates");
+  sec.hidden=false}
+{const locSet=(k,v)=>{const L=state.settings.loc=state.settings.loc||{},Y=(L.y=L.y||{})[state.year]=(L.y[state.year]||{});const t=String(v).trim();
+    if(k==="sdBase")Y.sdBase=t;else if(t===""||!isFinite(+t))delete Y[k];else Y[k]=+t;
+    save();keepPos(()=>render())};
+  [["sdRate"],["cityRate"],["cityCredit"]].forEach(([k])=>$(k).addEventListener("change",e=>locSet(k,e.target.value)));
+  $("sdBase").addEventListener("change",e=>locSet("sdBase",e.target.value));$("cityPaid").addEventListener("change",e=>locSet("cityPaid",e.target.value))}
+
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
@@ -1962,7 +2012,7 @@ function renderMain(){
   if(tab==="stubs")return;
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
   let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
-  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);renderYearEnd(m,y);renderChanges(m,y);renderHome(m,y);
+  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderOhio(ma,y);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);renderYearEnd(m,y);renderChanges(m,y);renderHome(m,y);
   {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
   if(tab!=="year")$("chkBar").hidden=true;
   renderRetire();renderLastYr();renderSsBen();
