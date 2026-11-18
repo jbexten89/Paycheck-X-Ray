@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Paycheck X-Ray</title>
 <meta name="description" content="Reads a year of bi-weekly pay stubs: where the gross went, payroll error checks, W-2 preview, withholding gap, 401(k) and HSA pace. Data stays in your browser.">
 <meta name="theme-color" content="#07080A" id="themeMeta">
@@ -95,13 +95,13 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .er{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:16px;margin-top:4px}
 .er-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .er-head h3{font-size:16px;font-weight:800}
-.er-head .num{font-size:20px;font-weight:800}
+.er-head .num{font-size:20px;font-weight:600}
 .bd-row.sub{grid-template-columns:14px 1fr auto auto;padding:3px 0;border-bottom:0;font-size:13px;color:var(--muted)}
 .bd-row.grp{border-bottom:0;padding-bottom:2px}
 .er-group{border-bottom:1px solid var(--soft);padding-bottom:6px}
 .er-group:last-of-type{border-bottom:0}
 .tc{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;background:var(--soft);border-radius:10px;padding:12px 14px}
-.tc b{font-size:24px;font-weight:800}
+.tc b{font-size:24px;font-weight:600}
 .tc small{color:var(--muted);font-size:12.5px;display:block}
 .k401{grid-column:1/-1;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:16px}
 .k401 .er-head .num{font-size:24px}
@@ -115,7 +115,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 #bdStats .stat small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (min-width:760px){#bdStats{grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr))}}
 .stat{display:flex;flex-direction:column;gap:1px}
-.stat b{font-family:var(--f-num);font-size:24px;font-weight:800;letter-spacing:-.01em}
+.stat b{font-family:var(--f-num);font-size:24px;font-weight:600;letter-spacing:-.01em}
 .stat small{color:var(--muted);font-size:12.5px}
 
 /* checks */
@@ -144,7 +144,7 @@ tr.total td{font-weight:700;border-top:1.5px solid var(--line)}
 .verdict.owe{background:var(--amber);border-color:var(--amber);color:var(--amber-ink)}
 .verdict.owe .eyebrow,.verdict.owe .note{color:var(--amber-ink)}
 .verdict.refund{border-color:var(--good)}
-.verdict .big{font-family:var(--f-num);font-size:30px;font-weight:800;letter-spacing:-.02em}
+.verdict .big{font-family:var(--f-num);font-size:30px;font-weight:600;letter-spacing:-.02em}
 .verdict.refund .big{color:var(--good)}
 
 /* meters */
@@ -186,7 +186,7 @@ ol.how{margin:0;padding-left:20px;color:var(--muted);font-size:13.5px;display:fl
 .panel:not(.collapsed) .sum{display:none}
 .pbody{display:flex;flex-direction:column;gap:14px;min-width:0}
 .sum{color:var(--muted);font-size:13.5px}
-.sum strong{color:var(--ink);font-weight:800}
+.sum strong{color:var(--ink);font-weight:600}
 .sum .warn{color:var(--amber)}
 .er-tog{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;width:100%;border-radius:6px}
 .er-tog:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
@@ -294,7 +294,7 @@ html.rpt *{transition:none!important;animation:none!important}
 .yir-track::-webkit-scrollbar{display:none}
 .yir-card{flex:0 0 100%;scroll-snap-align:center;box-sizing:border-box;padding:40px 32px;display:flex;flex-direction:column;justify-content:center;gap:12px}
 .yir-card small{color:var(--accent);font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-.yir-card b{font-size:clamp(44px,13vw,72px);font-weight:700;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums}
+.yir-card b{font-size:clamp(44px,13vw,72px);font-weight:600;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums}
 .yir-card p{margin:0;color:var(--muted);font-size:17px;line-height:1.45;max-width:30ch}
 .yir-card.sum b{font-size:26px}
 .yir-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px 18px;margin:10px 0 18px}
@@ -351,7 +351,7 @@ body{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 74px)}
 @media (max-width:520px){#sdTbl .pc{display:none}}
 #sdTbl tr.sec td{font-weight:800;color:var(--ink);padding-top:12px;border-bottom:1px solid var(--line)}
 #sdTbl td.dif.up{color:var(--amber)}#sdTbl td.dif.dn{color:var(--good)}
-#sdTbl tr.net td{font-weight:800;border-top:1.5px solid var(--line)}
+#sdTbl tr.net td{font-weight:600;border-top:1.5px solid var(--line)}
 /* year over year */
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px}
 @media (min-width:700px){.tiles{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}}
@@ -360,7 +360,7 @@ button.tile{cursor:pointer}
 button.tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .tile small{color:var(--muted);font-size:12px;line-height:1.35}
 .tile .tl{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
-.tile b{font-family:var(--f-num);font-size:clamp(17px,4.6vw,22px);font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.tile b{font-family:var(--f-num);font-size:clamp(17px,4.6vw,22px);font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 #yoyView{display:flex;flex-direction:column;gap:18px}
 #yoyView[hidden]{display:none!important}
 .chart{width:100%;min-height:120px}
@@ -422,6 +422,18 @@ html,body{overflow-x:clip;max-width:100%}
 .ctlbar.stuck{border-bottom-color:var(--line);clip-path:inset(-400px -100vmax -1px)}
 section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 34px + var(--ctl-h,56px))}
 /* Desktop: sidebar with title, tabs, pickers and section list; content to the right. Phones unchanged. */
+/* pinch zoom allowed; double-tap zoom off so quick taps stay taps */
+html{touch-action:manipulation}
+/* touch screens: small controls get an invisible hit area of about 44px without changing how they look */
+@media (pointer:coarse){
+  .themebtn,.jchip,.btn.small,.tog,.pd,.seg button,.er-tog,.tblbtn,.bd-row.grp.can{position:relative}
+  .themebtn::before,.jchip::before,.btn.small::before,.tog::before,.seg button::before,.er-tog::before,.tblbtn::before{content:"";position:absolute;inset:-6px -3px}
+  .pd::before{content:"";position:absolute;inset:-10px -2px}
+  #hideBtn::before{inset:-6px}
+  .ye input[type=checkbox]{width:24px;height:24px}
+}
+.updbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:400;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--accent);box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:14px;white-space:nowrap}
+.updbar .btn{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .side{display:contents}.kbd{display:none}
 @media (min-width:1100px){
 html:not(.rpt) body{padding:28px 40px 56px calc(272px + 40px)}
@@ -447,6 +459,9 @@ html:not(.rpt) .side .jumpbar .jchip.on{background:var(--accent);color:var(--acc
 html:not(.rpt) .side .kbd{display:block;order:4;margin:auto 0 0;font-size:12px;color:var(--muted)}
 .side .kbd b{display:inline-block;min-width:14px;text-align:center;padding:0 4px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--ink)}
 html:not(.rpt) .fab,html:not(.rpt) .fabmenu{display:none!important}
+/* label-and-amount tables: keep numbers near their labels on wide screens (year-by-year tables keep full width) */
+html:not(.rpt) .wrap table:not(.yt){max-width:860px}
+html:not(.rpt) .grid2 table:not(.yt){max-width:none}
 html:not(.rpt) .btn:hover,html:not(.rpt) .themebtn:hover,html:not(.rpt) .seg button:hover{filter:brightness(1.15)}
 html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
 }
@@ -882,7 +897,7 @@ function load(){
     state.settings.seedVersion=SEED_VERSION;sortStubs(state.stubs);save();
   }
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify({stubs:pureStubs(),settings:state.settings}))}catch(e){}}
+function save(){memoClear();try{localStorage.setItem(KEY,JSON.stringify({stubs:pureStubs(),settings:state.settings}))}catch(e){}}
 
 /* ---------- per-year settings ---------- */
 const ageFor=y=>{const a=+state.settings.age||0;const ay=+state.settings.ageYear||2026;return a?a-(ay-y):0};
@@ -911,8 +926,11 @@ const estNote=()=>`* Estimated. Stubs before ${estFrom?nice(estFrom)+", "+estFro
 /* privacy: hide every dollar amount (percentages stay) */
 let HIDE=false;try{HIDE=!!(JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}).hide}catch(e){}
 const MASK="$*****";
-const fmt=n=>HIDE?MASK:(n<0?"−":"")+"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-const fmt0=n=>HIDE?MASK:(n<0?"−":"")+"$"+Math.abs(Math.round(n)).toLocaleString("en-US");
+/* per-render cache: model(), yoyRow() and payDates() are pure for a given set of stubs and settings, and get called many times per render */
+const MEMO=new Map();const memoClear=()=>MEMO.clear();
+const NF2=new Intl.NumberFormat("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}),NF0=new Intl.NumberFormat("en-US",{maximumFractionDigits:0});
+const fmt=n=>HIDE?MASK:(n<0?"−":"")+"$"+NF2.format(Math.abs(n));
+const fmt0=n=>HIDE?MASK:(n<0?"−":"")+"$"+NF0.format(Math.abs(Math.round(n)));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const toISO=s=>{const[m,d,y]=s.split("/").map(Number);return y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0")};
 const dObj=iso=>{const[y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d)};
@@ -1018,11 +1036,13 @@ function empGroups(ys){
 const isExtra=s=>s.kind==="Additional";
 function yearStubs(y){return sortStubs(state.stubs.filter(s=>s.payDate.slice(0,4)==String(y)))}
 const isSemi=s=>/^semi/i.test(s.freq||"");
-function payDates(y){
+function payDates(y){const k="p"+y;if(!MEMO.has(k))MEMO.set(k,payDatesCalc(y));return MEMO.get(k).slice()}
+function payDatesCalc(y){
   const ys=yearStubs(y).filter(s=>!isExtra(s));
   const all=yearStubs(y-1).concat(ys,yearStubs(y+1)).filter(s=>!isExtra(s)).map(s=>s.payDate);
-  const dayDiff=(a,b)=>Math.round((dObj(a)-dObj(b))/864e5);
-  const snap=d=>all.find(x=>Math.abs(dayDiff(x,d))<=3)||d;
+  /* day numbers computed once, so snapping a date to a nearby real payday is cheap */
+  const dn=iso=>Math.round(Date.UTC(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8,10))/864e5),allN=all.map(dn);
+  const snap=d=>{const n=dn(d),i=allN.findIndex(x=>Math.abs(x-n)<=3);return i>=0?all[i]:d};
   const semi=ys.filter(isSemi),bi=ys.filter(s=>!isSemi(s));
   const out=[];const push=d=>{if(Number(d.slice(0,4))===y&&!out.includes(d))out.push(d)};
   if(semi.length){
@@ -1046,7 +1066,9 @@ function ytdOf(s,item,ys){
   if(item.ytd!=null)return item.ytd;
   let t=0;for(const x of ys){if(x.payDate>s.payDate)break;const m=x.items.find(j=>j.sec===item.sec&&j.label===item.label);if(m)t+=m.cur}return t;
 }
-function model(y,cut){
+/* per-render cache lives with the other helpers (MEMO) */
+function model(y,cut){if(cut)return modelCalc(y,cut);const k="m"+y;if(!MEMO.has(k))MEMO.set(k,modelCalc(y));return MEMO.get(k)}
+function modelCalc(y,cut){
   let ys=yearStubs(y);const pds=payDates(y);
   if(cut){const k=ys.findIndex(s=>skey(s)===skey(cut));if(k>=0)ys=ys.slice(0,k+1)}
   if(!ys.length)return{ys,pds,latest:null,remaining:0};
@@ -1364,7 +1386,7 @@ function renderEmployer(m,f,gross,er){
   const T=erTaxes(m,f);if(T.tot>0.004)groups.push({k:"tax",name:"Payroll taxes (est.)",c:"--c-fica",v:T.tot,lines:[{name:"Social Security match",v:T.ss},{name:"Medicare match",v:T.med},{name:"Federal unemployment",v:T.futa},{name:"Ohio unemployment"+(T.sutaEst?" (est.)":"")+(T.sutaOther?" + other Ohio items":""),v:T.suta}].filter(x=>x.v>0.004)});
   const pct=v=>(v/er*100).toFixed(1)+"%";
   const eo=isOpen("employer");box.classList.toggle("collapsed",!eo);
-  box.innerHTML=`<button type="button" class="er-tog" aria-expanded="${eo}"><h3>${CHEV}Employer</h3><span class="num" style="font-size:20px;font-weight:800">${fmt(er)}</span></button>
+  box.innerHTML=`<button type="button" class="er-tog" aria-expanded="${eo}"><h3>${CHEV}Employer</h3><span class="num" style="font-size:20px;font-weight:600">${fmt(er)}</span></button>
     <div class="er-body"><p class="bd-sub" style="margin:-6px 0 0">Paid by your employer on top of your gross. None of it shows up in your deposit.</p>
     <div class="bar" role="img" aria-label="${groups.map(g=>`${g.name} ${Math.round(g.v/er*100)}%`).join(", ")}">${groups.map(g=>`<div style="width:${(g.v/er*100).toFixed(3)}%;background:var(${g.c})" title="${g.name}: ${fmt(g.v)}"></div>`).join("")}</div>
     <div class="bd-list">${groups.map(g=>`${grpRow("er-"+g.k,g.c,g.name,fmt(g.v),pct(g.v),g.lines.length>1)}
@@ -2017,6 +2039,7 @@ let armed=null;
 function renderStubs(){
   const ys=[...state.stubs].sort((a,b)=>a.payDate<b.payDate?1:-1);
   $("stubCount").textContent=`${state.stubs.length} stored`;setSum("add",`${state.stubs.length} stubs stored`);
+  if(state.tab!=="stubs"){$("stubTbl").innerHTML="";return}
   $("stubTbl").innerHTML=`<thead><tr><th>Pay date</th><th class="n">Gross</th><th class="n">Net</th><th></th></tr></thead><tbody>`+
     ys.map(s=>{const g=s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0);
       const k=skey(s);return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}${s.kind==="Additional"?' <span class="muted">· extra</span>':""}</td><td class="n">${fmt(g)}</td><td class="n">${s.net?fmt(s.net.cur):"—"}</td>
@@ -2048,7 +2071,8 @@ function niceStep(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log1
 function niceMax(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return(n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
 let yoyCache=null;
 
-function yoyRow(y){
+function yoyRow(y){const k="r"+y;if(!MEMO.has(k))MEMO.set(k,yoyRowCalc(y));return MEMO.get(k)}
+function yoyRowCalc(y){
   const m=model(y);if(!m.latest)return null;
   const f=m.remaining?"proj":"ytd";
   const LV=erLive(m);const pack=f=>{const b=breakdown(m,f),v=p=>m.val(p,f);
@@ -2152,7 +2176,7 @@ function renderYoy(){
   const sel=rows.find(r=>r.y===state.yoySel);
   $("yoyReal").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.real==="1")===!!state.real)));
   $("yoyRealNote").textContent=state.real?`Dollar amounts are in ${CPI_BASE} dollars, adjusted with the Consumer Price Index.`:"Dollar amounts are as paid.";
-  const span=`${rows[0].y}–${rows[rows.length-1].y}`;const lastR=rows[rows.length-1];
+  const span=rows.length>1?`${rows[0].y}–${rows[rows.length-1].y}`:`${rows[0].y}`;const lastR=rows[rows.length-1];
   /* headline */
   const S=k=>rows.reduce((a,r)=>a+yv(r,k,"sofar"),0);
   const gross=S("gross"),net=S("net"),tax=S("fed")+S("fica")+S("state"),you=S("ret"),er=S("er401");
@@ -2291,7 +2315,7 @@ function renderYoy(){
     barChart($("yoySave"),{years:Y,proj,series:[{c:"--c-ret",vals:rows.map(r=>sv(r).k*rf(r.y))},{c:"--c-er-hsa",vals:rows.map(r=>sv(r).h*rf(r.y))},{c:"--c-k-match",vals:rows.map(r=>sv(r).ek*rf(r.y))},{c:"--c-er-perk",vals:rows.map(r=>sv(r).eh*rf(r.y))}],aria:"Money saved each year, you and your employer"});
     $("yoySaveLeg").innerHTML=legend([["--c-ret","Your 401(k)"],["--c-er-hsa","Your HSA"],["--c-k-match","Employer 401(k)"],["--c-er-perk","Employer HSA"]]);
     const done=rows.filter(r=>!r.proj),G=done.reduce((a,r)=>a+sv(r).g,0),YU=done.reduce((a,r)=>a+you(r),0),EM=done.reduce((a,r)=>a+emp(r),0);
-    const span=done.length?`${done[0].y}–${done[done.length-1].y}`:"";
+    const span=done.length>1?`${done[0].y}–${done[done.length-1].y}`:done.length?`${done[0].y}`:"";
     $("yoySaveStats").innerHTML=done.length?`<div class="stat"><small>You saved, ${span}</small><b>${(YU/G*100).toFixed(1)}%</b><small>${fmt0(YU)} of ${fmt0(G)} gross</small></div>
       <div class="stat"><small>With employer money</small><b>${((YU+EM)/G*100).toFixed(1)}%</b><small>${fmt0(YU+EM)} saved in all</small></div>`:"";
     const ss=sel&&rows.find(r=>r.y===sel.y);
@@ -2540,7 +2564,7 @@ function freshDay(){const t=isoOf(new Date());if(t!==todayISO){const oldY=+today
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)freshDay()});window.addEventListener("focus",freshDay);
 /* ask the browser (iOS included) not to clear this site's storage under pressure */
 let persistAsked=false;function askPersist(){if(persistAsked||!state.stubs.length)return;persistAsked=true;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persisted().then(p=>p||navigator.storage.persist()).catch(()=>{})}catch(e){}}
-function render(){applyEst();askPersist();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();ssaFill();window.__fillBal&&window.__fillBal();
+function render(){memoClear();applyEst();memoClear();askPersist();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();ssaFill();window.__fillBal&&window.__fillBal();
   {const t=state.tab,on=state.stubs.length&&(t==="year"||t==="all");$("rptBar").hidden=!on;$("rptBtn").textContent=t==="all"?"Save all-years report as PDF":`Save ${state.year} report as PDF`}}
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
@@ -2597,7 +2621,7 @@ $("pdfIn").addEventListener("change",async e=>{
   else toast(`Couldn't find statement text in ${fails.join(", ")}. A scanned or photographed PDF has no text layer; print the statement to PDF from the portal instead.`,true);
 });
 $("stubTbl").addEventListener("click",e=>{const b=e.target.closest("[data-del]");if(!b)return;const d=b.dataset.del;
-  if(armed===d){state.stubs=state.stubs.filter(s=>skey(s)!==d);armed=null;save();render();toast(`Removed ${nice(d.slice(0,10))}.`)}else{armed=d;renderStubs()}});
+  if(armed===d){memoClear();state.stubs=state.stubs.filter(s=>skey(s)!==d);armed=null;save();render();toast(`Removed ${nice(d.slice(0,10))}.`)}else{armed=d;renderStubs()}});
 let clearArmed=false;
 $("clearAll").addEventListener("click",()=>{if(!clearArmed){clearArmed=true;$("clearAll").textContent="Confirm clear";return}
   clearArmed=false;$("clearAll").textContent="Clear all stubs";state.stubs=[];save();render();toast("All stubs cleared.")});
@@ -2649,8 +2673,11 @@ const pickPill=p=>{if(p.dataset.key){state.checkKey=p.dataset.key;state.mode="cu
 $("months").addEventListener("click",e=>{const p=e.target.closest("[data-chk],[data-key]");if(p)pickPill(p)});
 $("months").addEventListener("keydown",e=>{const p=e.target.closest("[data-chk],[data-key]");if(p&&(e.key==="Enter"||e.key===" ")){e.preventDefault();pickPill(p)}});
 function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=state.settings.seProfit;$("otherInc").value=state.settings.otherInc;$("estPaid").value=state.settings.estPaid}
-$("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();render()});
-["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();render()}));
+const debounce=(fn,ms)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
+const keepFocus=fn=>{const el=document.activeElement,id=el&&el.id,ss=el&&el.selectionStart,se=el&&el.selectionEnd;fn();if(id){const n=$(id);if(n&&n!==document.activeElement){n.focus();try{n.setSelectionRange(ss,se)}catch(e){}}}};
+const renderSoon=debounce(()=>keepFocus(()=>keepPos(()=>render())),350);
+$("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();renderSoon()});
+["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();renderSoon()}));
 
 state.tab=["year","all","plan","stubs"].includes(ui.tab)?ui.tab:(isOpen("view")?"all":"year");state.view=state.tab==="all"?"all":"year";state.real=isOpen("real");state.yg=typeof ui.yg==="string"?ui.yg:"pay";
 window.__applyTheme&&window.__applyTheme();initPanels();
@@ -2672,12 +2699,12 @@ if(window.ResizeObserver){const ro=new ResizeObserver(setH);ro.observe(b);if(yp)
 const upd=()=>{const t=parseFloat(getComputedStyle(b).top)||0;b.classList.toggle("stuck",(window.scrollY||0)>0&&b.getBoundingClientRect().top<=t+0.5);
 };
 window.addEventListener("scroll",upd,{passive:true});window.addEventListener("resize",upd);upd()})();</script>
-<script>(function(){const stop=e=>e.preventDefault();["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,stop,{passive:false}));
-document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
-/* iPhone can still double-tap zoom on buttons; swallow the zoom but keep the second tap working as a normal tap */
-let lastTap=0;document.addEventListener("touchend",e=>{const n=Date.now(),quick=n-lastTap<350;lastTap=n;
-  if(!quick||!e.changedTouches||e.changedTouches.length!==1)return;const t=e.target;if(!t||!t.closest||t.closest("input,select,textarea"))return;
-  e.preventDefault();t.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true,view:window}))},{passive:false});})();</script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{r.update();document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")r.update()})}).catch(()=>{});let reloaded=false;const hadCtl=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!reloaded&&hadCtl&&!(document.activeElement&&/TEXTAREA|INPUT/.test(document.activeElement.tagName))){reloaded=true;location.reload()}})})}</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>{r.update();document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")r.update()})}).catch(()=>{});let reloaded=false;const hadCtl=!!navigator.serviceWorker.controller;
+  /* a new version took over: reload right away only if nothing typed would be lost, otherwise offer a button */
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(reloaded||!hadCtl)return;
+    const pb=document.getElementById("pasteBox"),busy=(pb&&pb.value.trim())||(document.activeElement&&/TEXTAREA|INPUT|SELECT/.test(document.activeElement.tagName));
+    if(!busy){reloaded=true;location.reload();return}
+    if(document.getElementById("updBar"))return;const b=document.createElement("div");b.id="updBar";b.className="updbar";b.setAttribute("role","status");
+    b.innerHTML='<span>A new version is ready.</span><button type="button" class="btn small">Reload</button>';b.querySelector("button").onclick=()=>{reloaded=true;location.reload()};document.body.appendChild(b)})})}</script>
 </body>
 </html>
