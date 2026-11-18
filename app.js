@@ -1700,7 +1700,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#yoyView .tog")){setTimeout(renderYoy,0);return}
   const rb=e.target.closest("#yoyReal [data-real]");if(rb){state.real=rb.dataset.real==="1";setOpen("real",state.real);renderYoy();return}
 });
-const TAB_OF={whatif:"plan",bonusEst:"plan",nextyr:"plan",retire:"plan",ssben:"plan",sscap:"plan",add:"stubs"};
+const TAB_OF={whatif:"plan",bonusEst:"plan",nextyr:"plan",retire:"plan",lastyr:"plan",ssben:"plan",sscap:"plan",add:"stubs"};
 const tabOf=el=>TAB_OF[el.dataset&&el.dataset.k]||"year";
 function setTab(t){if(t===state.tab){window.scrollTo({top:0,behavior:"smooth"});return}state.tab=t;state.view=t==="all"?"all":"year";setOpen("tab",t);render();window.scrollTo(0,0)}
 function setView(v){setTab(v==="all"?"all":"year")}
@@ -1709,7 +1709,7 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
-const JUMP_NAMES={yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
+const JUMP_NAMES={home:"At a glance",changes:"What changed",lastyr:"Last year",yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoySave:"Savings rate",yoyBal:"Balances",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
@@ -1784,6 +1784,151 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)freshDay()
 let persistAsked=false;function askPersist(){if(persistAsked||!state.stubs.length)return;persistAsked=true;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persisted().then(p=>p||navigator.storage.persist()).catch(()=>{})}catch(e){}}
 function render(){memoClear();applyEst();memoClear();askPersist();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();ssaFill();window.__fillBal&&window.__fillBal();
   {const t=state.tab,on=state.stubs.length&&(t==="year"||t==="all");$("rptBar").hidden=!on;$("rptBtn").textContent=t==="all"?"Save all-years report as PDF":`Save ${state.year} report as PDF`}}
+/* ---------- What changed: a check against the regular check before it, in plain English ---------- */
+const tcase=t=>String(t).toLowerCase().replace(/\b[a-z]/g,c=>c.toUpperCase());
+const niceLbl=i=>isRoth(i)?"Roth 401(k)":isPreRet(i)?"401(k)":isLoan(i)?"401(k) loan repayment":isSS(i)?"Social Security tax":isMedi(i)?"Medicare tax":isFed(i)?"Federal withholding":
+  /^OH\b|OHIO/i.test(i.label)?"Ohio tax":/SCHL|SCHOOL|\bSD\b|SDW/i.test(i.label)?"School district tax":isStateLocal(i)?"City tax ("+tcase(i.label)+")":isHSAer(i)?"Employer HSA deposit":isHSA(i)?"HSA":isFSA(i)?"FSA":
+  isMatch(i)?"Employer 401(k) match":isErRet(i)?"Employer 401(k) ("+tcase(i.label)+")":tcase(i.label);
+const sumOf=(s,p)=>s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0);
+function prevRegular(s){const regs=state.stubs.filter(x=>!isExtra(x)).sort((a,b)=>a.payDate<b.payDate?-1:a.payDate>b.payDate?1:0);const i=regs.findIndex(x=>skey(x)===skey(s));return i>0?regs[i-1]:null}
+function stubChanges(s){
+  const out=[],add=(k,t,amt,why)=>out.push({k,t,amt,why}),E=x=>sumOf(x,i=>i.sec==="earnings"),net=x=>x.net?+x.net.cur||0:0,mon=+s.payDate.slice(5,7),yr=+s.payDate.slice(0,4);
+  if(isExtra(s)){const g=E(s),fed=sumOf(s,isFed),txE=g-sumOf(s,i=>i.sec==="pretax");
+    add("info",`${isBonusCheck(s)?"Bonus":"Extra"} check`,fmt(g),`Take-home ${fmt(net(s))} (${g>0?Math.round(net(s)/g*100):0}% of gross).`);
+    if(fed>0)add("info","Federal withholding",fmt(fed),`${txE>0?(fed/txE*100).toFixed(1):"0"}% of taxable pay. Bonuses are usually withheld at a flat 22%, which can differ from your tax bracket.`);
+    const k=sumOf(s,isDefer);if(k>0)add("info","401(k) from this check",fmt(k),"");
+    return out}
+  const p=prevRegular(s);if(!p){add("info","First regular check loaded","","Nothing earlier to compare with yet.");return out}
+  const dn=net(s)-net(p),newYr=p.payDate.slice(0,4)!==s.payDate.slice(0,4);
+  out.push({k:"head",t:`Take-home ${fmt(net(s))}`,amt:Math.abs(dn)<0.005?"same":(dn>0?"+":"−")+fmt(Math.abs(dn)),why:`Compared with the ${nice(p.payDate)}${newYr?", "+p.payDate.slice(0,4):""} check.`});
+  const b1=annualBase(s),b0=annualBase(p),payChg=Math.abs(E(s)-E(p))>1;
+  if(b1&&b0&&Math.abs(b1-b0)>1)add(b1>b0?"up":"down",b1>b0?"Raise":"Base pay went down",`${b1>b0?"+":"−"}${((Math.abs(b1/b0-1))*100).toFixed(1)}%`,`${fmt0(b0)} → ${fmt0(b1)} a year (${fmt(Math.abs(b1-b0)/(isSemi(s)?24:26))} a check before taxes).`);
+  const pt=stubPto(s),ptL=Object.entries(pt).map(([t,o])=>`${Math.round(o.h)} h ${(PTO_T.find(x=>x[0]===t)||[0,t])[1].toLowerCase()}`);
+  if(ptL.length)add("info","Paid time off on this check",ptL.join(", "),"Paid at your regular rate, so take-home isn't affected.");
+  {const o1=sumOf(s,isOTe),o0=sumOf(p,isOTe);
+    if(o1>0.5)add(Math.abs(o1-o0)<0.5?"info":o1>o0?"up":"down","Overtime",fmt(o1),o0>0.5?`Last check ${fmt(o0)}.`:"None on the last check.");
+    else if(o0>0.5)add("down","No overtime this check","",`Last check had ${fmt(o0)}.`)}
+  const bo=sumOf(s,isBonusE);if(bo>0.5)add("up","Bonus on this check",fmt(bo),"");
+  /* line by line; lines that just move with pay are summed into one line */
+  const key=i=>i.sec+"|"+i.label.replace(/\s+/g," ").trim().toUpperCase(),M=x=>{const m=new Map();x.items.forEach(i=>{const k=key(i);m.set(k,{i,v:(m.get(k)?.v||0)+(+i.cur||0)})});return m};
+  const A=M(p),B=M(s),keys=new Set([...A.keys(),...B.keys()]),follow=new Map(),gone=[],fresh=[];
+  const fGrp=i=>isFed(i)?"Federal":isMedi(i)?"Medicare":isDefer(i)?"Your 401(k)":isErRet(i)?"Employer 401(k)":/^OH\b|OHIO/i.test(i.label)?"Ohio":isStateLocal(i)?"Local":null;
+  for(const k of keys){const a=A.get(k),b=B.get(k),i=(b||a).i,va=a?a.v:0,vb=b?b.v:0,d=vb-va;
+    if(i.sec==="earnings")continue;
+    if(isSS(i)){const cap=limFor(yr).ssBase;
+      if(vb<0.005&&va>0.005&&!newYr)add("up","Social Security tax stopped",`+${fmt(va)}`,`You reached the ${yr} wage cap (${fmt0(cap)}), so about ${fmt(va)} more per check until January.`);
+      else if(va<0.005&&vb>0.005&&newYr)add("info","Social Security tax is back",fmt(vb),"New year, new wage cap.");
+      else if(Math.abs(d)>2&&!payChg)add("warn","Social Security tax changed",`${d>0?"+":"−"}${fmt(Math.abs(d))}`,"Pay didn't change, so check the stub.");
+      continue}
+    const minor=(i.sec==="memo"&&!isErRet(i)&&!isHSAer(i))||i.sec==="taxable";
+    if(Math.abs(d)<(minor?5:i.sec==="taxes"?2:0.5))continue;
+    const nm=niceLbl(i),amt=`${d>0?"+":"−"}${fmt(Math.abs(d))}`,g=fGrp(i);
+    if(!a||va<0.005){fresh.push({i,nm,vb});continue}
+    if(!b||vb<0.005){gone.push({i,nm,va});continue}
+    if(g&&payChg){follow.set(g,(follow.get(g)||0)+d);continue}
+    let why="";
+    if(isFed(i)||isStateLocal(i))why=mon===1&&newYr?`New ${yr} tax tables.`:"Pay didn't change: a W-4 change or new tax tables?";
+    else if(isDefer(i)||isMedi(i))why="Pay didn't change: a new percentage?";
+    else if(isErRet(i))why=d<0?"Pay didn't change, so ask payroll why it went down.":"";
+    else if(i.sec==="pretax"||i.sec==="posttax"||i.sec==="memo")why=newYr||mon===1?"New plan year.":"";
+    add(i.sec==="memo"?(isErRet(i)&&d<0?"warn":"info"):d>0?"down":"up",nm,amt,why)}
+  /* a line that stops while a same-kind line starts is usually a rename */
+  for(const gL of [...gone]){const m=fresh.find(f=>isErRet(f.i)===isErRet(gL.i)&&f.i.sec===gL.i.sec&&(isErRet(gL.i)||Math.abs(f.vb-gL.va)<=Math.max(5,gL.va*0.25)));
+    if(m){gone.splice(gone.indexOf(gL),1);fresh.splice(fresh.indexOf(m),1);add("info",`${tcase(gL.i.label)} is now ${tcase(m.i.label)}`,fmt(m.vb),`Was ${fmt(gL.va)}${Math.abs(m.vb-gL.va)>=0.5?` (${m.vb>gL.va?"+":"−"}${fmt(Math.abs(m.vb-gL.va))})`:""}. Same kind of line under a new name.`)}}
+  for(const f of fresh)add(f.i.sec==="memo"?"up":"info",(f.i.sec==="memo"?"":"New: ")+f.nm,fmt(f.vb),f.i.sec==="memo"?"Paid by your employer, not taken from your pay.":f.i.sec==="taxable"?"A taxable benefit: no cash, but it's taxed.":"");
+  for(const gL of gone)add(isErRet(gL.i)?"warn":"info",`${gL.nm} stopped`,`was ${fmt(gL.va)}`,isErRet(gL.i)?"No employer 401(k) money on this check. If you're still contributing, ask payroll.":isDefer(gL.i)?"Did you hit the yearly limit or change your election?":"");
+  if(follow.size){const order=["Your 401(k)","Employer 401(k)","Federal","Ohio","Local","Medicare"];
+    add("info","Taxes and 401(k) moved with pay","",order.filter(k=>follow.has(k)&&Math.abs(follow.get(k))>=0.5).map(k=>`${k} ${follow.get(k)>0?"+":"−"}${fmt(Math.abs(follow.get(k)))}`).join(" · ")+".")}
+  if(out.length===1)add("info","Nothing else changed","","Same pay and the same deductions as last time.");
+  return out}
+function renderChanges(m,y){
+  const sec=document.querySelector('section[data-k="changes"]');if(state.tab!=="year"||!m.latest){sec.hidden=true;return}
+  const s=state.mode==="cur"?chosenCheck(m):m.latest,L=stubChanges(s);
+  const ic={up:"▲",down:"▼",warn:"!",info:"•",head:"$"};
+  $("chgFor").textContent=`${isExtra(s)?(isBonusCheck(s)?"Bonus check":"Extra check"):"Check"} of ${nice(s.payDate)}`;
+  $("chgList").innerHTML=L.map(x=>`<li class="${x.k}${x.k==="head"?" info":""}"><span class="ic" aria-hidden="true">${ic[x.k]||"•"}</span><b>${esc(x.t)}</b><span class="amt">${esc(x.amt||"")}</span>${x.why?`<small>${esc(x.why)}</small>`:""}</li>`).join("");
+  const n=L.filter(x=>x.k!=="head"&&!/^Nothing else/.test(x.t)).length,w=L.filter(x=>x.k==="warn").length;
+  setSum("changes",w?`<span class="warn">${w} to look at</span>`:n?`${n} change${n>1?"s":""} on ${nice(s.payDate)}`:`No changes on ${nice(s.payDate)}`);
+  sec.hidden=false}
+
+/* ---------- At a glance: the latest year in one card ---------- */
+function goSection(k){const i=jumpList.findIndex(j=>j.el&&j.el.dataset.k===k);if(i>=0)jumpTo(i)}
+function renderHome(m,y){
+  const sec=document.querySelector('section[data-k="home"]'),years=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))],last=Math.max(...years);
+  if(state.tab!=="year"||y!==last||!m.latest){sec.hidden=true;return}
+  const s=m.latest,p=isExtra(s)?null:prevRegular(s),net=x=>x&&x.net?+x.net.cur||0:0,dn=p?net(s)-net(p):null;
+  const nxt=[...payDates(y),...payDates(y+1)].filter(d=>d>todayISO).sort()[0],days=nxt?Math.round((dObj(nxt)-dObj(todayISO))/864e5):null;
+  const T=m.remaining||y>=+todayISO.slice(0,4)?taxCalc(m):null;
+  const L=limFor(y),k=m.val(isDefer,"proj"),age=ageFor(y),kLim=L.k401+(age>=60&&age<=63?L.c60:age>=50?L.c50:0);
+  const hsa=m.val(isHSAall,"proj"),fam=m.ys.some(x=>x.items.some(i=>isHSAall(i)&&/FAM/i.test(i.label))),hLim=(fam?L.hsaFam:L.hsaSelf)+(age>=55?L.hsaCatch:0);
+  const tile=(lab,big,sm)=>`<div class="tile"><small>${lab}</small><b>${big}</b><small>${sm}</small></div>`;
+  $("homeTiles").innerHTML=
+    tile(`Last check · ${nice(s.payDate)}`,fmt0(net(s)),dn==null?(isExtra(s)?(isBonusCheck(s)?"bonus check":"extra check"):"take-home"):Math.abs(dn)<0.5?"same as last time":`${dn>0?"+":"−"}${fmt0(Math.abs(dn))} vs last check`)+
+    (nxt?tile("Next payday",nice(nxt),days===0?"today":days===1?"tomorrow":`in ${days} days`):"")+
+    (T?tile(T.gap>0?"Owe at filing":"Refund",fmt0(Math.abs(T.gap)),`projected for ${y}`):"")+
+    tile("401(k) this year",fmt0(k),`${kLim?Math.round(k/kLim*100):0}% of ${fmt0(kLim)}${m.remaining?" (on pace)":""}`)+
+    (hsa>0?tile("HSA this year",fmt0(hsa),`${hLim?Math.round(hsa/hLim*100):0}% of ${fmt0(hLim)}${m.remaining?" (on pace)":""}`):"");
+  const att=[];const ck=runChecks(m,y),bad=ck.filter(c=>c[0]==="bad").length,warn=ck.filter(c=>c[0]==="warn").length;
+  if(bad||warn)att.push(["checks",`${bad+warn} payroll ${bad+warn>1?"items":"item"} to check`,1]);
+  const chg=stubChanges(s).filter(x=>x.k==="warn").length;if(chg)att.push(["changes",`${chg} change${chg>1?"s":""} to look at`,1]);
+  if(T&&T.gap>500&&m.remaining)att.push(["tax",`Withholding short by ${fmt0(T.gap)}`,1]);
+  const lb=state.settings.lastBackup,bd=lb?Math.round((dObj(todayISO)-dObj(String(lb.at).slice(0,10)))/864e5):null;if(!lb||bd>30)att.push(["backup",lb?`Last backup ${bd} days ago`:"No backup yet",1]);
+  if(!document.querySelector('section[data-k="yearend"]').hidden)att.push(["yearend","Year-end checklist",0]);
+  $("homeAtt").innerHTML=att.map(([k,t,w])=>`<button type="button" class="${w?"warn":""}" data-go="${k}">${esc(t)}</button>`).join("");
+  setSum("home",`<strong>${fmt0(net(s))}</strong> last check${nxt?` · next ${nice(nxt)}`:""}`);
+  sec.hidden=false}
+$("homeAtt").addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(!b)return;const k=b.dataset.go;
+  if(k==="backup"){const n=$("bkNote");if(n&&!n.hidden){n.scrollIntoView({behavior:"smooth",block:"center"});return}setTab("stubs");return}
+  goSection(k)});
+
+/* ---------- Last year and the Rule of 55 ---------- */
+function renderLastYr(){
+  const sec=document.querySelector('section[data-k="lastyr"]');if(state.tab!=="plan"){sec.hidden=true;return}
+  const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))].sort((a,b)=>a-b),Y0=ys[ys.length-1],M=model(Y0),s=M.reg,age0=ageFor(Y0);
+  if(!s||!annualBase(s)||!age0){sec.hidden=true;return}
+  const born=Y0-age0,w=state.settings.rt||{},ly=state.settings.ly||{},ev=yoyEvents();
+  const rAge=w.age!=null?+w.age:65,end=w.date||`${born+rAge}-12-31`,L=+end.slice(0,4);
+  const recentR=ev.raises.slice(-5),avgR=recentR.length?recentR.reduce((a,r)=>a+r.pct,0)/recentR.length*100:3,raise=(w.raise!=null?+w.raise:Math.round(avgR*2)/2)/100;
+  const bRows=ys.filter(y=>y<+todayISO.slice(0,4)).slice(-3).map(y=>yoyRow(y)).filter(Boolean),avgB=bRows.length?bRows.reduce((a,r)=>a+r.full.bonus,0)/bRows.length:0;
+  const bonusY=w.bonus!=null?+w.bonus:Math.round(avgB/500)*500,grow=Math.pow(1+raise,Math.max(0,L-Y0));
+  const lbk=state.stubs.filter(x=>isBonusCheck(x)).map(x=>x.payDate).sort().pop(),bmd=lbk?lbk.slice(5):"11-20",bonusDate=`${L}-${bmd}`;
+  const bonusDef=end>=bonusDate?Math.round(bonusY*grow/100)*100:0,bonus=ly.bonus!=null?+ly.bonus:bonusDef,ptoH=ly.pto!=null?+ly.pto:0;
+  [["lyPto",ptoH],["lyBonus",bonus]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
+  const per=annualBase(s)/(isSemi(s)?24:26)*grow,hr=annualBase(s)*grow/2080,E=sumOf(s,i=>i.sec==="earnings");
+  const netR=E>0&&s.net?s.net.cur/E:0,kR=E>0?sumOf(s,isDefer)/E:0;
+  const ohR=E>0?sumOf(s,i=>isStateLocal(i)&&/^OH\b|OHIO/i.test(i.label))/E:0,locR=E>0?sumOf(s,i=>isStateLocal(i)&&!/^OH\b|OHIO/i.test(i.label))/E:0;
+  const pds=payDates(L).filter(d=>d.startsWith(L+"")&&d<=end),nReg=pds.length,regG=per*nReg,LL=limFor(L);
+  /* payouts are supplemental wages: flat 22% federal, Ohio's 2.75% supplemental rate, local at today's rate */
+  const supp=(g,k)=>{const ss=Math.min(g,Math.max(0,LL.ssBase-regG))*0.062,fed=(g-k)*0.22,md=g*0.0145,oh=(g-k)*0.0275,loc=g*locR;return{g,k,tax:fed+ss+md+oh+loc,fed,net:g-k-(fed+ss+md+oh+loc)}};
+  const ptoG=hr*ptoH,P=supp(ptoG,0),B=supp(bonus,bonus*kR),R={g:regG,net:regG*netR,k:regG*kR};
+  const lastPd=pds[pds.length-1];
+  $("lyUses").textContent=`Uses your last day from Paychecks to retirement (${nice(end)}, ${L}): ${nReg} regular checks that year${lastPd?`, the last about ${nice(lastPd)}`:""}${bonus&&end>=bonusDate?`, the bonus about ${nice(bonusDate)}`:""}. Vacation is paid at your ${L} hourly rate, about ${fmt(hr)}.`;
+  $("lyStats").innerHTML=`<div class="stat"><small>${L} take-home, all in</small><b>${fmt0(R.net+P.net+B.net)}</b><small>from ${fmt0(R.g+ptoG+bonus)} gross</small></div>`+
+    `<div class="stat"><small>Final payout take-home</small><b>${fmt0(P.net+B.net)}</b><small>${ptoH?`${ptoH} h vacation`:"no vacation payout"}${bonus?` + ${fmt0(bonus)} bonus`:""}</small></div>`;
+  const row=(a,n,g,t,k,nt)=>`<tr><td>${a}</td><td class="n">${n}</td><td class="n">${fmt0(g)}</td><td class="n">${fmt0(t)}</td><td class="n">${fmt0(k)}</td><td class="n">${fmt0(nt)}</td></tr>`;
+  $("lyTbl").innerHTML=`<thead><tr><th>${L}</th><th class="n">Checks</th><th class="n">Gross</th><th class="n">Taxes &amp; deductions</th><th class="n">401(k)</th><th class="n">Take-home</th></tr></thead><tbody>`+
+    row("Regular pay",nReg,R.g,R.g-R.net-R.k,R.k,R.net)+
+    (ptoH?row("Vacation payout",1,P.g,P.tax,0,P.net):"")+(bonus?row("Final bonus",1,B.g,B.tax,B.k,B.net):"")+
+    `<tr class="total"><td>All</td><td class="n">${nReg+(ptoH?1:0)+(bonus?1:0)}</td><td class="n">${fmt0(R.g+P.g+B.g)}</td><td class="n">${fmt0(R.g-R.net-R.k+P.tax+B.tax)}</td><td class="n">${fmt0(R.k+B.k)}</td><td class="n">${fmt0(R.net+P.net+B.net)}</td></tr></tbody>`;
+  /* Rule of 55 */
+  const a55=born+55,a595=born+59,leaveAge=L-born,bal=(()=>{const b=state.settings.bal||{},yk=Object.keys(b).filter(y=>b[y]&&+b[y].k>0).sort().pop();return yk?{y:yk,k:+b[yk].k}:null})();
+  const ok=L>=a55,needed=leaveAge<60;
+  $("ly55").innerHTML=`<span class="pill55 ${ok&&needed?"yes":"no"}">${!ok?"Doesn't apply":needed?"Applies":"Not needed"}</span>`+
+    (!ok?`<p>You'd leave in ${L}, before the year you turn 55 (${a55}). Withdrawals before 59½ would carry the 10% penalty.</p>`:
+     needed?`<p>You leave in ${L}, the year you turn ${leaveAge}. Because that's the year you turn 55 or later, you can take money out of <b>this employer's 401(k)</b> with no 10% early-withdrawal penalty, before 59½ (${a595}–${a595+1}, depending on your birthday).${bal?` Balance on file: ${fmt0(bal.k)} (${bal.y}).`:""}</p>
+       <p>What to know: it covers only the plan of the job you leave, not IRAs or old 401(k)s. You can roll old plans into this one before your last day to include them. Don't roll this 401(k) into an IRA before 59½, or you lose the exception. Withdrawals are still taxed as income, and the plan withholds 20% for federal tax. Ask the plan whether it allows partial withdrawals after you leave.</p>`:
+     `<p>You leave in ${L}, the year you turn ${leaveAge}, which is past 59½. Every retirement account is penalty-free by then, so the Rule of 55 doesn't matter for your plan as it stands. It would if you left between now and ${a595}.</p>`);
+  const ms=[[55,a55,"Rule of 55 starts: leave in or after this year to take this 401(k) penalty-free"],[59.5,a595,"59½: penalty-free withdrawals from IRAs and every 401(k)"],[62,born+62,"Earliest Social Security (about 30% less than at 67)"],
+    [65,born+65,"Medicare. Sign up in the 3 months before your birthday month. No more HSA contributions once you're on it; HSA withdrawals for any reason, penalty-free"],[67,born+67,"Full Social Security"],[70,born+70,"Largest Social Security; waiting longer adds nothing"],[75,born+75,"Required minimum distributions from 401(k)s and IRAs begin"]];
+  $("lyMiles").innerHTML=`<thead><tr><th>Age</th><th>Year</th><th>What happens</th></tr></thead><tbody>`+
+    (leaveAge<65?`<tr class="sec"><td>${leaveAge}</td><td>${L}</td><td>Last day of work. Health coverage needed until Medicare: ${65-leaveAge>1?`about ${65-leaveAge} years`:"about a year"} (COBRA for up to 18 months, then a marketplace plan).</td></tr>`:"")+
+    ms.filter(([a])=>a>=55).map(([a,yy,t])=>`<tr${yy<L?' class="muted"':""}><td>${a===59.5?"59½":a}</td><td>${yy}</td><td>${t}</td></tr>`).join("")+"</tbody>";
+  $("lyNote").textContent=`Estimate in ${L} dollars with your raise setting. Regular checks keep today's take-home share; vacation payout and the final bonus are taxed like bonuses: 22% federal, Social Security until the cap, Medicare, Ohio 2.75%, local tax at today's rate. Whether a bonus is paid after you leave, and how vacation is paid out, depends on company policy. Required distributions start at 75 for anyone born in 1960 or later.`;
+  setSum("lastyr",`${ok&&needed?"Rule of 55 applies · ":""}${fmt0(R.net+P.net+B.net)} take-home in ${L}`);
+  sec.hidden=false}
+{const lySet=(k,v)=>{const w=state.settings.ly=state.settings.ly||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
+  $("lyPto").addEventListener("change",e=>lySet("pto",e.target.value));$("lyBonus").addEventListener("change",e=>lySet("bonus",e.target.value))}
+
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
@@ -1804,10 +1949,10 @@ function renderMain(){
   if(tab==="stubs")return;
   $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
   let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
-  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);renderYearEnd(m,y);
+  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);renderYearEnd(m,y);renderChanges(m,y);renderHome(m,y);
   {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
   if(tab!=="year")$("chkBar").hidden=true;
-  renderRetire();renderSsBen();
+  renderRetire();renderLastYr();renderSsBen();
   {const cur=+todayISO.slice(0,4);$("yirBar").hidden=tab!=="year";$("yirBtn").innerHTML=`<span aria-hidden="true">✦</span> ${y}${y>=cur?" so far":""} in review`}
   if(!$("ssCap").innerHTML.trim())document.querySelector('section[data-k="sscap"]').hidden=true;
   {const asof=ma!==m?` · as of ${nice(ma.latest.payDate)}`:"";$("w2year").textContent=y+asof;
@@ -1823,7 +1968,7 @@ function readText(txt,src){
   const list=parseText(txt);
   if(!list.length){toast("No statement found. Make sure the text includes the Pay Date line and the Earnings and Taxes tables.",true);return}
   const r=addStubs(list);$("pasteBox").value="";
-  toast(`Read ${list.length} stub${list.length>1?"s":""}${src?" from "+src:""}: ${list.map(s=>nice(s.payDate)).join(", ")}.`+(r.replaced?` ${r.replaced} replaced an existing copy.`:"")+" See Stub checks above.");
+  toast(`Read ${list.length} stub${list.length>1?"s":""}${src?" from "+src:""}: ${list.map(s=>nice(s.payDate)).join(", ")}.`+(r.replaced?` ${r.replaced} replaced an existing copy.`:"")+" See What changed and Stub checks on the Year tab.");
 }
 $("readBtn").addEventListener("click",()=>readText($("pasteBox").value));
 $("txtIn").addEventListener("change",async e=>{

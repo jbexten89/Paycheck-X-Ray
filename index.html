@@ -426,6 +426,16 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
 /* Desktop: sidebar with title, tabs, pickers and section list; content to the right. Phones unchanged. */
 /* pinch zoom allowed; double-tap zoom off so quick taps stay taps */
 html{touch-action:manipulation}
+/* At a glance, What changed, Last year */
+.homecard .tiles{margin-top:2px}.homeatt{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.homeatt:empty{display:none}
+.homeatt button{font:inherit;font-size:13.5px;border-radius:999px;padding:6px 12px;border:1px solid var(--line);background:var(--soft);color:var(--ink);cursor:pointer}
+.homeatt button.warn{background:var(--amber);border-color:var(--amber);color:#1a1205;font-weight:600}
+.chglist{list-style:none;margin:6px 0 0;padding:0}.chglist li{display:grid;grid-template-columns:22px 1fr auto;gap:4px 8px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line)}
+.chglist li:first-child{border-top:0}.chglist .ic{font-weight:700;text-align:center}.chglist .up .ic{color:var(--good,#3CC79A)}.chglist .down .ic{color:var(--muted)}
+.chglist .warn .ic{color:var(--amber)}.chglist .info .ic{color:var(--accent)}.chglist .amt{font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.chglist small{grid-column:2/-1;color:var(--muted);font-size:13px;line-height:1.35}.chglist li.head{font-size:15px}
+.lyh{font-size:15px;margin:18px 0 6px}#ly55 p{margin:0 0 8px;line-height:1.45}#lyTbl td:first-child{white-space:nowrap}#ly55 .pill55{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;margin-bottom:8px}
+#ly55 .pill55.yes{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}#ly55 .pill55.no{background:var(--soft);color:var(--muted)}
 .sbhow{margin:10px 0}.sbhow>summary{color:var(--accent);font-weight:600;cursor:pointer;padding:8px 0}
 .sbhow table td:first-child{white-space:nowrap}.sbhow table td.f{color:var(--muted);font-size:13px}.sbhow h3{font-size:14px;margin:14px 0 4px}.sbhow h3:first-child{margin-top:4px}
 /* Social Security: years in the highest 35 */
@@ -648,6 +658,17 @@ html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
   <p class="note" style="margin:0 2px">Inflation uses the Consumer Price Index for All Urban Consumers (CPI-U) yearly averages from the Bureau of Labor Statistics. The latest year uses the months published so far.</p>
   </div>
 
+  <section class="panel homecard" data-k="home" hidden>
+    <div class="panel-head"><h2>At a glance</h2></div>
+    <div class="tiles" id="homeTiles"></div>
+    <div class="homeatt" id="homeAtt"></div>
+  </section>
+
+  <section class="panel" data-k="changes" hidden>
+    <div class="panel-head"><h2>What changed</h2><span class="muted" id="chgFor"></span></div>
+    <ul class="chglist" id="chgList"></ul>
+  </section>
+
   <section class="panel yecard" data-k="yearend" hidden>
     <div class="panel-head"><h2>Year-end checklist</h2></div>
     <div id="yeList"></div>
@@ -778,6 +799,22 @@ html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
     <div id="rtBar"></div>
     <div class="tbl-wrap"><table id="rtTbl"></table></div>
     <p class="note" id="rtNote" style="margin:0"></p>
+  </section>
+
+  <section class="panel" data-k="lastyr">
+    <div class="panel-head"><h2>Last year &amp; Rule of 55</h2></div>
+    <div class="fields">
+      <label class="field" for="lyPto">Vacation hours paid out at the end<input id="lyPto" type="number" inputmode="decimal" step="8" min="0"></label>
+      <label class="field" for="lyBonus">Final bonus $<input id="lyBonus" type="number" inputmode="decimal" step="500" min="0"></label>
+    </div>
+    <p class="note" style="margin:0" id="lyUses"></p>
+    <div class="statline" id="lyStats"></div>
+    <div class="tbl-wrap"><table id="lyTbl"></table></div>
+    <h3 class="lyh">Rule of 55</h3>
+    <div id="ly55"></div>
+    <h3 class="lyh">Milestones</h3>
+    <div class="tbl-wrap"><table id="lyMiles"></table></div>
+    <p class="note" id="lyNote" style="margin:0"></p>
   </section>
 
   <section class="panel" data-k="ssben">
