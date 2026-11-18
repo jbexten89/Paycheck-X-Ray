@@ -438,7 +438,9 @@ html{touch-action:manipulation}
 #ly55 .pill55.yes{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}#ly55 .pill55.no{background:var(--soft);color:var(--muted)}
 .field select{width:100%;min-height:40px;box-sizing:border-box;text-align:left;text-align-last:left;padding:7px 10px;background:var(--surface);color:var(--ink)}
 #ohFix p{margin:10px 0 0;line-height:1.45}
-#ohTbl tr.ohr td{border-bottom:0;padding-bottom:2px}#ohTbl tr.ohd td{padding-top:0;font-size:12.5px;color:var(--muted)}#ohTbl th:first-child{text-transform:none}
+#ohTbl tr.ohr td,#seTbl tr.ohr td{border-bottom:0;padding-bottom:2px}#ohTbl tr.ohd td,#seTbl tr.ohd td{padding-top:0;font-size:12.5px;color:var(--muted)}#ohTbl th:first-child{text-transform:none}
+.seShow{display:flex;align-items:center;min-height:40px;font-family:var(--f-num);font-weight:600;color:var(--ink)}
+#seQe p{margin:8px 0 0;line-height:1.45}
 .sbbon{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0 6px;font-size:14px}
 .sbhow{margin:10px 0}.sbhow>summary{color:var(--accent);font-weight:600;cursor:pointer;padding:8px 0}
 .sbhow table td:first-child{white-space:nowrap}.sbhow table td.f{color:var(--muted);font-size:13px}.sbhow h3{font-size:14px;margin:14px 0 4px}.sbhow h3:first-child{margin-top:4px}
@@ -735,8 +737,7 @@ html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
       <div class="panel-head"><h2>Federal withholding check</h2><span class="muted" id="fsLabel"></span></div>
       <p class="note asof" hidden style="margin:0"></p>
       <div class="fields">
-        <label class="field" for="seProfit">Side business net profit
-          <input id="seProfit" type="number" inputmode="decimal" step="100" min="0" value="0"></label>
+        <div class="field">Side business profit<span class="seShow" id="seShow">$0</span></div>
         <label class="field" for="otherInc">Other taxable income
           <input id="otherInc" type="number" inputmode="decimal" step="100" min="0" value="0"></label>
         <label class="field" for="estPaid">Estimated payments made
@@ -745,6 +746,20 @@ html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
       <div id="taxOut"></div>
     </section>
   </div>
+
+  <section class="panel" data-k="side">
+    <div class="panel-head"><h2>Side business</h2></div>
+    <p class="note asof" hidden style="margin:0"></p>
+    <div class="fields">
+      <label class="field" for="seInc">Business income<input id="seInc" type="number" inputmode="decimal" step="100" min="0" placeholder="0"></label>
+      <label class="field" for="seExp">Business expenses<input id="seExp" type="number" inputmode="decimal" step="100" min="0" placeholder="0"></label>
+    </div>
+    <div class="statline" id="seStats"></div>
+    <div class="tbl-wrap"><table id="seTbl"></table></div>
+    <div class="sbbon"><span>Quarterly estimated tax reminders</span><div class="seg" id="qeSeg" role="group" aria-label="Quarterly estimated tax reminders"><button type="button" data-qe="1">On</button><button type="button" data-qe="0">Off</button></div></div>
+    <div id="seQe"></div>
+    <p class="note" id="seNote" style="margin:0"></p>
+  </section>
 
   <section class="panel" data-k="ohtax">
     <div class="panel-head"><h2>Ohio &amp; local tax check</h2></div>

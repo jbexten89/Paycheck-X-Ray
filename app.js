@@ -784,7 +784,7 @@ function renderYearEnd(m,y){
 document.addEventListener("change",e=>{const t=e.target;if(!t.dataset||!t.dataset.ye)return;const y=state.year,all=state.settings.ye=state.settings.ye||{},Y=all[y]=all[y]||{};if(t.checked)Y[t.dataset.ye]=1;else delete Y[t.dataset.ye];save();keepPos(()=>render())});
 
 /* ---------- render: tax ---------- */
-function taxCalc(m){const st=taxIn(+m.latest.payDate.slice(0,4));
+function taxCalc(m,ov){const st=Object.assign({},taxIn(+m.latest.payDate.slice(0,4)),ov||{});
   const wages=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj");
   const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
   const se=Math.max(0,+st.seProfit||0),oth=Math.max(0,+st.otherInc||0),est=Math.max(0,+st.estPaid||0);
@@ -798,7 +798,7 @@ function taxCalc(m){const st=taxIn(+m.latest.payDate.slice(0,4));
   const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*SSR):0;
   const gap=total-withheld-ssCredit;
   const top=(LIM.br.find(([hi])=>taxable<=hi)||LIM.br[LIM.br.length-1])[1];
-  return{gap,per:m.remaining?gap/m.remaining:0,taxable,top}}
+  return{gap,per:m.remaining?gap/m.remaining:0,taxable,top,total,seTax,inc,withheld,agi}}
 
 /* W-4 fix-it: what to change so the year ends at the refund you want */
 function w4Fix(m,gap,taxable){
@@ -1117,7 +1117,7 @@ $("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
   window.__fillBal=fill;}
 {const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   EYEX='<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.7 8.5 2 12 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
-  const MONEY_IN=["sbEarn","rtBonus","beAmt","wiH","wiX","wiMed","wiDen","wiVis","seProfit","otherInc","estPaid","ssaYouSS","ssaErSS","ssaYouMd","ssaErMd","ohUtIn","ssaIn","balIn","pasteBox"];
+  const MONEY_IN=["sbEarn","rtBonus","beAmt","wiH","wiX","wiMed","wiDen","wiVis","seInc","seExp","otherInc","estPaid","ssaYouSS","ssaErSS","ssaYouMd","ssaErMd","ohUtIn","ssaIn","balIn","pasteBox"];
   MONEY_IN.forEach(id=>{const e=$(id);if(e)e.classList.add("money")});
   const show=()=>{document.documentElement.classList.toggle("hide",HIDE);const b=$("hideBtn");b.innerHTML=HIDE?EYEX:EYE;b.classList.toggle("on",HIDE);b.setAttribute("aria-pressed",String(HIDE));b.setAttribute("aria-label",HIDE?"Dollar amounts hidden. Tap to show.":"Hide dollar amounts")};
   show();$("hideBtn").addEventListener("click",()=>{HIDE=!HIDE;setOpen("hide",HIDE);show();keepPos(()=>render());toast(HIDE?"Dollar amounts hidden":"Dollar amounts shown")});}
@@ -1136,7 +1136,7 @@ $("ssaSave").addEventListener("click",()=>{const rec={};
 function ssEarnings(){/* SSA record where you have it, otherwise your stubs (capped) */
   const R=(state.settings.ssa||{}).rec||{},out={};
   const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))];
-  for(const y of ys){const m=model(y);if(!m.latest)continue;const f=m.remaining?"proj":"ytd",w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f));out[y]={v:Math.min(w,limFor(y).ssBase),src:"stubs",proj:!!m.remaining}}
+  for(const y of ys){const m=model(y);if(!m.latest)continue;const f=m.remaining?"proj":"ytd",w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f));const se=+taxIn(y).seProfit||0;out[y]={v:Math.min(w+(se>=400?se*.9235:0),limFor(y).ssBase),src:"stubs",proj:!!m.remaining,se:se>=400?se*.9235:0}}
   for(const y in R)if(!(out[y]&&out[y].proj))out[y]={v:+R[y][0],src:"ssa"};return out}
 function piaOf(A){const[b1,b2]=BEND;return Math.floor((.9*Math.min(A,b1)+.32*Math.max(0,Math.min(A,b2)-b1)+.15*Math.max(0,A-b2))*10)/10}
 /* Social Security setup shared by the benefit estimate and the earnings record: earnings by year,
@@ -1720,7 +1720,7 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
-const JUMP_NAMES={home:"At a glance",ohtax:"Ohio & local",changes:"What changed",lastyr:"Last year",yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
+const JUMP_NAMES={home:"At a glance",side:"Side business",ohtax:"Ohio & local",changes:"What changed",lastyr:"Last year",yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
   yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
   yoy401:"401(k)",yoySave:"Savings rate",yoyBal:"Balances",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
@@ -1883,6 +1883,7 @@ function renderHome(m,y){
   if(bad||warn)att.push(["checks",`${bad+warn} payroll ${bad+warn>1?"items":"item"} to check`,1]);
   const chg=stubChanges(s).filter(x=>x.k==="warn").length;if(chg)att.push(["changes",`${chg} change${chg>1?"s":""} to look at`,1]);
   if(T&&T.gap>500&&m.remaining)att.push(["tax",`Withholding short by ${fmt0(T.gap)}`,1]);
+  if(state.settings.qe===true&&T&&T.gap>=1000){const dd=[`${y}-04-15`,`${y}-06-15`,`${y}-09-15`,`${y+1}-01-15`].find(d=>d>=todayISO);if(dd&&(dObj(dd)-dObj(todayISO))/864e5<=21)att.push(["side",`Estimated tax due ${nice(dd)}`,1])}
   const lb=state.settings.lastBackup,bd=lb?Math.round((dObj(todayISO)-dObj(String(lb.at).slice(0,10)))/864e5):null;if(!lb||bd>30)att.push(["backup",lb?`Last backup ${bd} days ago`:"No backup yet",1]);
   if(!document.querySelector('section[data-k="yearend"]').hidden)att.push(["yearend","Year-end checklist",0]);
   {const cur=+todayISO.slice(0,4);if(y<cur||+todayISO.slice(5,7)>=12)att.push(["yir",`✦ ${y}${y>=cur?" so far":""} in review →`,0])}
@@ -1952,6 +1953,10 @@ function ohioTax(y,t){if(t<=26050)return 0;
   return null}
 const ohExempt=magi=>magi<=40000?2400:magi<=80000?2150:magi<750000?1900:0;
 const isOH=i=>isStateLocal(i)&&/^OH\b|OHIO/i.test(i.label),isSD=i=>isStateLocal(i)&&!isOH(i)&&/SCHL|SCHOOL|\bSD\b|SDW/i.test(i.label),isCityTax=i=>isStateLocal(i)&&!isOH(i)&&!isSD(i);
+/* local tax settings in force for year y (set from a year forward), with the school district rate falling back to what withholding works out to */
+function locFor(y,m){const LY=(state.settings.loc||{}).y||{},at=k=>{const ys=Object.keys(LY).map(Number).filter(x=>x<=y&&LY[x]&&LY[x][k]!=null).sort((a,b)=>b-a);return ys.length?LY[ys[0]][k]:null};
+  const box1=m?m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj"):0,sdW=m?m.val(isSD,"proj"):0,inf=sdW>0&&box1>0?Math.round(sdW/box1*400)/4:null;
+  return{sdRate:at("sdRate")!=null?+at("sdRate"):inf,sdBase:at("sdBase")==="earned"?"earned":"trad",cityRate:at("cityRate")!=null?+at("cityRate"):null,cityCredit:+at("cityCredit")||0}}
 function renderOhio(m,y){
   const sec=document.querySelector('section[data-k="ohtax"]');if(state.tab!=="year"||!m.latest){sec.hidden=true;return}
   /* rates are set from a year forward (people move); "paid" is for one year only */
@@ -1963,7 +1968,7 @@ function renderOhio(m,y){
   const ohT=ohioTax(y,ohBase),ohW=m.val(isOH,f);
   /* school district rate: what you entered, or what this year's withholding works out to */
   const sdW=m.val(isSD,f),sdInf=sdW>0&&box1>0?Math.round(sdW/box1*400)/4:null,sdRate=loc.sdRate!=null?+loc.sdRate:sdInf,sdBase=loc.sdBase==="earned"?"earned":"trad";
-  const sdTaxable=sdBase==="earned"?box1+se:Math.max(0,fagi-ex),sdT=sdRate!=null?sdTaxable*sdRate/100:null;
+  const sdTaxable=sdBase==="earned"?box1+se*.9235:Math.max(0,fagi-ex),sdT=sdRate!=null?sdTaxable*sdRate/100:null;
   const cityRate=loc.cityRate!=null?+loc.cityRate:null,cityCr=Math.min(100,Math.max(0,+loc.cityCredit||0)),workW=m.val(isCityTax,f),cityPaid=+paid.city||0;
   const cityWages=medW+se,cityGross=cityRate?cityWages*cityRate/100:0,cityT=cityRate!=null?Math.max(0,cityGross-Math.min(workW,cityGross)*cityCr/100):null;
   [["sdRate",sdRate!=null?String(sdRate):""],["cityRate",cityRate!=null?String(cityRate):""],["cityCredit",loc.cityCredit!=null?String(loc.cityCredit):""],["cityPaid",paid.city!=null?String(paid.city):""]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=v});
@@ -1992,6 +1997,39 @@ function renderOhio(m,y){
   [["sdRate"],["cityRate"],["cityCredit"]].forEach(([k])=>$(k).addEventListener("change",e=>locSet(k,e.target.value)));
   $("sdBase").addEventListener("change",e=>locSet("sdBase",e.target.value));$("cityPaid").addEventListener("change",e=>locSet("cityPaid",e.target.value))}
 
+
+/* ---------- Side business: what the profit costs in tax, Social Security credit, quarterly estimates ---------- */
+function renderSide(m,y){
+  const sec=document.querySelector('section[data-k="side"]');if(state.tab!=="year"||!m.latest){sec.hidden=true;return}
+  const st=taxIn(y),inc=st.seInc!=null?+st.seInc:(+st.seProfit||0),exp=+st.seExp||0,se=Math.max(0,inc-exp),qeOn=state.settings.qe===true;
+  [["seInc",st.seInc!=null||st.seProfit?String(inc):""],["seExp",st.seExp!=null?String(exp):""]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=v});
+  $("qeSeg").querySelectorAll("[data-qe]").forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.qe==="1")===qeOn)));
+  if(!se){$("seStats").innerHTML="";$("seTbl").innerHTML="";$("seQe").innerHTML="";$("seNote").textContent="Enter what your photography business took in and spent this year. The profit flows into the federal check, the Ohio & local check and your Social Security earnings.";setSum("side","No business income entered");sec.hidden=false;return}
+  const T=taxCalc(m),T0=taxCalc(m,{seProfit:0}),fedInc=(T.total-T.seTax)-(T0.total-T0.seTax),L=locFor(y,m),ssW=Math.min(m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj"),limFor(y).ssBase);
+  const nese=se>=400?se*.9235:0,ssPart=Math.min(nese,Math.max(0,limFor(y).ssBase-ssW))*.124,mdPart=nese*.029;
+  const ohio=Math.max(0,se-250000)*.03,sd=L.sdRate?(L.sdBase==="earned"?nese:se-T.seTax/2)*L.sdRate/100:0,city=L.cityRate?se*L.cityRate/100:0;
+  const rows=[["Social Security (12.4%)",ssPart,ssPart<nese*.124-.5?"only up to the yearly cap, after your wages":"on 92.35% of profit"],["Medicare (2.9%)",mdPart,"on 92.35% of profit"],["Federal income tax",fedInc,`at your ${Math.round(T.top*100)}% bracket, after deducting half the self-employment tax`],["Ohio",ohio,se<=250000?"$0: business income deduction covers the first $250,000":"3% above $250,000"]];
+  if(L.sdRate)rows.push(["School district",sd,`${L.sdRate}% (${L.sdBase==="earned"?"earned income":"traditional"} base)`]);
+  if(L.cityRate)rows.push(["City you live in",city,`${L.cityRate}% of profit`]);
+  const tot=rows.reduce((a,r)=>a+r[1],0),rate=tot/se;
+  $("seStats").innerHTML=`<div class="stat"><small>Profit</small><b>${fmt0(se)}</b><small>${fmt0(inc)} in − ${fmt0(exp)} expenses</small></div><div class="stat"><small>Tax on it</small><b>${fmt0(tot)}</b><small>set aside about ${Math.ceil(rate*100)}% of profit</small></div>`;
+  $("seTbl").innerHTML=`<tbody>`+rows.map(r=>`<tr class="ohr"><td>${r[0]}</td><td class="n">${fmt0(r[1])}</td></tr><tr class="ohd"><td colspan="2">${esc(r[2])}</td></tr>`).join("")+`<tr class="total"><td>Total</td><td class="n">${fmt0(tot)}</td></tr></tbody>`;
+  /* quarterly estimates */
+  const due=[[`${y}-04-15`,"Apr 15"],[`${y}-06-15`,"Jun 15"],[`${y}-09-15`,"Sep 15"],[`${y+1}-01-15`,`Jan 15, ${y+1}`]],left=due.filter(d=>d[0]>=todayISO),short=Math.max(0,T.gap);
+  $("seQe").innerHTML=qeOn?(short<1000?`<p>Your withholding covers the federal tax, including the business, within $1,000, so no estimated payments are needed for ${y}.</p>`:
+      `<p>Federal tax not covered by withholding: about <b class="num">${fmt0(short)}</b>. ${left.length?`Pay about <b class="num">${fmt0(Math.ceil(short/left.length))}</b> by ${left.map(d=>d[1]).join(", ")} (IRS Direct Pay).`:"All of this year's due dates have passed; it's due when you file."}</p>`)+
+      `<p class="muted">No underpayment penalty if withholding plus estimates cover 100% of last year's tax (110% if income was over $150,000), or you owe less than $1,000.</p>`:
+    `<p>Reminders are off. Without estimated payments, cover the business tax with extra withholding instead: the W-4 fix-it in the federal check already includes it. Withholding counts as if paid evenly through the year, so adding it late in the year still avoids the penalty.</p>`;
+  const ssAdd=Math.max(0,Math.min(nese,limFor(y).ssBase-ssW));
+  $("seNote").textContent=`Social Security: adds ${fmt0(ssAdd)} to your ${y} earnings (92.35% of profit, up to the cap after your wages), which counts toward your benefit.${ssAdd<nese-1?" Your wages already reach the cap, so the rest doesn't count.":""} Profit is income minus expenses, as on Schedule C. The federal figure already includes the 20% qualified business income deduction.`;
+  setSum("side",`<strong>${fmt0(se)}</strong> profit · ${fmt0(tot)} tax on it`);
+  sec.hidden=false}
+{const seSet=(k,v)=>{const t=state.settings.tax=state.settings.tax||{},cur=Object.assign({},taxIn(state.year)),x=String(v).trim();
+    if(x===""||!isFinite(+x))delete cur[k];else cur[k]=+x;
+    const inc=cur.seInc!=null?+cur.seInc:0,exp=+cur.seExp||0;cur.seProfit=Math.max(0,inc-exp);t[state.year]=cur;save();keepPos(()=>render())};
+  $("seInc").addEventListener("change",e=>seSet("seInc",e.target.value));$("seExp").addEventListener("change",e=>seSet("seExp",e.target.value));
+  $("qeSeg").addEventListener("click",e=>{const b=e.target.closest("[data-qe]");if(!b)return;state.settings.qe=b.dataset.qe==="1";save();keepPos(()=>render())})}
+
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
   if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
@@ -2010,9 +2048,9 @@ function renderMain(){
   $("yirBar").hidden=true;
   if(all){applyGroup();renderYoy();fixSolo();return}
   if(tab==="stubs")return;
-  $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
+  $("age").value=ageFor(y)||"";["otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});$("seShow").textContent=fmt0(+taxIn(y).seProfit||0);
   let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
-  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderOhio(ma,y);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);renderYearEnd(m,y);renderChanges(m,y);renderHome(m,y);
+  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderSide(ma,y);renderOhio(ma,y);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);renderYearEnd(m,y);renderChanges(m,y);renderHome(m,y);
   {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
   if(tab!=="year")$("chkBar").hidden=true;
   renderRetire();renderLastYr();renderSsBen();
@@ -2100,12 +2138,12 @@ const pickDay=d=>{const ys=yearStubs(state.year);const s=ys.find(x=>x.payDate===
 const pickPill=p=>{if(p.dataset.key){state.checkKey=p.dataset.key;state.mode="cur";render();const sec=document.querySelector('section[data-k="gross"]');if(sec){applyPanel(sec,true);setOpen("gross",true);sec.scrollIntoView({behavior:"smooth",block:"start"})}}else pickDay(p.dataset.chk)};
 $("months").addEventListener("click",e=>{const p=e.target.closest("[data-chk],[data-key]");if(p)pickPill(p)});
 $("months").addEventListener("keydown",e=>{const p=e.target.closest("[data-chk],[data-key]");if(p&&(e.key==="Enter"||e.key===" ")){e.preventDefault();pickPill(p)}});
-function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=state.settings.seProfit;$("otherInc").value=state.settings.otherInc;$("estPaid").value=state.settings.estPaid}
+function syncInputs(){$("age").value=state.settings.age;$("otherInc").value=state.settings.otherInc;$("estPaid").value=state.settings.estPaid}
 const debounce=(fn,ms)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
 const keepFocus=fn=>{const el=document.activeElement,id=el&&el.id,ss=el&&el.selectionStart,se=el&&el.selectionEnd;fn();if(id){const n=$(id);if(n&&n!==document.activeElement){n.focus();try{n.setSelectionRange(ss,se)}catch(e){}}}};
 const renderSoon=debounce(()=>keepFocus(()=>keepPos(()=>render())),350);
 $("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();renderSoon()});
-["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();renderSoon()}));
+["otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();renderSoon()}));
 
 state.tab=["year","all","plan","stubs"].includes(ui.tab)?ui.tab:(isOpen("view")?"all":"year");state.view=state.tab==="all"?"all":"year";state.real=isOpen("real");state.yg=typeof ui.yg==="string"?ui.yg:"pay";
 window.__applyTheme&&window.__applyTheme();initPanels();
