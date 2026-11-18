@@ -1188,6 +1188,7 @@ function renderSsBen(){
       `<tr class="total"><td>At full retirement age (${Math.floor(fraM/12)})</td><td class="f">${m(raw)} rounded down to the dime</td><td class="n">${m(R.pia)}</td></tr></tbody></table></div>
       <h3>4. When you start</h3><div class="tbl-wrap"><table><tbody>`+
       row("At 62",`${Math.floor(fraM/12)*12-62*12} months early: −5/9% a month for 36 months, −5/12% after`,fmt0(at(62*12)))+
+      (fraM>65*12?row("At 65",`${fraM-65*12} months early: −5/9% a month`+(fraM-65*12>36?", −5/12% past 36":""),fmt0(at(65*12))):"")+
       row(`At ${Math.floor(fraM/12)}`,"full benefit",fmt0(at(fraM)))+
       row("At 70",`${70*12-fraM} months late: +2/3% a month`,fmt0(at(70*12)))+
       `</tbody></table></div>
