@@ -426,6 +426,10 @@ section.panel,#yoyView>section{scroll-margin-top:calc(env(safe-area-inset-top,0p
 /* Desktop: sidebar with title, tabs, pickers and section list; content to the right. Phones unchanged. */
 /* pinch zoom allowed; double-tap zoom off so quick taps stay taps */
 html{touch-action:manipulation}
+/* Social Security: years in the highest 35 */
+tr.top35>td{background:color-mix(in srgb,var(--accent) 11%,transparent)}
+tr.top35>td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.top35note{margin:8px 0 0}.t35key{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px;background:color-mix(in srgb,var(--accent) 22%,transparent);box-shadow:inset 3px 0 0 var(--accent)}
 /* touch screens: small controls get an invisible hit area of about 44px without changing how they look */
 @media (pointer:coarse){
   .themebtn,.jchip,.btn.small,.tog,.pd,.seg button,.er-tog,.tblbtn,.bd-row.grp.can{position:relative}
@@ -615,7 +619,7 @@ html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
     </section>
     <section class="panel" data-k="yoyEarn" style="grid-column:1/-1">
       <div class="panel-head"><h2>Social Security earnings record</h2></div>
-      <div class="chart" id="yoyEarn"></div><div class="legend-row" id="yoyEarnLeg"></div><p class="yd" id="yoyEarnD"></p>
+      <div class="chart" id="yoyEarn"></div><div class="legend-row" id="yoyEarnLeg"></div><p class="yd" id="yoyEarnD"></p><div id="ssTop"></div>
       <div class="tbl-wrap"><table class="yt ytab" id="tbEarn"></table></div>
       <p class="note" id="yoyEarnNote" style="margin:6px 0 0"></p>
       <div id="ssaOld"></div>
