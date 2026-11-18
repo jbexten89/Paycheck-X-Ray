@@ -255,6 +255,7 @@ html:not(.rpt) .grid2>.solo{grid-column:1/-1}
 .ye.done{opacity:.55}.ye.done b{text-decoration:line-through}
 .w2in{width:100px;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:right;font-size:16px;font-family:var(--f-num)}
 
+.w4fix{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.w4fix .er-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
 .ohbox{margin-top:12px}.ohbox summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:14px}
 .ohbox textarea{width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--f-num);font-size:16px}
 html.light{--bg:#F4F5F7;--surface:#FFFFFF;--ink:#16191D;--muted:#5C636C;--line:#DCE0E5;--soft:#ECEFF2;--accent:#1F6FE0;--good:#1E9C72;--info:#3D6FA8;--bad:#D2475A;--c-gross:#9AA1AA;color-scheme:light}
@@ -849,6 +850,8 @@ const LIMS={
 LIMS[2026].ohSupp=.0275;
 LIMS[2027]=Object.assign({},LIMS[2026],{std:16600,br:[[12800,.10],[52025,.12],[109125,.22],[208325,.24],[264550,.32],[661375,.35],[Infinity,.37]],
   k401:25500,c50:8500,c60:11750,total:75000,ssBase:192300,hsaSelf:4500,hsaFam:9000,hsaCatch:1000});
+/* SECURE 2.0 Roth catch-up: catch-ups in the listed year must be Roth if the prior year's Social Security wages (W-2 Box 3) passed this line */
+LIMS[2026].rcT=150000;LIMS[2027].rcT=155000;
 const limYears=Object.keys(LIMS).map(Number).sort();
 const limFor=y=>LIMS[y]||LIMS[limYears.filter(k=>k<=y).pop()||limYears[0]];
 let LIM=limFor(2026);
@@ -1561,6 +1564,9 @@ function renderYearEnd(m,y){
   /* 401(k) */
   {const cu=age>=60&&age<=63?L.c60:age>=50?L.c50:0,kLim=L.k401+cu,kP=m.val(isDefer,"proj"),kY=m.val(isDefer,"ytd"),room=r2(kLim-kP),now=r2(m.val(isDefer,"cur"));
     if(room>500)items.push({k:"k401",t:`401(k): ${fmt0(room)} of room you won't use`,d:`You're on pace for ${fmt0(kP)} of your ${fmt0(kLim)} limit${cu?` (includes the ${fmt0(cu)} age-${age>=60&&age<=63?"60–63":"50"} catch-up)`:""}. To use all of it you'd need about <b class="num">${fmt0((kLim-kY)/n)}</b> per check (now ${fmt(now)}); any amount helps. Unused room doesn't carry over.`,due:pds[0]})}
+  /* next year's Roth catch-up line */
+  {const R=rothCatch(y+1);if(R&&(R.over||R.gap<15000))items.push({k:"rothcu",t:R.over?`${y+1} catch-ups will have to be Roth`:`${fmt0(R.gap)} under the Roth catch-up line`,
+    d:R.over?`Your ${y} Social Security wages are on pace for ${fmt0(R.b3)}, over ${fmt0(R.thr)}. Anything you put in above the ${fmt0(R.reg)} regular limit in ${y+1} goes in as Roth. It only matters if you contribute more than ${fmt0(R.reg)}.`:`Your ${y} Social Security wages are on pace for ${fmt0(R.b3)}. Going over ${fmt0(R.thr)} (a bonus, a raise) makes ${y+1} catch-ups Roth-only. It only matters if you contribute more than ${fmt0(R.reg)}.`,warn:R.over})}
   /* bonus */
   {const prev=state.stubs.filter(x=>isExtra(x)&&isBonusCheck(x)&&x.payDate.startsWith((y-1)+"")).sort((a,b)=>a.payDate<b.payDate?-1:1);
     const got=m.ys.some(x=>isExtra(x)&&isBonusCheck(x)&&x.payDate>=`${y}-${prev.length?prev[0].payDate.slice(5,7):"11"}-01`);
@@ -1597,6 +1603,19 @@ function taxCalc(m){const st=taxIn(+m.latest.payDate.slice(0,4));
   const top=(LIM.br.find(([hi])=>taxable<=hi)||LIM.br[LIM.br.length-1])[1];
   return{gap,per:m.remaining?gap/m.remaining:0,taxable,top}}
 
+/* W-4 fix-it: what to change so the year ends at the refund you want */
+function w4Fix(m,gap,taxable){
+  const want=+(state.settings.w4t||0)||0,n=m.remaining,need=gap+want,per=need/n,top=(LIM.br.find(([hi])=>taxable<=hi)||[0,.22])[1]||.22;
+  const npy=m.pds.length||26,ded=Math.round(-per*npy/top/100)*100;
+  let out;
+  if(Math.abs(per)<1)out=`You're right on target. Leave your W-4 as it is.`;
+  else if(per>0)out=`Add <b class="num">${fmt0(Math.ceil(per))}</b> per check to W-4 Step 4(c) (on top of any amount already there) for the ${n} paydays left. That withholds about ${fmt0(Math.ceil(per)*n)} more by Dec 31.`;
+  else out=`You're on track to get back ${fmt0(-need)} more than you want. If Step 4(c) has an amount, lower it by <b class="num">${fmt0(Math.floor(-per))}</b> per check. If it's blank, enter about <b class="num">${fmt0(ded)}</b> on Step 4(b) (deductions) instead.`;
+  return`<div class="w4fix"><div class="er-head"><h3>W-4 fix-it</h3>
+    <label class="field" style="flex-direction:row;align-items:center;gap:8px;white-space:nowrap">Refund I want <input id="w4t" class="w2in" style="width:110px;flex:none" type="number" inputmode="decimal" step="100" value="${want}" aria-label="Refund you want, in dollars"></label></div>
+    <p class="note" style="margin:6px 0 0">${out}</p>
+    <p class="note" style="margin:6px 0 0">Give the new W-4 to payroll; it usually starts within a check or two. A Step 4(c) amount stays until you change it, so reset it in January if you only needed it this year. Use 0 to aim for owing nothing.</p></div>`}
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="w4t"){const v=e.target.value.trim();state.settings.w4t=v===""?0:+v||0;save();keepPos(()=>render())}});
 function bracketTax(t){let tax=0,lo=0;for(const[hi,r]of LIM.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax}
 function renderTax(m){
   if(m.partial){$("fsLabel").textContent="";$("taxOut").innerHTML=`<p class="note">Only stubs through ${nice(m.latest.payDate)} are loaded for ${state.year}, so there's no full-year estimate yet. Add the rest of the year to see one.</p>`;setSum("tax",`Partial year (through ${nice(m.latest.payDate)})`);return}
@@ -1621,8 +1640,9 @@ function renderTax(m){
   const owe=gap>0.5;
   setSum("tax",owe?`<span class="warn">${m.remaining?"Projected to owe":"Estimated owed"} <strong>${fmt0(gap)}</strong></span>`:`Projected refund <strong>${fmt0(-gap)}</strong>`);
   $("taxOut").innerHTML=`<div class="verdict ${owe?"owe":"refund"}"><span class="eyebrow">${m.remaining?(owe?"Projected to owe":"Projected refund"):(owe?`Estimated owed for ${state.year}`:`Estimated refund for ${state.year}`)}</span><span class="big">${fmt0(Math.abs(gap))}</span>
-    <span class="note">${owe?(m.remaining?`Adding about <b class="num">${fmt0(Math.ceil(per))}</b> per check on W-4 line 4(c) for the ${m.remaining} paydays left would close it.`:"The year's paychecks are all in, so this is what withholding left to settle on the return.")+(gap<1000?" Owing under $1,000 generally avoids an underpayment penalty.":""):"Withholding covers the estimate."}</span></div>
+    <span class="note">${owe?(m.remaining?`The W-4 fix-it below shows what to change.`:"The year's paychecks are all in, so this is what withholding left to settle on the return.")+(gap<1000?" Owing under $1,000 generally avoids an underpayment penalty.":""):"Withholding covers the estimate."}</span></div>
     <div class="tbl-wrap"><table><tbody>${rows.map(r=>`<tr${r[2]?' class="total"':""}><td>${r[0]}</td><td class="n">${fmt0(r[1])}</td></tr>`).join("")}</tbody></table></div>
+    ${m.remaining?w4Fix(m,gap,taxable):""}
     <p class="note">Estimate using ${state.year} Single brackets and the standard deduction. It assumes the latest check repeats, ignores credits and itemizing, and treats side-business profit as qualified business income.</p>`;
 }
 
@@ -1654,6 +1674,7 @@ function renderMeters(m){
   const hLines=[`${fmt0(hY)} so far: ${fmt0(hY-hEr)} from you (${fmt(hC)} ${perLbl}) and ${fmt0(hEr)} from your employer.`,
     m.remaining===0?(hY>hLim+0.5?`<b>Year finished ${fmt0(hY-hLim)} over the limit.</b>`:(hLim-hY>1?`Year finished ${fmt0(hLim-hY)} under the limit.`:`Hit the limit exactly.`)):hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it by about ${fmt0(-extraPer)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. Adding about <b class="num">${fmt0(extraPer)}</b> per check (about <b class="num">${fmt0(hC+extraPer)}</b> total) would fill it.`:`On pace to hit the limit exactly.`,
     `${fam?"Family":"Self-only"} limit${age>=55?" plus the age-55 catch-up":""}. Employer deposits count toward it.`];
+  {const rl=rothCatchLine(rothCatch(state.year),kP);if(rl)kLines.push(rl)}
   $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines,catchUp)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines,age>=55?LIM.hsaCatch:0):"")+k401Total(m,catchUp);
   setSum("savings",`401(k) <strong>${fmt0(k401Sum)}</strong> total`+(hsaItems.length?` · HSA `+(hP>hLim+0.5?`<span class="warn">${fmt0(hP-hLim)} over</span>`:`<strong>${fmt0(Math.max(0,hLim-hP))}</strong> room left`):""));
 }
@@ -1948,6 +1969,19 @@ function renderSsBen(){
   $("sbLast").addEventListener("change",e=>sbSet("last",e.target.value));$("sbEarn").addEventListener("change",e=>sbSet("earn",e.target.value));}
 
 /* ---------- next year at today's settings ---------- */
+/* Roth catch-up check for year Y (rule year), from the prior year's W-2 Box 3 */
+function rothCatch(Y){
+  const L=LIMS[Y];if(!L||!L.rcT||ageFor(Y)<50)return null;
+  const P=Y-1,w2=(state.settings.w2||{})[P]||{};let b3=null,actual=false,onPace=false;
+  if(w2["3"]!=null&&w2["3"]!==""&&isFinite(+w2["3"])){b3=+w2["3"];actual=true}
+  else{if(!yearStubs(P).length)return null;const pm=model(P);if(pm.partial)return null;
+    b3=Math.min(pm.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-pm.val(isSec125,"proj"),limFor(P).ssBase);onPace=pm.remaining>0}
+  const over=b3>L.rcT;return{Y,P,b3,thr:L.rcT,over,gap:L.rcT-b3,actual,onPace,reg:L.k401}}
+function rothCatchLine(R,dP){if(!R)return"";
+  const src=R.actual?`your ${R.P} W-2 Box 3 is`:R.onPace?`your ${R.P} Social Security wages are on pace for`:`your ${R.P} Social Security wages were`;
+  if(R.over)return`<b>Roth catch-up:</b> ${src} ${fmt0(R.b3)}, over ${fmt0(R.thr)}, so any ${R.Y} catch-up (what you put in above the ${fmt0(R.reg)} regular limit) must go in as Roth, taxed now. `+
+    (dP!=null?(dP<=R.reg+0.5?`You're putting in about ${fmt0(dP)}, under the regular limit, so this doesn't change your checks.`:`About ${fmt0(dP-R.reg)} of yours is catch-up and will be after-tax.`):"");
+  return`<b>Roth catch-up:</b> ${src} ${fmt0(R.b3)}, ${fmt0(R.gap)} under the ${fmt0(R.thr)} line, so ${R.Y} catch-ups can stay pre-tax.`+(R.onPace&&R.gap<15000?` A bonus or raise of more than ${fmt0(R.gap)} before Dec 31 would make them Roth-only.`:"")}
 function nextYear(){
   const y=state.year,ny=y+1,lastY=Math.max(...state.stubs.map(s=>+s.payDate.slice(0,4)));
   if(y!==lastY||!LIMS[ny])return"";
@@ -1959,7 +1993,8 @@ function nextYear(){
   const kNeed=kLim/n;
   const kLines=[`${fmt(kPer)} per check (${(kPct*100).toFixed(1)}% of ${fmt(per)}) × ${n} paydays.`,
     kP>kLim+0.5?`<b>Projected ${fmt0(kP-kLim)} over the limit.</b> Keep it to about ${fmt0(kNeed)} per check.`:kLim-kP>1?`Room left: ${fmt0(kLim-kP)}. To max out, set about <b class="num">${fmt0(kNeed)}</b> per check (${(kNeed/per*100).toFixed(1)}% of pay).`:"On pace to hit the limit exactly.",
-    `Regular checks only; a bonus would add ${(kPct*100).toFixed(1)}% of the bonus. `+(cu?`Limit includes the ${fmt0(cu)} age catch-up.`:"")+(L.proj401?` ${ny} 401(k) limits are forecasts until the IRS announces them, usually in November.`:"")];
+    `Regular checks only; a bonus would add ${(kPct*100).toFixed(1)}% of the bonus. `+(cu?`Limit includes the ${fmt0(cu)} age catch-up.`:"")+(L.proj401?` ${ny} 401(k) limits are forecasts until the IRS announces them, usually in November.`:""),
+    rothCatchLine(rothCatch(ny),kP)].filter(Boolean);
   let out=meter("",`401(k), you, in ${ny}`,0,kP,kLim,kLines,cu,true);
   const hItems=s.items.filter(isHSA);
   if(hItems.length){const fam=hItems.some(i=>/FAM/i.test(i.label)),hNow=r2(hItems.reduce((a,i)=>a+i.cur,0)),hSet=state.settings.nextHsa,hPer=hSet!=null&&hSet!==""&&isFinite(+hSet)?r2(+hSet):hNow,hEr=M.val(isHSAer,"proj");
