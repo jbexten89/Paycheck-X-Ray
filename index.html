@@ -844,10 +844,11 @@ const LIMS={
     k401:23500,c50:7500,c60:11250,total:70000,ssBase:176100,hsaSelf:4300,hsaFam:8550,hsaCatch:1000},
   2026:{std:16100,br:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]],
     k401:24500,c50:8000,c60:11250,total:72000,ssBase:184500,hsaSelf:4400,hsaFam:8750,hsaCatch:1000}};
-/* 2027: HSA from Rev. Proc. 2026; 401(k) figures are forecasts until the IRS announces them. Tax brackets carry over from 2026. */
+/* 2027: IRS Notice 2026-66 (401k), Rev. Proc. 2026-24 (HSA), Rev. Proc. 2026-35 (brackets, standard deduction), SSA 2027 fact sheet (wage base). */
 /* Ohio flat rate for bonuses and other supplemental wages (Ohio Dept. of Taxation, 2026 withholding guidance). */
 LIMS[2026].ohSupp=.0275;
-LIMS[2027]=Object.assign({},LIMS[2026],{k401:25500,c50:8500,c60:11750,total:75000,hsaSelf:4500,hsaFam:9000,hsaCatch:1000,proj401:true});
+LIMS[2027]=Object.assign({},LIMS[2026],{std:16600,br:[[12800,.10],[52025,.12],[109125,.22],[208325,.24],[264550,.32],[661375,.35],[Infinity,.37]],
+  k401:25500,c50:8500,c60:11750,total:75000,ssBase:192300,hsaSelf:4500,hsaFam:9000,hsaCatch:1000});
 const limYears=Object.keys(LIMS).map(Number).sort();
 const limFor=y=>LIMS[y]||LIMS[limYears.filter(k=>k<=y).pop()||limYears[0]];
 let LIM=limFor(2026);
@@ -867,9 +868,11 @@ const stubCmp=(x,y)=>{if(x.payDate!==y.payDate)return x.payDate<y.payDate?-1:1;
   if((x.employer||"")===(y.employer||"")&&typeof nx==="number"&&typeof ny==="number"&&Math.abs(nx-ny)>0.005)return nx-ny;
   const a=skey(x),b=skey(y);return a<b?-1:a>b?1:0};
 const sortStubs=a=>a.sort(stubCmp);
+/* a stub needs a real pay date and an item list, or rendering breaks */
+const okStub=s=>s&&typeof s==="object"&&/^\d{4}-\d\d-\d\d$/.test(s.payDate||"")&&Array.isArray(s.items);
 function load(){
   let stored=null;try{const r=localStorage.getItem(KEY);if(r)stored=JSON.parse(r)}catch(e){}
-  if(stored&&Array.isArray(stored.stubs)){state.stubs=stored.stubs;Object.assign(state.settings,stored.settings||{})}
+  if(stored&&Array.isArray(stored.stubs)){state.stubs=stored.stubs.filter(okStub);Object.assign(state.settings,stored.settings||{})}
   if((state.settings.seedVersion||0)<SEED_VERSION){
     const have=new Set(state.stubs.map(skey));
     for(const s of SEED)if(!have.has(skey(s)))state.stubs.push(JSON.parse(JSON.stringify(s)));
@@ -914,7 +917,7 @@ const isoOf=dt=>dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"
 const addDays=(iso,n)=>{const d=dObj(iso);d.setDate(d.getDate()+n);return isoOf(d)};
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const nice=iso=>{const d=dObj(iso);return MON[d.getMonth()]+" "+d.getDate()};
-const todayISO=isoOf(new Date());
+let todayISO=isoOf(new Date());
 
 /* ---------- collapsible UI ---------- */
 const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -1380,7 +1383,7 @@ function k401Total(m,catchUp){
   const erY=r2(tY-youY),erP=r2(tP-youP);
   const lim=LIM.total+catchUp;k401Sum=tP;const gP=m.val(i=>i.sec==="earnings","proj")||1;const pc=v=>(v/gP*100).toFixed(1)+"%";
   return`<div class="k401"><div class="er-head"><h3>401(k) total, you + employer</h3><span class="num">${fmt0(tP)}</span></div>
-    <p class="bd-sub" style="margin:-6px 0 0">${m.remaining?"Projected for":"Total for"} ${m.latest.payDate.slice(0,4)}: ${fmt0(youP)} from you and ${fmt0(erP)} from your employer. Your employer puts in about ${fmt(erP/(youP||1))} for every $1 you do.</p>
+    <p class="bd-sub" style="margin:-6px 0 0">${m.remaining?"Projected for":"Total for"} ${m.latest.payDate.slice(0,4)}: ${fmt0(youP)} from you and ${fmt0(erP)} from your employer. ${youP>0?`Your employer puts in about ${fmt(erP/youP)} for every $1 you do.`:""}</p>
     <div class="bar" role="img" aria-label="${shown.map(p=>`${p.name} ${Math.round(p.p/tP*100)}%`).join(", ")}">${shown.map(p=>`<div style="width:${(p.p/tP*100).toFixed(3)}%;background:var(${p.c})" title="${p.name}: ${fmt(p.p)}"></div>`).join("")}</div>
     <div class="tbl-wrap"><table><thead><tr><th>Source</th><th class="n">YTD</th><th class="n">Dec 31</th><th class="n">% of pay</th></tr></thead><tbody>
       ${shown.map(p=>`<tr${p.you?' class="you"':""}><td><span class="sw" style="background:var(${p.c})"></span>${esc(p.name)}</td><td class="n">${fmt0(p.y)}</td><td class="n">${fmt0(p.p)}</td><td class="n">${pc(p.p)}</td></tr>`).join("")}
@@ -1416,13 +1419,15 @@ function runChecks(m,y){
       if(Math.abs(exp-i.ytd)>0.02){ytdBad++;out.push(["bad",`${nice(s.payDate)}: ${i.label} year-to-date jumped`,`Expected ${fmt(exp)} (previous YTD plus this check), stub shows ${fmt(i.ytd)}. Off by ${fmt(i.ytd-exp)}.`])}}}
     const Y=(p)=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);
     const ssW=Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125);
-    const ss=Y(isSS),md=Y(isMedi);
+    const ss=Y(isSS),md=Y(isMedi),LIMY=limFor(+s.payDate.slice(0,4));
+    /* payroll rounds each check, so allow about a cent per check so far this year */
+    const tol=0.02+0.01*state.stubs.filter(x=>x.payDate.slice(0,4)===s.payDate.slice(0,4)&&x.payDate<=s.payDate).length;
     const ficaNow=s.items.filter(i=>isSS(i)||isMedi(i)).reduce((a,i)=>a+Math.abs(i.cur),0);
     if(isExtra(s)&&ficaNow<0.005){}else{
-    if(ss&&ssW<=LIM.ssBase&&Math.abs(ss-ssW*SSR)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security isn't ${pctS()}`,`Year-to-date Social Security wages ${fmt(ssW)} × ${pctS()} = ${fmt(ssW*SSR)}, withheld ${fmt(ss)}.`])}
-    if(ss&&ssW>LIM.ssBase&&Math.abs(ss-LIM.ssBase*SSR)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security over the cap`,`Wages passed the ${fmt0(LIM.ssBase)} cap, so withholding should stop at ${fmt(LIM.ssBase*SSR)}. Year-to-date withheld: ${fmt(ss)}.`])}
-    if(ss&&ssW>LIM.ssBase&&!capNoted){capNoted=true;out.push(["info",`Hit the Social Security cap on ${nice(s.payDate)}`,`Wages passed ${fmt0(LIM.ssBase)}, so Social Security stopped at ${fmt(LIM.ssBase*SSR)} for the year. Checks after this are bigger.`])}
-    if(md&&ssW<=200000&&Math.abs(md-ssW*.0145)>0.05){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Medicare isn't 1.45%`,`${fmt(ssW)} × 1.45% = ${fmt(ssW*.0145)}, withheld ${fmt(md)}.`])}}
+    if(ss&&ssW<=LIMY.ssBase&&Math.abs(ss-ssW*SSR)>tol){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security isn't ${pctS()}`,`Year-to-date Social Security wages ${fmt(ssW)} × ${pctS()} = ${fmt(ssW*SSR)}, withheld ${fmt(ss)}.`])}
+    if(ss&&ssW>LIMY.ssBase&&Math.abs(ss-LIMY.ssBase*SSR)>tol){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security over the cap`,`Wages passed the ${fmt0(LIMY.ssBase)} cap, so withholding should stop at ${fmt(LIMY.ssBase*SSR)}. Year-to-date withheld: ${fmt(ss)}.`])}
+    if(ss&&ssW>LIMY.ssBase&&!capNoted){capNoted=true;out.push(["info",`Hit the Social Security cap on ${nice(s.payDate)}`,`Wages passed ${fmt0(LIMY.ssBase)}, so Social Security stopped at ${fmt(LIMY.ssBase*SSR)} for the year. Checks after this are bigger.`])}
+    if(md&&ssW<=200000&&Math.abs(md-ssW*.0145)>tol){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Medicare isn't 1.45%`,`${fmt(ssW)} × 1.45% = ${fmt(ssW*.0145)}, withheld ${fmt(md)}.`])}}
     if(isExtra(s)){
       const what=s.items.filter(i=>(i.sec==="earnings"||i.sec==="taxable")&&i.cur>0).map(i=>`${i.label} ${fmt(i.cur)}`).join(", ");
       const tax=s.items.filter(i=>i.sec==="taxes").reduce((a,i)=>a+i.cur,0);
@@ -1492,7 +1497,7 @@ function renderW2(m,y){
     return[
       ["1","Wages, tips, other comp",earn-m.val(i=>i.sec==="pretax",f)],
       ["2","Federal income tax withheld",m.val(isFed,f)],
-      ["3","Social Security wages",earn-m.val(isSec125,f)],
+      ["3","Social Security wages",Math.min(earn-m.val(isSec125,f),limFor(y).ssBase)],
       ["4","Social Security tax withheld",m.val(isSS,f)],
       ["5","Medicare wages",earn-m.val(isSec125,f)],
       ["6","Medicare tax withheld",m.val(isMedi,f)],
@@ -1583,7 +1588,10 @@ function taxCalc(m){const st=taxIn(+m.latest.payDate.slice(0,4));
   const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*(0.062+SSR)+seBase*0.029:0;const halfSE=seTax/2;
   const agi=wages+oth+se-halfSE;const pre=Math.max(0,agi-LIM.std-(LIM.exempt||0));
   const qbi=LIM.noQbi?0:Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
-  const inc=bracketTax(taxable);const total=inc+seTax;const withheld=m.val(isFed,"proj")+est;
+  const inc=bracketTax(taxable);
+  /* 0.9% Additional Medicare over $200,000 (single); payroll withholds it on wages over $200,000, side-business earnings add to the base */
+  const addMed=Math.max(0,ssW+(se>=400?seBase:0)-200000)*0.009,addMedWh=Math.max(0,ssW-200000)*0.009;
+  const total=inc+seTax+addMed;const withheld=m.val(isFed,"proj")+est+addMedWh;
   const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*SSR):0;
   const gap=total-withheld-ssCredit;
   const top=(LIM.br.find(([hi])=>taxable<=hi)||LIM.br[LIM.br.length-1])[1];
@@ -1600,12 +1608,15 @@ function renderTax(m){
   const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*(0.062+SSR)+seBase*0.029:0;const halfSE=seTax/2;
   const agi=wages+oth+se-halfSE;const pre=Math.max(0,agi-LIM.std-(LIM.exempt||0));
   const qbi=LIM.noQbi?0:Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
-  const inc=bracketTax(taxable);const total=inc+seTax;const withheld=m.val(isFed,"proj")+est;
+  const inc=bracketTax(taxable);
+  /* 0.9% Additional Medicare over $200,000 (single); payroll withholds it on wages over $200,000, side-business earnings add to the base */
+  const addMed=Math.max(0,ssW+(se>=400?seBase:0)-200000)*0.009,addMedWh=Math.max(0,ssW-200000)*0.009;
+  const total=inc+seTax+addMed;const withheld=m.val(isFed,"proj")+est+addMedWh;
   const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*SSR):0;
   const gap=total-withheld-ssCredit;
   const per=m.remaining?gap/m.remaining:0;
   const rows=[[(m.remaining?"Projected W-2 wages":"W-2 wages")+" (Box 1)",wages],se?["Side business profit",se]:null,oth?["Other taxable income",oth]:null,se?["Half of self-employment tax",-halfSE]:null,
-    ["Standard deduction",-LIM.std],LIM.exempt?["Personal exemption",-LIM.exempt]:null,qbi?["Qualified business income deduction",-qbi]:null,["Taxable income",taxable,1],["Income tax",inc],se?["Self-employment tax",seTax]:null,["Total federal tax",total,1],
+    ["Standard deduction",-LIM.std],LIM.exempt?["Personal exemption",-LIM.exempt]:null,qbi?["Qualified business income deduction",-qbi]:null,["Taxable income",taxable,1],["Income tax",inc],se?["Self-employment tax",seTax]:null,addMed>0.5?["Additional Medicare tax (0.9%)",addMed]:null,["Total federal tax",total,1],
     ["Withheld by Dec 31"+(est?" + estimates":""),-withheld],ssCredit>0.5?["Extra Social Security credit",-ssCredit]:null].filter(Boolean);
   const owe=gap>0.5;
   setSum("tax",owe?`<span class="warn">${m.remaining?"Projected to owe":"Estimated owed"} <strong>${fmt0(gap)}</strong></span>`:`Projected refund <strong>${fmt0(-gap)}</strong>`);
@@ -1786,7 +1797,7 @@ function renderRetire(){
   [["rtAge",rAge],["rtRaise",raise],["rtBonus",bonus]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
   if(document.activeElement!==$("rtDate"))$("rtDate").value=end;
   const per=annualBase(s)/(isSemi(s)?24:26),sum=p=>s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0);
-  const E=sum(i=>i.sec==="earnings"),{b}=wiBasis(s),kR=b?sum(isPreRet)/b:0,erR=b?sum(isErRet)/b:0,netR=E>0?s.net.cur/E:0;
+  const E=sum(i=>i.sec==="earnings"),{b}=wiBasis(s),kR=b?sum(isPreRet)/b:0,erR=b?sum(isErRet)/b:0,netR=E>0&&s.net?s.net.cur/E:0;
   const lb=state.stubs.filter(x=>isExtra(x)&&isBonusCheck(x)&&x.net&&x.net.cur>0).sort((a,c)=>a.payDate<c.payDate?-1:1).pop();
   const bNetR=lb?lb.net.cur/lb.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0):.6;
   const last=state.stubs.map(x=>x.payDate).sort().pop();const rows=[];let all=[];
@@ -1826,9 +1837,9 @@ function yirCards(y){
   const cards=[{k:"Your year in pay",big:String(y),sub:`${ys.filter(x=>!isExtra(x)).length} paychecks${ys.some(isExtra)?` + ${ys.filter(isExtra).length} extra`:""}${tag}`},
     {k:"You earned",big:fmt0(P.gross),sub:PVc?chg(P.gross,PVc.gross):"gross pay"},
     {k:"You took home",big:fmt0(P.net),sub:`${(P.net/P.gross*100).toFixed(1)}% of gross`+(big?` · biggest deposit ${fmt0(big.net.cur)} on ${nice(big.payDate)}`:"")},
-    {k:"Taxes",big:fmt0(tax),sub:`${(tax/P.gross*100).toFixed(1)}% of gross`+(!cur&&!r.partial?` · Tax Freedom Day was ${dayLabel(y,tfdDay(r))}`:"")},
+    {k:"Taxes",big:fmt0(tax),sub:`${P.gross>0?(tax/P.gross*100).toFixed(1):"0.0"}% of gross`+(!cur&&!r.partial?` · Tax Freedom Day was ${dayLabel(y,tfdDay(r))}`:"")},
     {k:"Into your 401(k)",big:fmt0(save401),sub:`${fmt0(P.ret)} from you + ${fmt0(P.er401)} from your employer`+(hsa>0.5?` · HSA ${fmt0(hsa)}`:"")}];
-  if(rz.length)cards.push({k:"Your raise",big:"+"+(rz.reduce((a,x)=>a*(1+x.pct),1)*100-100).toFixed(1)+"%",sub:`Prices rose ${(rz[0].inf*100).toFixed(1)}% · ${rz.every(x=>x.real>=0)?"you beat inflation":"inflation beat it"}`});
+  if(rz.length)cards.push({k:"Your raise",big:"+"+(rz.reduce((a,x)=>a*(1+x.pct),1)*100-100).toFixed(1)+"%",sub:rz[0].inf==null?`No price data for ${y} yet to compare with inflation`:`Prices rose ${(rz[0].inf*100).toFixed(1)}% · ${rz.every(x=>x.real>=0)?"you beat inflation":"inflation beat it"}`});
   if(P.bonus>0.5)cards.push({k:"Bonus",big:fmt0(P.bonus),sub:PVc&&PVc.bonus>0.5?chg(P.bonus,PVc.bonus):"gross"});
   if(ptoH>0.5)cards.push({k:"Time off",big:`${+(ptoH/8).toFixed(1)} days`,sub:"paid vacation, holidays and personal days"});
   return{y,cur,cards,sum:[["Earned",fmt0(P.gross)],["Took home",fmt0(P.net)],["Taxes",fmt0(tax)],["Into 401(k)",fmt0(save401)]].concat(P.bonus>0.5?[["Bonus",fmt0(P.bonus)]]:[]).concat(ptoH>0.5?[["Time off",`${+(ptoH/8).toFixed(1)} days`]]:[])};
@@ -1927,7 +1938,7 @@ function renderSsBen(){
   const ages=[62,63,64,65,66,67,68,69,70];
   const hasRec=Object.keys((state.settings.ssa||{}).rec||{}).length>0;
   $("sbStats").innerHTML=`<div class="stat"><small>At full retirement age (${Math.floor(fraM/12)})</small><b>${fmt0(Math.floor(R.pia))}</b><small>a month, in today's dollars</small></div>
-    <div class="stat"><small>Working through ${last} adds</small><b>+${fmt0(add)}</b><small>a month, vs. stopping after ${cur}</small></div>`;
+    <div class="stat"><small>Working through ${last} adds</small><b>+${fmt0(add)}</b><small>a month, vs. stopping after ${cur}${!hasRec&&R0.n<35?`. Likely too high: years before your stubs count as $0 until you add your SSA record`:""}</small></div>`;
   $("sbTbl").innerHTML=`<thead><tr><th>Start at</th><th class="n">Per month</th><th class="n">Per year</th><th class="n">vs full age</th></tr></thead><tbody>`+ages.map(a=>{const v=at(a*12);return`<tr${a*12===fraM?' class="sec"':""}><td>${a}${a*12===fraM?" (full)":""}</td><td class="n">${fmt0(v)}</td><td class="n">${fmt0(v*12)}</td><td class="n">${a*12===fraM?"—":(v>=R.pia?"+":"−")+Math.abs(Math.round((v/R.pia-1)*100))+"%"}</td></tr>`}).join("")+"</tbody>";
   $("sbNote").textContent=`Estimate in today's dollars, the way the SSA figures it: your highest 35 years of earnings, each raised to ${AWI_Y} wage levels, averaged per month (${fmt0(R.A)}), then the benefit formula (90% / 32% / 15% at ${fmt0(BEND[0])} and ${fmt0(BEND[1])}). ${R.n} years with earnings, including future ones; only the best 35 count${hasRec?"":"; add your SSA record (All years → Taxes → SS record) to include years before your stubs, otherwise they count as zero"}. Future years use ${fmt0(Math.min(fut,base))} a year through ${last}. Starting before full retirement age is reduced for life; each year you wait past it adds 8%. Not counted: spousal benefits, the earnings test if you work while collecting before full age, and future cost-of-living raises (the SSA adds those every year).`;
   setSum("ssben",`<strong>${fmt0(Math.floor(R.pia))}</strong>/mo at ${Math.floor(fraM/12)}`);
@@ -1973,8 +1984,8 @@ function renderStubs(){
   $("stubCount").textContent=`${state.stubs.length} stored`;setSum("add",`${state.stubs.length} stubs stored`);
   $("stubTbl").innerHTML=`<thead><tr><th>Pay date</th><th class="n">Gross</th><th class="n">Net</th><th></th></tr></thead><tbody>`+
     ys.map(s=>{const g=s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0);
-      return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}</td><td class="n">${fmt(g)}</td><td class="n">${s.net?fmt(s.net.cur):"—"}</td>
-      <td class="n"><button class="btn ghost small${armed===s.payDate?" danger":""}" data-del="${s.payDate}">${armed===s.payDate?"Confirm":"Remove"}</button></td></tr>`}).join("")+`</tbody>`;
+      const k=skey(s);return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}${s.kind==="Additional"?' <span class="muted">· extra</span>':""}</td><td class="n">${fmt(g)}</td><td class="n">${s.net?fmt(s.net.cur):"—"}</td>
+      <td class="n"><button class="btn ghost small${armed===k?" danger":""}" data-del="${esc(k)}">${armed===k?"Confirm":"Remove"}</button></td></tr>`}).join("")+`</tbody>`;
 }
 
 /* ---------- year over year ---------- */
@@ -1982,6 +1993,8 @@ function renderStubs(){
 const CPI={2010:218.056,2011:224.939,2012:229.594,2013:232.957,2014:236.736,2015:237.017,2016:240.007,2017:245.120,2018:251.107,2019:255.657,2020:258.811,2021:270.970,2022:292.655,2023:304.702,2024:313.689,2025:321.943,2026:331.180};
 const CPI_YEARS=Object.keys(CPI).map(Number).sort((a,b)=>a-b);const CPI_BASE=CPI_YEARS[CPI_YEARS.length-1];
 const cpiOf=y=>CPI[y]||CPI[y<CPI_YEARS[0]?CPI_YEARS[0]:CPI_BASE];
+/* no yearly price average yet for years after CPI_BASE: inflation comparisons are left blank there */
+const hasCpi=y=>y<=CPI_BASE;
 const isOTe=i=>i.sec==="earnings"&&/\bOT\b|OVERTIME/i.test(i.label);
 const isBonusE=i=>i.sec==="earnings"&&/\bBONUS\b/i.test(i.label);
 const isErHealth=i=>i.sec==="memo"&&/MEDICAL|DENTAL|VISION/i.test(i.label);
@@ -1990,7 +2003,7 @@ function premRow(r){const s=r.m.reg;if(!s)return null;const c=(p)=>r2(s.items.fi
   const med=c(i=>isHealthEE(i)&&/MED/i.test(i.label)),den=c(i=>isHealthEE(i)&&/DENT/i.test(i.label)),vis=c(i=>isHealthEE(i)&&/VIS/i.test(i.label)),you=c(isHealthEE),er=c(isErHealth);
   return{med,den,vis,you,er,tot:er>0.004?you+er:0,d:s.payDate}}
 const stubHours=s=>{if(isSemi(s))return 2080/24;const p=s.period;if(p&&p[0]&&p[1]){const d=Math.round((dObj(p[1])-dObj(p[0]))/864e5)+1;if(d>0&&d<14)return 80*d/14}return 80};
-const tfdDay=r=>(r.full.fed+r.full.fica+r.full.state)/r.full.gross*(new Date(r.y,1,29).getDate()===29?366:365);
+const tfdDay=r=>!(r.full.gross>0)?0:(r.full.fed+r.full.fica+r.full.state)/r.full.gross*(new Date(r.y,1,29).getDate()===29?366:365);
 const dayLabel=(y,n)=>{const d=new Date(y,0,1);d.setDate(d.getDate()+Math.ceil(n)-1);return MON[d.getMonth()]+" "+d.getDate()};
 const annualBase=s=>{const r=s&&s.payRate;if(!r)return null;return r<500?r*2080:r*(isSemi(s)?24:26)};
 const pc1=(a,b)=>b?(a/b*100).toFixed(1)+"%":"—";
@@ -2036,8 +2049,8 @@ function yoyEvents(){
   const raises=[],events=[];let prev=null,lastEmp=null,prevS=null;
   for(const s of regs){
     const b=annualBase(s);
-    if(prev&&b&&prev.b&&Math.abs(b/prev.b-1)>0.001){const y=+s.payDate.slice(0,4);const pct=b/prev.b-1;const inf=cpiOf(y)/cpiOf(y-1)-1;
-      raises.push({d:s.payDate,from:prev.b,to:b,pct,inf,real:(1+pct)/(1+inf)-1})}
+    if(prev&&b&&prev.b&&Math.abs(b/prev.b-1)>0.001){const y=+s.payDate.slice(0,4);const pct=b/prev.b-1;const inf=hasCpi(y)?cpiOf(y)/cpiOf(y-1)-1:null;
+      raises.push({d:s.payDate,from:prev.b,to:b,pct,inf,real:inf==null?null:(1+pct)/(1+inf)-1})}
     if(prevS&&isSemi(prevS)&&!isSemi(s))events.push({d:s.payDate,t:"Pay moved from twice a month to every two weeks"});
     if(s.employer&&lastEmp&&s.employer!==lastEmp.employer){
       const same=lastEmp.payDate.slice(0,4)===s.payDate.slice(0,4);
@@ -2109,10 +2122,10 @@ function renderYoy(){
   const S=k=>rows.reduce((a,r)=>a+yv(r,k,"sofar"),0);
   const gross=S("gross"),net=S("net"),tax=S("fed")+S("fica")+S("state"),you=S("ret"),er=S("er401");
   const f0=ev.first,f1=ev.last;let baseStat="";
-  if(f0&&f1&&f0!==f1){const b0=annualBase(f0),b1=annualBase(f1);const yrs=(dObj(f1.payDate)-dObj(f0.payDate))/(365.25*864e5);
-    const g=b1/b0-1,cagr=Math.pow(b1/b0,1/Math.max(yrs,1))-1,prices=cpiOf(+f1.payDate.slice(0,4))/cpiOf(+f0.payDate.slice(0,4))-1,real=(1+g)/(1+prices)-1;
+  if(f0&&f1&&f0.payDate.slice(0,4)!==f1.payDate.slice(0,4)){const b0=annualBase(f0),b1=annualBase(f1);const yrs=(dObj(f1.payDate)-dObj(f0.payDate))/(365.25*864e5);
+    const g=b1/b0-1,cagr=Math.pow(b1/b0,1/Math.max(yrs,1))-1,pEnd=Math.min(+f1.payDate.slice(0,4),CPI_BASE),prices=cpiOf(pEnd)/cpiOf(+f0.payDate.slice(0,4))-1,real=(1+g)/(1+prices)-1;
     baseStat=`<div class="stat"><small>Base pay since ${f0.payDate.slice(0,4)}</small><b>${sgn(g)}</b><small>${fmt0(b0)} → ${fmt0(b1)} · ${(cagr*100).toFixed(1)}% a year</small></div>
-    <div class="stat"><small>After inflation</small><b class="${real>=0?"up":"down"}">${sgn(real)}</b><small>Prices rose ${(prices*100).toFixed(1)}% over the same span</small></div>`}
+    <div class="stat"><small>After inflation</small><b class="${real>=0?"up":"down"}">${sgn(real)}</b><small>Prices rose ${(prices*100).toFixed(1)}% ${pEnd<+f1.payDate.slice(0,4)?`through ${pEnd} (latest price data)`:"over the same span"}</small></div>`}
   $("yoyStats").innerHTML=`<div class="stat"><small>Gross pay, ${span}</small><b>${fmt0(gross)}</b><small>through ${nice(lastR.latest)}, ${lastR.y}${state.real?` · ${CPI_BASE} dollars`:""}</small></div>
     <div class="stat"><small>Take-home</small><b>${fmt0(net)}</b><small>${pc1(net,gross)} of gross</small></div>
     <div class="stat"><small>Taxes</small><b>${fmt0(tax)}</b><small>${pc1(tax,gross)} of gross</small></div>
@@ -2171,8 +2184,8 @@ function renderYoy(){
   const cats=CATS.filter(([k])=>rows.some(r=>r.full[k]>0.004));
   barChart($("yoyGross"),{years:Y,proj,series:cats.map(([k,,c])=>({c,vals:V(k)})),aria:"Gross pay by year, split by where it went"});
   $("yoyGrossLeg").innerHTML=legend(cats.map(([,l,c])=>[c,l]));
-  const kept=rows.filter(r=>!r.partial).map(r=>r.full.net/r.full.gross);
-  setSum("yoyGross",`Take-home ${(Math.min(...kept)*100).toFixed(0)}–${(Math.max(...kept)*100).toFixed(0)}% of gross`);
+  const kept=rows.filter(r=>!r.partial&&r.full.gross>0).map(r=>r.full.net/r.full.gross);
+  setSum("yoyGross",kept.length?`Take-home ${(Math.min(...kept)*100).toFixed(0)}–${(Math.max(...kept)*100).toFixed(0)}% of gross`:"");
   $("yoyGrossD").innerHTML=sel?`<b>${sel.y}${sel.proj?" (projected)":""}</b> · Gross ${fmt0(yv(sel,"gross"))} · `+cats.filter(([k])=>sel.full[k]>0.004).map(([k,l])=>`${l} ${fmt0(yv(sel,k))} (${pc1(sel.full[k],sel.full.gross)})`).join(" · ")+openBtn(sel.y):`Tap a year for its numbers.${projNote}`;
   /* base pay */
   const regs=sortStubs(state.stubs.filter(s=>!isExtra(s)&&annualBase(s)));
@@ -2188,13 +2201,13 @@ function renderYoy(){
   }
   $("yoyRateLeg").innerHTML=legend([["--c-net","Base pay as paid"],["--c-ret",`Same pay in ${CPI_BASE} dollars`,"dash"]]);
   const R=ev.raises;
-  const ahead=R.filter(r=>r.real>=0).length;
-  setSum("yoyRate",R.length?`${R.length} raises · ${ahead} beat inflation`:"");
+  const ahead=R.filter(r=>r.real!=null&&r.real>=0).length,known=R.filter(r=>r.real!=null).length;
+  setSum("yoyRate",R.length?`${R.length} raises`+(known?` · ${ahead} of ${known} beat inflation`:""):"");
   $("yoyEvents").innerHTML=ev.events.map(e=>`<li><b>${nice(e.d)}, ${e.d.slice(0,4)}</b> ${esc(e.t)}</li>`).join("");
   $("yoyEvents").hidden=!ev.events.length;
   /* tax rates */
-  const pct=k=>rows.map((r,i)=>[i+.5,r.full[k]/r.full.gross*100,r.proj]);
-  const tot=rows.map((r,i)=>[i+.5,(r.full.fed+r.full.fica+r.full.state)/r.full.gross*100,r.proj]);
+  const pct=k=>rows.map((r,i)=>[i+.5,r.full.gross>0?r.full[k]/r.full.gross*100:0,r.proj]);
+  const tot=rows.map((r,i)=>[i+.5,r.full.gross>0?(r.full.fed+r.full.fica+r.full.state)/r.full.gross*100:0,r.proj]);
   lineChart($("yoyTax"),{x0:0,x1:rows.length,yMin:0,yFmt:v=>Math.round(v)+"%",ticks:rows.map((r,i)=>({x:i+.5,label:r.y,y:r.y})),cols:rows.map((r,i)=>({a:i,b:i+1,y:r.y})),
     series:[{c:"--ink",pts:tot,dots:true,w:2.4},{c:"--c-fed",pts:pct("fed"),dots:true},{c:"--c-fica",pts:pct("fica"),dots:true},{c:"--c-state",pts:pct("state"),dots:true}],aria:"Tax rates by year as a percent of gross"});
   $("yoyTaxLeg").innerHTML=legend([["--ink","All taxes"],["--c-fed","Federal income tax"],["--c-fica","Social Security + Medicare"],["--c-state","State + local"]]);
@@ -2365,8 +2378,8 @@ function renderYoy(){
     const cmp=r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther")+yv(r,"erTax");
     yearTable("tbComp",rows,[["Gross",g,"$","sum"],["Employer 401(k)",r=>yv(r,"er401"),"$","sum"],["Employer health",r=>yv(r,"erHealth"),"$","sum"],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Life, disability, other",r=>yv(r,"erOther"),"$","sum"],["Payroll taxes (est.)",r=>yv(r,"erTax"),"$","sum"],["Total comp",cmp,"$","sum"],["Employer adds",r=>(cmp(r)-g(r))/g(r),"%",rs=>{const G=sum("gross")(rs);return(rs.reduce((a,r)=>a+cmp(r),0)-G)/G}]]);
     const byY=new Map();for(const r of ev.raises){const y=+r.d.slice(0,4);(byY.get(y)||byY.set(y,[]).get(y)).push(r)}
-    const chg=r=>{const p=rows.find(x=>x.y===r.y-1);if(p&&p.base)return r.base/p.base-1;const f=r.m.ys.find(x=>!isExtra(x)&&annualBase(x)),b0=f&&annualBase(f);return b0&&Math.abs(r.base/b0-1)>0.0005?r.base/b0-1:null},infl=r=>cpiOf(r.y)/cpiOf(r.y-1)-1;
-    yearTable("tbRate",rows,[["Base pay",r=>r.base*rf(r.y),"$"],["Raise",chg,"pm"],["Prices",r=>chg(r)==null?null:infl(r),"pm"],["Real",r=>{const c=chg(r);return c==null?null:(1+c)/(1+infl(r))-1},"pmc"],[`In ${CPI_BASE} dollars`,r=>r.base*cpiOf(CPI_BASE)/cpiOf(r.y),"$"],["Per hour",r=>r.base*rf(r.y)/2080,"$c"],["Raise dates",r=>(byY.get(r.y)||[]).map(x=>`${nice(x.d)} ${sgn(x.pct)}`).join(", ")||"—","txt"]]);
+    const chg=r=>{const p=rows.find(x=>x.y===r.y-1);if(p&&p.base)return r.base/p.base-1;const f=r.m.ys.find(x=>!isExtra(x)&&annualBase(x)),b0=f&&annualBase(f);return b0&&Math.abs(r.base/b0-1)>0.0005?r.base/b0-1:null},infl=r=>hasCpi(r.y)?cpiOf(r.y)/cpiOf(r.y-1)-1:null;
+    yearTable("tbRate",rows,[["Base pay",r=>r.base*rf(r.y),"$"],["Raise",chg,"pm"],["Prices",r=>chg(r)==null?null:infl(r),"pm"],["Real",r=>{const c=chg(r),i=infl(r);return c==null||i==null?null:(1+c)/(1+i)-1},"pmc"],[`In ${CPI_BASE} dollars`,r=>r.base*cpiOf(CPI_BASE)/cpiOf(r.y),"$"],["Per hour",r=>r.base*rf(r.y)/2080,"$c"],["Raise dates",r=>(byY.get(r.y)||[]).map(x=>`${nice(x.d)} ${sgn(x.pct)}`).join(", ")||"—","txt"]]);
     const tx=r=>yv(r,"fed")+yv(r,"fica")+yv(r,"state");
     yearTable("tbTax",rows,[["Federal",r=>yv(r,"fed"),"$","sum"],["%",r=>r.full.fed/r.full.gross,"%",ofG("fed")],["SS + Medicare",r=>yv(r,"fica"),"$","sum"],["%",r=>r.full.fica/r.full.gross,"%",ofG("fica")],["State + local",r=>yv(r,"state"),"$","sum"],["%",r=>r.full.state/r.full.gross,"%",ofG("state")],["All taxes",tx,"$","sum"],["%",r=>tx(r)/g(r),"%",rs=>rs.reduce((a,r)=>a+tx(r),0)/sum("gross")(rs)]]);
     yearTable("tbTfd",rows,[["Date",r=>r.partial?null:dayLabel(r.y,tfdDay(r)),"txt"],["Days",r=>r.partial?null:Math.ceil(tfdDay(r)),"n"],["Taxes",tx,"$","sum"],["Gross",g,"$","sum"]]);
@@ -2385,7 +2398,7 @@ function renderYoy(){
   /* table */
   const cols=[["y","Year",r=>r.y],["base","Base pay",r=>r.base?r.base*rf(r.y):0,1],["gross","Gross",r=>yv(r,"gross"),1],["net","Take-home",r=>yv(r,"net"),1],
     ["kept","Kept",r=>r.full.net/r.full.gross,2],["fedp","Federal",r=>r.full.fed/r.full.gross,2],["ficap","FICA",r=>r.full.fica/r.full.gross,2],["statep","State + local",r=>r.full.state/r.full.gross,2],
-    ["ret","401(k) you",r=>yv(r,"ret"),1],["er401","401(k) employer",r=>yv(r,"er401"),1],["hl","Health",r=>yv(r,"health")+yv(r,"hsa")+yv(r,"fsa"),1],["xo","Bonus + OT",r=>yv(r,"bonus")+yv(r,"ot"),1],["comp","Total comp",r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther"),1],
+    ["ret","401(k) you",r=>yv(r,"ret"),1],["er401","401(k) employer",r=>yv(r,"er401"),1],["hl","Health",r=>yv(r,"health")+yv(r,"hsa")+yv(r,"fsa"),1],["xo","Bonus + OT",r=>yv(r,"bonus")+yv(r,"ot"),1],["comp","Total comp",r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther")+(yv(r,"erTax")||0),1],
     ["hr","Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:0,4],["tfd","Tax Freedom Day",r=>r.partial?0:tfdDay(r),5],["checks","Checks",r=>r.checks,3],["threes","3-check months",r=>r.threes,3]];
   const so=state.yoySort||{k:"y",d:-1};const cf=cols.find(c=>c[0]===so.k)||cols[0];
   const sorted=[...rows].sort((a,b)=>(cf[2](a)-cf[2](b))*so.d);
@@ -2487,7 +2500,12 @@ $("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");i
 document.addEventListener("click",e=>{if(!$("fabMenu").hidden&&!e.target.closest("#fabMenu,#fab"))fabClose()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")fabClose()});
 
-function render(){applyEst();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();ssaFill();window.__fillBal&&window.__fillBal();
+/* the app can stay open for days on a phone: pick up a new day when it comes back */
+function freshDay(){const t=isoOf(new Date());if(t!==todayISO){const oldY=+todayISO.slice(0,4);todayISO=t;if(state.year===oldY&&+t.slice(0,4)>oldY&&yearStubs(+t.slice(0,4)).length)state.year=+t.slice(0,4);render()}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)freshDay()});window.addEventListener("focus",freshDay);
+/* ask the browser (iOS included) not to clear this site's storage under pressure */
+let persistAsked=false;function askPersist(){if(persistAsked||!state.stubs.length)return;persistAsked=true;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persisted().then(p=>p||navigator.storage.persist()).catch(()=>{})}catch(e){}}
+function render(){applyEst();askPersist();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();ssaFill();window.__fillBal&&window.__fillBal();
   {const t=state.tab,on=state.stubs.length&&(t==="year"||t==="all");$("rptBar").hidden=!on;$("rptBtn").textContent=t==="all"?"Save all-years report as PDF":`Save ${state.year} report as PDF`}}
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
@@ -2523,7 +2541,7 @@ function renderMain(){
 function toast(msg,err){const t=$("toast");t.hidden=false;t.className="toast"+(err?" err":"");t.textContent=msg}
 function readText(txt,src){
   txt=txt.replace(/^\uFEFF/,"").trim();if(!txt){toast(src?`${src} is empty.`:"Paste a statement first.",true);return}
-  if(/^[\[{]/.test(txt)){try{const o=JSON.parse(txt);const list=Array.isArray(o)?o:o.stubs;if(!Array.isArray(list))throw 0;
+  if(/^[\[{]/.test(txt)){try{const o=JSON.parse(txt);const raw=Array.isArray(o)?o:o.stubs;if(!Array.isArray(raw))throw 0;const list=raw.filter(okStub);if(raw.length&&!list.length)throw 0;
       if(o.settings)Object.assign(state.settings,o.settings);syncInputs();const r=addStubs(list);toast(`Restored ${r.added+r.replaced} stubs from backup.`);$("pasteBox").value="";return}catch(e){toast("That looks like a backup but couldn't be read.",true);return}}
   const list=parseText(txt);
   if(!list.length){toast("No statement found. Make sure the text includes the Pay Date line and the Earnings and Taxes tables.",true);return}
@@ -2544,7 +2562,7 @@ $("pdfIn").addEventListener("change",async e=>{
   else toast(`Couldn't find statement text in ${fails.join(", ")}. A scanned or photographed PDF has no text layer; print the statement to PDF from the portal instead.`,true);
 });
 $("stubTbl").addEventListener("click",e=>{const b=e.target.closest("[data-del]");if(!b)return;const d=b.dataset.del;
-  if(armed===d){state.stubs=state.stubs.filter(s=>s.payDate!==d);armed=null;save();render();toast(`Removed ${nice(d)}.`)}else{armed=d;renderStubs()}});
+  if(armed===d){state.stubs=state.stubs.filter(s=>skey(s)!==d);armed=null;save();render();toast(`Removed ${nice(d.slice(0,10))}.`)}else{armed=d;renderStubs()}});
 let clearArmed=false;
 $("clearAll").addEventListener("click",()=>{if(!clearArmed){clearArmed=true;$("clearAll").textContent="Confirm clear";return}
   clearArmed=false;$("clearAll").textContent="Clear all stubs";state.stubs=[];save();render();toast("All stubs cleared.")});
