@@ -1145,18 +1145,28 @@ function ssPlan(){
   const age=+state.settings.age||0,ay=+state.settings.ageYear||+todayISO.slice(0,4),born=age?ay-age:null;
   const E=ssEarnings(),cur=+todayISO.slice(0,4),rt=state.settings.rt||{},w=state.settings.sb||{};
   const lastDef=rt.date?+rt.date.slice(0,4):born!=null?born+(rt.age!=null?+rt.age:65):cur;
-  const last=w.last!=null?+w.last:lastDef,curE=E[cur]?E[cur].v:(E[cur-1]?E[cur-1].v:0),fut=w.earn!=null?+w.earn:Math.round(curE/1000)*1000;
+  /* future years: this year's wages without its bonus, plus a typical bonus every year, half of it (some years) or none */
+  const cy=E[cur]?cur:cur-1,curE=E[cy]?E[cy].v:0,bPaid=yearStubs(cy).length?model(cy).val(isBonusE,"ytd"):0,typB=typicalBonus();
+  const bmode=["every","some","never"].includes(w.bmode)?w.bmode:"every",bf={every:1,some:.5,never:0}[bmode],noBonus=Math.max(0,curE-bPaid);
+  const last=w.last!=null?+w.last:lastDef,custom=w.earn!=null,fut=custom?+w.earn:Math.round((noBonus+bf*typB)/1000)*1000;
   const base=limFor(cur).ssBase,idx=y=>AWI[y]&&y<AWI_Y?AWI[AWI_Y]/AWI[y]:1;
   const calc=L=>{const list=[];for(const y in E){const yy=+y;if(yy>L)continue;if(yy===cur&&E[y].proj&&L<cur)continue;list.push({y:yy,v:E[y].v*idx(yy)})}
     for(let y=cur+1;y<=L;y++)list.push({y,v:Math.min(fut,base),fut:true});
     const top=list.sort((a,b)=>b.v-a.v||a.y-b.y).slice(0,35),A=Math.floor(top.reduce((a,x)=>a+x.v,0)/420);
     return{A,pia:piaOf(A),n:list.filter(x=>x.v>0).length,top}};
-  return{E,cur,born,last,fut,base,idx,calc,hasAge:!!age}}
+  return{E,cur,born,last,fut,base,idx,calc,hasAge:!!age,bmode,typB,noBonus,custom}}
+/* typical yearly bonus: the Paychecks to retirement setting, or the average of the last 3 full years */
+function typicalBonus(){const w=state.settings.rt||{};if(w.bonus!=null)return +w.bonus;
+  const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))].sort((a,b)=>a-b).filter(y=>y<+todayISO.slice(0,4)).slice(-3),rows=ys.map(y=>yoyRow(y)).filter(Boolean);
+  return rows.length?Math.round(rows.reduce((a,r)=>a+r.full.bonus,0)/rows.length/500)*500:0}
 function renderSsBen(){
   const sec=document.querySelector('section[data-k="ssben"]');if(state.tab!=="plan"){sec.hidden=true;return}
   const age=+state.settings.age||0,ay=+state.settings.ageYear||+todayISO.slice(0,4);if(!age||!state.stubs.length){sec.hidden=true;return}
   const born=ay-age,fraM=(born>=1960?67*12:born>=1955?66*12+Math.min(10,(born-1954)*2):66*12);
-  const{E,cur,last,fut,base,idx,calc}=ssPlan();
+  const{E,cur,last,fut,base,idx,calc,bmode,typB,noBonus,custom}=ssPlan();
+  $("sbBon").querySelectorAll("[data-bm]").forEach(b=>b.setAttribute("aria-pressed",String(!custom&&b.dataset.bm===bmode)));
+  $("sbBonNote").textContent=custom?`Using the ${fmt0(fut)} you typed. Pick a choice above to go back to the automatic amount.`:
+    `${fmt0(noBonus)} without a bonus${typB?` + ${bmode==="every"?`a ${fmt0(typB)} bonus`:bmode==="some"?`half of a ${fmt0(typB)} bonus (${fmt0(typB/2)})`:"no bonus"}`:""} = ${fmt0(fut)} a year. The typical bonus comes from Paychecks to retirement${(state.settings.rt||{}).bonus!=null?"":" (your average over the last 3 years)"}.`;
   [["sbLast",last],["sbEarn",fut]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
   const R=calc(last),R0=calc(Math.min(last,cur)),add=Math.floor(R.pia)-Math.floor(R0.pia);
   const at=mo=>{const d=mo-fraM;const f=d<0?(-d<=36?1+d*5/900:1-0.2-(-d-36)*5/1200):1+Math.min(d,70*12-fraM)*(2/3)/100;return Math.floor(R.pia*f)};
@@ -1197,7 +1207,8 @@ function renderSsBen(){
   sec.hidden=false;
 }
 {const sbSet=(k,v)=>{const w=state.settings.sb=state.settings.sb||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
-  $("sbLast").addEventListener("change",e=>sbSet("last",e.target.value));$("sbEarn").addEventListener("change",e=>sbSet("earn",e.target.value));}
+  $("sbLast").addEventListener("change",e=>sbSet("last",e.target.value));
+  $("sbBon").addEventListener("click",e=>{const b=e.target.closest("[data-bm]");if(!b)return;if(document.activeElement===$("sbEarn"))$("sbEarn").blur();const w=state.settings.sb=state.settings.sb||{};w.bmode=b.dataset.bm;delete w.earn;save();keepPos(()=>render())});$("sbEarn").addEventListener("change",e=>sbSet("earn",e.target.value));}
 
 /* ---------- next year at today's settings ---------- */
 /* Roth catch-up check for year Y (rule year), from the prior year's W-2 Box 3 */
