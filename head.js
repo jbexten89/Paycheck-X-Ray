@@ -1,0 +1,1 @@
+(function(){try{var u=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{},t=u.theme||"dark";if(t==="light"||(t==="auto"&&matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.classList.add("light")}catch(e){}})()

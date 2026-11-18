@@ -1,0 +1,1866 @@
+(function(){
+"use strict";
+/* ---------- constants (2026 tax year) ---------- */
+const LIMS={
+  2011:{std:5800,exempt:3700,noQbi:true,ssRate:.042,br:[[8500,.10],[34500,.15],[83600,.25],[174400,.28],[379150,.33],[Infinity,.35]],
+    k401:16500,c50:5500,c60:5500,total:49000,ssBase:106800,hsaSelf:3050,hsaFam:6150,hsaCatch:1000},
+  2012:{std:5950,exempt:3800,noQbi:true,ssRate:.042,br:[[8700,.10],[35350,.15],[85650,.25],[178650,.28],[388350,.33],[Infinity,.35]],
+    k401:17000,c50:5500,c60:5500,total:50000,ssBase:110100,hsaSelf:3100,hsaFam:6250,hsaCatch:1000},
+  2013:{std:6100,exempt:3900,noQbi:true,br:[[8925,.10],[36250,.15],[87850,.25],[183250,.28],[398350,.33],[400000,.35],[Infinity,.396]],
+    k401:17500,c50:5500,c60:5500,total:51000,ssBase:113700,hsaSelf:3250,hsaFam:6450,hsaCatch:1000},
+  2014:{std:6200,exempt:3950,noQbi:true,br:[[9075,.10],[36900,.15],[89350,.25],[186350,.28],[405100,.33],[406750,.35],[Infinity,.396]],
+    k401:17500,c50:5500,c60:5500,total:52000,ssBase:117000,hsaSelf:3300,hsaFam:6550,hsaCatch:1000},
+  2015:{std:6300,exempt:4000,noQbi:true,br:[[9225,.10],[37450,.15],[90750,.25],[189300,.28],[411500,.33],[413200,.35],[Infinity,.396]],
+    k401:18000,c50:6000,c60:6000,total:53000,ssBase:118500,hsaSelf:3350,hsaFam:6650,hsaCatch:1000},
+  2016:{std:6300,exempt:4050,noQbi:true,br:[[9275,.10],[37650,.15],[91150,.25],[190150,.28],[413350,.33],[415050,.35],[Infinity,.396]],
+    k401:18000,c50:6000,c60:6000,total:53000,ssBase:118500,hsaSelf:3350,hsaFam:6750,hsaCatch:1000},
+  2017:{std:6350,exempt:4050,noQbi:true,br:[[9325,.10],[37950,.15],[91900,.25],[191650,.28],[416700,.33],[418400,.35],[Infinity,.396]],
+    k401:18000,c50:6000,c60:6000,total:54000,ssBase:127200,hsaSelf:3400,hsaFam:6750,hsaCatch:1000},
+  2018:{std:12000,br:[[9525,.10],[38700,.12],[82500,.22],[157500,.24],[200000,.32],[500000,.35],[Infinity,.37]],
+    k401:18500,c50:6000,c60:6000,total:55000,ssBase:128400,hsaSelf:3450,hsaFam:6900,hsaCatch:1000},
+  2019:{std:12200,br:[[9700,.10],[39475,.12],[84200,.22],[160725,.24],[204100,.32],[510300,.35],[Infinity,.37]],
+    k401:19000,c50:6000,c60:6000,total:56000,ssBase:132900,hsaSelf:3500,hsaFam:7000,hsaCatch:1000},
+  2020:{std:12400,br:[[9875,.10],[40125,.12],[85525,.22],[163300,.24],[207350,.32],[518400,.35],[Infinity,.37]],
+    k401:19500,c50:6500,c60:6500,total:57000,ssBase:137700,hsaSelf:3550,hsaFam:7100,hsaCatch:1000},
+  2021:{std:12550,br:[[9950,.10],[40525,.12],[86375,.22],[164925,.24],[209425,.32],[523600,.35],[Infinity,.37]],
+    k401:19500,c50:6500,c60:6500,total:58000,ssBase:142800,hsaSelf:3600,hsaFam:7200,hsaCatch:1000},
+  2022:{std:12950,br:[[10275,.10],[41775,.12],[89075,.22],[170050,.24],[215950,.32],[539900,.35],[Infinity,.37]],
+    k401:20500,c50:6500,c60:6500,total:61000,ssBase:147000,hsaSelf:3650,hsaFam:7300,hsaCatch:1000},
+  2023:{std:13850,br:[[11000,.10],[44725,.12],[95375,.22],[182100,.24],[231250,.32],[578125,.35],[Infinity,.37]],
+    k401:22500,c50:7500,c60:7500,total:66000,ssBase:160200,hsaSelf:3850,hsaFam:7750,hsaCatch:1000},
+  2024:{std:14600,br:[[11600,.10],[47150,.12],[100525,.22],[191950,.24],[243725,.32],[609350,.35],[Infinity,.37]],
+    k401:23000,c50:7500,c60:7500,total:69000,ssBase:168600,hsaSelf:4150,hsaFam:8300,hsaCatch:1000},
+  2025:{std:15750,br:[[11925,.10],[48475,.12],[103350,.22],[197300,.24],[250525,.32],[626350,.35],[Infinity,.37]],
+    k401:23500,c50:7500,c60:11250,total:70000,ssBase:176100,hsaSelf:4300,hsaFam:8550,hsaCatch:1000},
+  2026:{std:16100,br:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]],
+    k401:24500,c50:8000,c60:11250,total:72000,ssBase:184500,hsaSelf:4400,hsaFam:8750,hsaCatch:1000}};
+/* 2027: IRS Notice 2026-66 (401k), Rev. Proc. 2026-24 (HSA), Rev. Proc. 2026-35 (brackets, standard deduction), SSA 2027 fact sheet (wage base). */
+/* Ohio flat rate for bonuses and other supplemental wages (Ohio Dept. of Taxation, 2026 withholding guidance). */
+LIMS[2026].ohSupp=.0275;
+LIMS[2027]=Object.assign({},LIMS[2026],{std:16600,br:[[12800,.10],[52025,.12],[109125,.22],[208325,.24],[264550,.32],[661375,.35],[Infinity,.37]],
+  k401:25500,c50:8500,c60:11750,total:75000,ssBase:192300,hsaSelf:4500,hsaFam:9000,hsaCatch:1000});
+/* SECURE 2.0 Roth catch-up: catch-ups in the listed year must be Roth if the prior year's Social Security wages (W-2 Box 3) passed this line */
+LIMS[2026].rcT=150000;LIMS[2027].rcT=155000;
+const limYears=Object.keys(LIMS).map(Number).sort();
+const limFor=y=>LIMS[y]||LIMS[limYears.filter(k=>k<=y).pop()||limYears[0]];
+let LIM=limFor(2026);
+let SSR=.062;const pctS=()=>(SSR*100).toFixed(1)+"%";
+const KEY="pxr.v1";
+
+/* ---------- no built-in data: stubs live only in this browser ---------- */
+const SEED_VERSION=0;
+const SEED=[];
+
+
+/* ---------- state ---------- */
+let state={stubs:[],settings:{age:40,seProfit:0,otherInc:0,estPaid:0},mode:"ytd",year:null};
+const skey=s=>s.payDate+(s.kind==="Additional"?"b"+(s.seq||""):"a");
+const stubCmp=(x,y)=>{if(x.payDate!==y.payDate)return x.payDate<y.payDate?-1:1;
+  const nx=x.net&&x.net.ytd,ny=y.net&&y.net.ytd;
+  if((x.employer||"")===(y.employer||"")&&typeof nx==="number"&&typeof ny==="number"&&Math.abs(nx-ny)>0.005)return nx-ny;
+  const a=skey(x),b=skey(y);return a<b?-1:a>b?1:0};
+const sortStubs=a=>a.sort(stubCmp);
+/* a stub needs a real pay date and an item list, or rendering breaks */
+const okStub=s=>s&&typeof s==="object"&&/^\d{4}-\d\d-\d\d$/.test(s.payDate||"")&&Array.isArray(s.items);
+function load(){
+  let stored=null;try{const r=localStorage.getItem(KEY);if(r)stored=JSON.parse(r)}catch(e){}
+  if(stored&&Array.isArray(stored.stubs)){state.stubs=stored.stubs.filter(okStub);Object.assign(state.settings,stored.settings||{})}
+  if((state.settings.seedVersion||0)<SEED_VERSION){
+    const have=new Set(state.stubs.map(skey));
+    for(const s of SEED)if(!have.has(skey(s)))state.stubs.push(JSON.parse(JSON.stringify(s)));
+    state.settings.seedVersion=SEED_VERSION;sortStubs(state.stubs);save();
+  }
+}
+function save(){memoClear();try{localStorage.setItem(KEY,JSON.stringify({stubs:pureStubs(),settings:state.settings}))}catch(e){}}
+
+/* ---------- per-year settings ---------- */
+const ageFor=y=>{const a=+state.settings.age||0;const ay=+state.settings.ageYear||2026;return a?a-(ay-y):0};
+function taxIn(y){const t=(state.settings.tax||{})[y];if(t)return t;if(y===(+state.settings.ageYear||2026))return{seProfit:+state.settings.seProfit||0,otherInc:+state.settings.otherInc||0,estPaid:+state.settings.estPaid||0};return{seProfit:0,otherInc:0,estPaid:0}}
+
+/* ---------- utils ---------- */
+const $=id=>document.getElementById(id);
+const r2=n=>Math.round(n*100)/100;
+/* ---------- estimated employer 401(k) for checks before the stubs listed it ---------- */
+const EST_ER=[["401K Match",.03],["401K Pension Safe Harbor",.03],["401K Pension LT 45",.02]];
+let estFrom=null;
+function applyEst(){
+  for(const s of state.stubs)if(s.items.some(i=>i.est))s.items=s.items.filter(i=>!i.est);
+  estFrom=state.stubs.filter(s=>s.items.some(i=>i.sec==="memo"&&/401|PENSION|MATCH|HARBOR/i.test(i.label)&&+i.cur>0)).map(s=>s.payDate).sort()[0]||null;
+  if(!estFrom)return;const ytd={};
+  for(const s of [...state.stubs].sort((a,b)=>a.payDate<b.payDate?-1:a.payDate>b.payDate?1:0)){
+    if(s.payDate>=estFrom)break;
+    const base=r2(s.items.filter(i=>i.sec==="earnings"&&!/NON\s*PENS/i.test(i.label)).reduce((a,i)=>a+(+i.cur||0),0));
+    if(!(base>0))continue;const y=s.payDate.slice(0,4);
+    for(const[l,p]of EST_ER){const c=r2(base*p),k=y+l;ytd[k]=r2((ytd[k]||0)+c);s.items.push({sec:"memo",label:l,cur:c,ytd:ytd[k],est:true})}
+  }
+}
+const pureStubs=()=>state.stubs.map(s=>s.items.some(i=>i.est)?Object.assign({},s,{items:s.items.filter(i=>!i.est)}):s);
+const hasEst=(ys,lab)=>ys.some(s=>s.items.some(i=>i.est&&(!lab||i.label===lab)));
+const estNote=()=>`* Estimated. Stubs before ${estFrom?nice(estFrom)+", "+estFrom.slice(0,4):"Apr 2014"} don't list employer 401(k) money, so the app adds 3% match, 3% safe harbor and 2% pension on pay (not counting non-pension pay).`;
+/* privacy: hide every dollar amount (percentages stay) */
+let HIDE=false;try{HIDE=!!(JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}).hide}catch(e){}
+const MASK="$*****";
+/* per-render cache: model(), yoyRow() and payDates() are pure for a given set of stubs and settings, and get called many times per render */
+const MEMO=new Map();const memoClear=()=>MEMO.clear();
+const NF2=new Intl.NumberFormat("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}),NF0=new Intl.NumberFormat("en-US",{maximumFractionDigits:0});
+const fmt=n=>HIDE?MASK:(n<0?"−":"")+"$"+NF2.format(Math.abs(n));
+const fmt0=n=>HIDE?MASK:(n<0?"−":"")+"$"+NF0.format(Math.abs(Math.round(n)));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const toISO=s=>{const[m,d,y]=s.split("/").map(Number);return y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0")};
+const dObj=iso=>{const[y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d)};
+const isoOf=dt=>dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");
+const addDays=(iso,n)=>{const d=dObj(iso);d.setDate(d.getDate()+n);return isoOf(d)};
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const nice=iso=>{const d=dObj(iso);return MON[d.getMonth()]+" "+d.getDate()};
+let todayISO=isoOf(new Date());
+
+/* ---------- collapsible UI ---------- */
+const CHEV='<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const UI_DEFAULT={yoyBal:true,yearend:true,yoySave:true,ssben:true,retire:true,nextyr:true,sscap:true,bonusEst:true,whatif:true,yoyEarn:true,yoyPto:true,yoyObl:true,yoyRec:true,yoyComp:true,yoyTfd:true,yoyHour:true,yoyGross:true,yoyRate:true,yoyTax:true,yoy401:true,yoyHealth:true,yoyExtra:true,yoyTbl:true,cal:true,gross:true,checks:false,w2:false,tax:true,savings:true,add:false,employer:false};
+let ui={};try{ui=JSON.parse(localStorage.getItem("pxr.ui")||"{}")||{}}catch(e){ui={}}
+const isOpen=k=>k in ui?!!ui[k]:!!UI_DEFAULT[k];
+function setOpen(k,v){ui[k]=v;try{localStorage.setItem("pxr.ui",JSON.stringify(ui))}catch(e){}}
+function applyPanel(sec,open){sec.classList.toggle("collapsed",!open);const t=sec.querySelector(".tog");if(t)t.setAttribute("aria-expanded",String(open))}
+function initPanels(){
+  document.querySelectorAll("section.panel[data-k]").forEach(sec=>{
+    const k=sec.dataset.k,head=sec.querySelector(".panel-head"),h2=head.querySelector("h2");
+    const body=document.createElement("div");body.className="pbody";body.id="pb-"+k;
+    [...sec.children].filter(c=>c!==head).forEach(c=>body.appendChild(c));sec.appendChild(body);
+    const t=document.createElement("button");t.type="button";t.className="tog";t.setAttribute("aria-controls",body.id);
+    t.innerHTML=CHEV+"<span>"+h2.innerHTML+"</span>";h2.innerHTML="";h2.appendChild(t);
+    const sum=document.createElement("span");sum.className="sum";sum.id="sum-"+k;head.appendChild(sum);
+    applyPanel(sec,isOpen(k));
+    t.addEventListener("click",()=>{const open=sec.classList.contains("collapsed");applyPanel(sec,open);setOpen(k,open)});
+  });
+  document.addEventListener("click",e=>{
+    const et=e.target.closest(".er-tog");if(et){const box=et.closest(".er");const open=box.classList.contains("collapsed");box.classList.toggle("collapsed",!open);et.setAttribute("aria-expanded",String(open));setOpen("employer",open);return}
+    const g=e.target.closest(".bd-row.grp.can");if(g)toggleGroup(g);
+  });
+  document.addEventListener("keydown",e=>{const g=e.target.closest&&e.target.closest(".bd-row.grp.can");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();toggleGroup(g)}});
+}
+function toggleGroup(g){const w=g.closest(".er-group");const open=!w.classList.contains("open");w.classList.toggle("open",open);g.setAttribute("aria-expanded",String(open));setOpen(g.dataset.g,open)}
+function grpRow(key,color,name,amt,pct,hasSubs){
+  const open=hasSubs&&isOpen(key);
+  return`<div class="er-group${open?" open":""}"><div class="bd-row grp${hasSubs?" can":""}"${hasSubs?` role="button" tabindex="0" aria-expanded="${open}" data-g="${key}"`:""}><span class="sw" style="background:var(${color})"></span><span class="lbl">${name}${hasSubs?CHEV:""}</span><span class="num">${amt}</span><span class="num pct">${pct}</span></div>`;
+}
+const setSum=(k,h)=>{const e=$("sum-"+k);if(e)e.innerHTML=h};
+
+/* ---------- classifiers ---------- */
+const isFed=i=>i.sec==="taxes"&&/\bFED|FEDERAL|\bFIT\b/i.test(i.label);
+const isSS=i=>i.sec==="taxes"&&/SOC|OASDI|\bSS\b|SOCIAL/i.test(i.label);
+const isMedi=i=>i.sec==="taxes"&&/\bMED|MEDICARE/i.test(i.label);
+const isStateLocal=i=>i.sec==="taxes"&&!isFed(i)&&!isSS(i)&&!isMedi(i);
+const isLoan=i=>(i.sec==="pretax"||i.sec==="posttax")&&/401L|LOAN/i.test(i.label);
+const isRet=i=>(i.sec==="pretax"||i.sec==="posttax")&&/401|403|457|ROTH|RETIRE/i.test(i.label)&&!isLoan(i);
+const isPreRet=i=>i.sec==="pretax"&&/401|403|457|RETIRE/i.test(i.label)&&!/ROTH/i.test(i.label)&&!isLoan(i);
+const isRoth=i=>(i.sec==="pretax"||i.sec==="posttax")&&/ROTH/i.test(i.label)&&!isLoan(i);
+const isDefer=i=>isPreRet(i)||isRoth(i);
+const isSec125=i=>i.sec==="pretax"&&!isPreRet(i);
+/* taxable perks your employer gives (gift cards etc.); the life-insurance imputed value is left out because Basic Life already counts its cost */
+const isGtl=i=>i.sec==="taxable"&&/GRP\s*LF|GTL|GROUP\s*TERM|\bLIFE\b|\bLF\b/i.test(i.label);
+const isPerk=i=>i.sec==="taxable"&&!isGtl(i);
+/* employer payroll taxes, estimated: Social Security match (same as yours), Medicare match at 1.45%, federal unemployment 0.6% of the first $7,000 */
+/* Ohio unemployment: employer pays its own rate on the first $9,000 ($9,500 in 2018-19). Exact yearly amounts come from the
+   employer's total-compensation statement, typed in by the user and kept in settings (never in this code). */
+/* employer lines that never had a current amount in the year are year-to-date carry-ins from a payroll conversion, not pay */
+const erLive=m=>{const live=new Set(m.ys.flatMap(x=>x.items).filter(i=>(i.sec==="memo"||i.sec==="taxable")&&Math.abs(+i.cur||0)>0.004).map(i=>i.sec+"|"+i.label));return i=>live.has(i.sec+"|"+i.label)};
+const ohBase=y=>y===2018||y===2019?9500:9000;
+const ohUt=v=>v&&typeof v==="object"?+v.ut:+v||0,ohTot=v=>v&&typeof v==="object"?+v.tot:+v||0;
+function ohRate(y){const o0=state.settings.ohUt||{},o={};for(const k in o0)o[k]=ohUt(o0[k]);const ks=Object.keys(o).map(Number).filter(k=>o[k]>0);if(!ks.length)return null;
+  const near=ks.sort((a,b)=>Math.abs(a-y)-Math.abs(b-y)||b-a)[0];return{y:near,rate:o[near]/ohBase(near)/(near===y&&ohEmps(near)>1?ohEmps(near):1),exact:near===y}}
+const ohEmps=y=>new Set(state.stubs.filter(s=>s.payDate.startsWith(y+"")).map(s=>s.employer||"")).size||1;
+function erTaxes(m,f){const W=g=>r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",g)-m.val(isSec125,g));
+  const ss=m.val(isSS,f),w=W(f),med=r2(w*.0145),y=+((m.latest||m.ys[0]||{payDate:"0"}).payDate.slice(0,4)),yw=W("ytd"),ne=Math.max(1,m.lastByEmp?m.lastByEmp.length:1);
+  /* federal unemployment and Ohio unemployment are per employer: each one pays on its own first wages */
+  const firstPart=(cap)=>f==="cur"?Math.max(0,Math.min(cap,yw)-Math.min(cap,Math.max(0,yw-w))):Math.min(cap*ne,w);
+  const futa=r2(firstPart(7000)*.006);
+  const oh=state.settings.ohUt||{},B=ohBase(y);let suta=0,sutaEst=false;
+  if(ohTot(oh[y])>0&&f!=="cur"&&(!m.remaining||f==="proj"||yw>=B*ne))suta=f==="ytd"&&yw<B*ne?r2(ohTot(oh[y])*yw/(B*ne)):ohTot(oh[y]);
+  else{const r=ohRate(y);if(r){suta=r2(firstPart(B)*r.rate);sutaEst=!r.exact}}
+  const sutaOther=!!(oh[y]&&typeof oh[y]==="object"&&oh[y].tot>oh[y].ut+0.004);return{ss,med,futa,suta,sutaEst,sutaOther,tot:r2(ss+med+futa+suta)}}
+const isHSA=i=>i.sec!=="memo"&&/HSA/i.test(i.label);
+const isHSAer=i=>i.sec==="memo"&&/HSA/i.test(i.label);
+const isChild=i=>(i.sec==="pretax"||i.sec==="posttax")&&/CHILD|CHLD/i.test(i.label);
+const PTO_T=[["vac","Vacation",/VAC|\bPTO\b/i,"--c-net"],["hol","Holiday",/HOLIDAY/i,"--c-ret"],["per","Personal",/PERSONAL/i,"--c-k-p45"],["sick","Sick",/SICK/i,"--c-health"],["ber","Bereavement",/BEREAV/i,"--c-state"]];
+const ptoType=i=>i.sec==="earnings"?(PTO_T.find(t=>t[2].test(i.label))||[null])[0]:null;
+const stubPto=s=>{const out={};const b=(s.payRate&&(s.payRate<500?s.payRate*2080:s.payRate*(/^semi/i.test(s.freq||"")?24:26)))||0;if(!b)return out;const hr=b/2080;
+  for(const i of s.items){const t=ptoType(i);if(!t||!(i.cur>0))continue;const o=out[t]||(out[t]={h:0,d:0});o.h+=i.cur/hr;o.d+=i.cur}return out};
+const isFSA=i=>(i.sec==="pretax"||i.sec==="posttax")&&/\bFSA\b|FLEX SPEND/i.test(i.label);
+const isHSAall=i=>isHSA(i)||isHSAer(i);
+const isErRet=i=>i.sec==="memo"&&/401|403|PENSION|MATCH|HARBOR|PROFIT|RETIRE/i.test(i.label);
+const isMatch=i=>i.sec==="memo"&&/MATCH/i.test(i.label);
+const isLife=i=>i.sec==="taxable"&&/LIFE|\bLF\b|GTL/i.test(i.label);
+
+/* ---------- employer groups: a name change with continuing YTD is the same employer ---------- */
+function empGroups(ys){
+  const g=new Map(),alias={};let prev=null;
+  for(const s of ys){
+    const name=s.employer||"";
+    if(!(name in alias)){
+      const cont=prev&&(prev.employer||"")!==name&&s.net&&prev.net&&s.net.ytd!=null&&prev.net.ytd!=null&&Math.abs(prev.net.ytd+(s.net.cur||0)-s.net.ytd)<0.02&&s.net.ytd>(s.net.cur||0)+0.01;
+      alias[name]=cont?alias[prev.employer||""]:name;
+      if(cont)s._renamedFrom=prev.employer;
+    }
+    g.set(s,alias[name]);prev=s;
+  }
+  return g;
+}
+
+/* ---------- year model ---------- */
+const isExtra=s=>s.kind==="Additional";
+function yearStubs(y){return sortStubs(state.stubs.filter(s=>s.payDate.slice(0,4)==String(y)))}
+const isSemi=s=>/^semi/i.test(s.freq||"");
+function payDates(y){const k="p"+y;if(!MEMO.has(k))MEMO.set(k,payDatesCalc(y));return MEMO.get(k).slice()}
+function payDatesCalc(y){
+  const ys=yearStubs(y).filter(s=>!isExtra(s));
+  const all=yearStubs(y-1).concat(ys,yearStubs(y+1)).filter(s=>!isExtra(s)).map(s=>s.payDate);
+  /* day numbers computed once, so snapping a date to a nearby real payday is cheap */
+  const dn=iso=>Math.round(Date.UTC(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8,10))/864e5),allN=all.map(dn);
+  const snap=d=>{const n=dn(d),i=allN.findIndex(x=>Math.abs(x-n)<=3);return i>=0?all[i]:d};
+  const semi=ys.filter(isSemi),bi=ys.filter(s=>!isSemi(s));
+  const out=[];const push=d=>{if(Number(d.slice(0,4))===y&&!out.includes(d))out.push(d)};
+  if(semi.length){
+    const end=bi.length?bi[0].payDate:(y+1)+"-01-01";
+    for(let mo=0;mo<12;mo++)for(const day of[15,new Date(y,mo+1,0).getDate()]){
+      const t=new Date(y,mo,day);const wd=t.getDay();if(wd===6)t.setDate(t.getDate()-1);if(wd===0)t.setDate(t.getDate()-2);
+      const d=snap(isoOf(t));if(d<end)push(d)}
+  }
+  if(bi.length||!semi.length){
+    const anchor=bi.length?bi[0].payDate:(state.stubs[0]?state.stubs[0].payDate:null);
+    if(anchor){const from=semi.length?bi[0].payDate:y+"-01-01";
+      let d=anchor;while(d>=from)d=addDays(d,-14);
+      for(;d<=(y+1)+"-01-07";d=addDays(d,14)){const r=snap(d);if(r>=from)push(r)}}
+  }
+  out.sort();
+  const f=ys[0];if(f&&f.net&&f.net.cur!=null&&f.net.ytd!=null&&Math.abs(f.net.cur-f.net.ytd)<0.01&&f.net.cur>0)return out.filter(x=>x>=f.payDate);
+  return out;
+}
+function prevLoaded(s,ys){const i=ys.indexOf(s);return i>0?ys[i-1]:null}
+function ytdOf(s,item,ys){
+  if(item.ytd!=null)return item.ytd;
+  let t=0;for(const x of ys){if(x.payDate>s.payDate)break;const m=x.items.find(j=>j.sec===item.sec&&j.label===item.label);if(m)t+=m.cur}return t;
+}
+/* per-render cache lives with the other helpers (MEMO) */
+function model(y,cut){if(cut)return modelCalc(y,cut);const k="m"+y;if(!MEMO.has(k))MEMO.set(k,modelCalc(y));return MEMO.get(k)}
+function modelCalc(y,cut){
+  let ys=yearStubs(y);const pds=payDates(y);
+  if(cut){const k=ys.findIndex(s=>skey(s)===skey(cut));if(k>=0)ys=ys.slice(0,k+1)}
+  if(!ys.length)return{ys,pds,latest:null,remaining:0};
+  const latest=ys[ys.length-1];const regs=ys.filter(s=>!isExtra(s));const reg=regs.length?regs[regs.length-1]:latest;
+  const closed=y<Number(todayISO.slice(0,4));
+  const remaining=closed&&!cut?0:pds.filter(d=>d>latest.payDate).length;
+  const haveD=new Set(regs.map(s=>s.payDate));
+  const partial=!cut&&closed&&pds.some(d=>d>latest.payDate&&!haveD.has(d));
+  const grp=empGroups(ys);const emps=[...new Set(ys.map(s=>grp.get(s)))];
+  const lastByEmp=emps.map(e=>{const es=ys.filter(s=>grp.get(s)===e);const last=es[es.length-1];return{e:last.employer||e,last,es}});
+  const val=(pred,field)=>{let y=0,c=0;
+    for(const g of lastByEmp)for(const i of g.last.items)if(pred(i))y+=ytdOf(g.last,i,g.es);
+    for(const i of reg.items)if(pred(i))c+=i.cur;
+    return r2(field==="cur"?c:field==="ytd"?y:y+c*remaining)};
+  return{ys,pds,latest,reg,remaining,val,lastByEmp,grp,partial};
+}
+
+/* ---------- parser ---------- */
+const MONEY=/\(?-?\$\s?-?[\d,]+\.\d{2}\)?/g;
+const money=s=>{const neg=/^\(|-/.test(s.trim());const v=parseFloat(s.replace(/[^\d.]/g,""));return neg?-v:v};
+const SECTIONS=[["earnings",/^earnings\b/i],["taxable",/^taxable benefits\b/i],["memo",/^memo info/i],["pretax",/^pre-?\s?tax deductions\b/i],["posttax",/^(post|after)-?\s?tax deductions\b/i],["taxes",/^taxes\b/i],["net",/^net pay\b/i]];
+function lineLabel(line){
+  const i=line.search(/\(?-?\$/);let s=(i<0?line:line.slice(0,i)).replace(/\t/g," ").replace(/\s+/g," ").trim();
+  const nums=[];let m;while((m=s.match(/\s*([\d,]+\.\d+)$/))){nums.unshift(parseFloat(m[1].replace(/,/g,"")));s=s.slice(0,s.length-m[0].length).trim()}
+  if(/^[\d,.\s\-\/]*$/.test(s))s="";return{label:s,nums};
+}
+function parseChunk(chunk){
+  const pd=chunk.match(/(?:Pay|Check) Date:?[\s\S]{0,300}?(\d{1,2}\/\d{1,2}\/\d{4})/i);if(!pd)return null;
+  const pp=chunk.match(/Pay Period:?[\s\S]{0,300}?(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  const rt=chunk.match(/Pay Rate:?[\s\S]{0,300}?\$\s?([\d,]+\.\d{2})/i);
+  const fs=chunk.match(/Federal Filing Status:?[\s\S]{0,200}?\b(Single|Married[A-Za-z ]*?|Head of Household)\b/i);
+  const kd=chunk.match(/•\s*\d{1,2}\/\d{1,2}\/\d{4}\s*•\s*([A-Za-z]+)/);
+  const stub={payDate:toISO(pd[1]),period:pp?[toISO(pp[1]),toISO(pp[2])]:null,kind:kd&&/additional|bonus|off/i.test(kd[1])?"Additional":"Normal",payRate:rt?parseFloat(rt[1].replace(/,/g,"")):null,filing:fs?fs[1]:null,items:[],totals:{},net:null};
+  const fq=chunk.match(/Pay Frequency:?[ \t]*([A-Za-z-]+)/);if(fq&&/^(s|semi)/i.test(fq[1]))stub.freq="semimonthly";
+  const adv=chunk.match(/(?:Deposit Advice|Check)\s*#:?[ \t]*([A-Za-z0-9]+)/);if(adv)stub.seq=adv[1];
+  const em=chunk.match(/Employer Name:?[ \t]*([^\n\t]+?)(?:[ ]{2,}|\t|\n|$)/);if(em)stub.employer=em[1].trim();
+  let sec=null,block=false,pL=[],pA=[],netA=[];
+  const flush=()=>{if(sec&&sec!=="net"&&block){const n=pL.length;if(n&&pA.length>=n){const two=pA.length>=2*n;
+      pL.forEach((l,k)=>{const cur=pA[k],ytd=two?pA[n+k]:null;if(l==="__total")stub.totals[sec]={cur,ytd};else stub.items.push({sec,label:l,cur,ytd})})}}
+    pL=[];pA=[];block=false};
+  for(const raw of chunk.split(/\r?\n/)){
+    const line=raw.replace(/ /g," ");if(!line.trim())continue;
+    const amts=(line.match(MONEY)||[]).map(money);const{label,nums}=lineLabel(line);
+    const hdr=label&&SECTIONS.find(([,re])=>re.test(label));
+    if(hdr){flush();sec=hdr[0];
+      if(sec==="net"){netA.push(...amts);continue}
+      if(amts.length)stub.totals[sec]={cur:amts[0],ytd:amts.length>1?amts[amts.length-1]:null};else{block=true;pL.push("__total")}
+      continue}
+    if(!sec)continue;
+    if(sec==="net"){netA.push(...amts);continue}
+    if(block){if(label)pL.push(label);pA.push(...amts);continue}
+    if(label&&amts.length){const it={sec,label,cur:amts[0],ytd:amts.length>1?amts[amts.length-1]:null};if(nums.length&&sec==="earnings")it.hours=nums[0];stub.items.push(it)}
+  }
+  flush();
+  const merged=[];for(const it of stub.items){const mm=merged.find(x=>x.sec===it.sec&&x.label===it.label);if(mm){mm.cur=r2(mm.cur+it.cur);if(mm.ytd==null)mm.ytd=it.ytd}else merged.push(it)}stub.items=merged;
+  if(netA.length)stub.net={cur:netA[0],ytd:netA.length>1?netA[netA.length-1]:null};
+  return stub.items.length?stub:null;
+}
+function parseText(txt){
+  const pdIdx=[],hdIdx=[];let m;
+  const re=/(?:Pay|Check) Date:?/gi;while((m=re.exec(txt)))pdIdx.push(m.index);
+  const rh=/#\d+\s*•\s*\d{1,2}\/\d{1,2}\/\d{4}\s*•/g;while((m=rh.exec(txt)))hdIdx.push(txt.lastIndexOf("\n",m.index)+1);
+  const idx=hdIdx.length===pdIdx.length&&hdIdx.length?hdIdx:pdIdx;
+  const out=[];for(let k=0;k<idx.length;k++){const ch=txt.slice(idx[k],idx[k+1]||txt.length);if(/Supplemental Earnings Statement/i.test(ch))continue;const s=parseChunk(ch);if(s)out.push(s)}
+  return out;
+}
+function addStubs(list){
+  let added=0,replaced=0;
+  for(const s of list){if(!s.kind)s.kind="Normal";if(s.kind!=="Additional")delete s.seq;const i=state.stubs.findIndex(x=>skey(x)===skey(s));if(i>=0){state.stubs[i]=s;replaced++}else{state.stubs.push(s);added++}}
+  sortStubs(state.stubs);
+  if(list.length)state.year=Number(list[list.length-1].payDate.slice(0,4));
+  save();render();return{added,replaced};
+}
+
+/* ---------- pdf ---------- */
+/* libraries are copies kept in this repo (lib/), pinned to exact versions, so nothing loads from outside sites */
+const PDFJS="lib/pdfjs/";
+let pdfReady=null;
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("Could not load "+src));document.head.appendChild(s)})}
+function loadPdf(){if(!pdfReady)pdfReady=loadScript(PDFJS+"pdf.min.js").then(()=>loadScript(PDFJS+"pdf.worker.min.js")).then(()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js"});return pdfReady}
+async function pdfToText(file){
+  await loadPdf();const doc=await window.pdfjsLib.getDocument({data:await file.arrayBuffer(),isEvalSupported:false}).promise;let out="";
+  for(let p=1;p<=doc.numPages;p++){const tc=await(await doc.getPage(p)).getTextContent();
+    const its=tc.items.filter(t=>t.str&&t.str.trim()).map(t=>({s:t.str,x:t.transform[4],y:t.transform[5],w:t.width||0})).sort((a,b)=>b.y-a.y||a.x-b.x);
+    const rows=[];for(const t of its){const r=rows[rows.length-1];if(r&&Math.abs(r.y-t.y)<=3)r.items.push(t);else rows.push({y:t.y,items:[t]})}
+    for(const r of rows){r.items.sort((a,b)=>a.x-b.x);let line="",end=null;for(const t of r.items){line+=(end==null?"":(t.x-end>6?"\t":" "))+t.s;end=t.x+t.w}out+=line+"\n"}}
+  return out;
+}
+
+/* ---------- render: calendar ---------- */
+const isBonusCheck=s=>s.items.some(i=>i.sec==="earnings"&&isBonusE(i)&&i.cur>=500);
+function renderCalendar(m,y){
+  const have=new Set(m.ys.filter(s=>!isExtra(s)).map(s=>s.payDate));const extra=new Set(m.ys.filter(isExtra).map(s=>s.payDate));const next=m.pds.find(d=>d>todayISO);
+  const byMonth=Array.from({length:12},()=>[]);m.pds.forEach(d=>byMonth[dObj(d).getMonth()].push(d));
+  const xByMonth=Array.from({length:12},()=>[]);m.ys.filter(isExtra).forEach(s=>xByMonth[dObj(s.payDate).getMonth()].push(s));
+  const selKey=state.mode==="cur"?state.checkKey:null;
+  $("months").innerHTML=byMonth.map((ds,mi)=>{
+    const items=ds.map(d=>({d,x:null})).concat(xByMonth[mi].map(s=>({d:s.payDate,x:s}))).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.x?1:-1);
+    const pills=items.map(({d,x})=>{
+      if(x){const bon=isBonusCheck(x);const amt=x.net&&x.net.cur!=null?fmt(x.net.cur):"—";
+        return `<span class="pd ${bon?"bon":"ext"}${selKey===skey(x)?" on":""}" role="button" tabindex="0" data-key="${esc(skey(x))}" title="${nice(d)}, ${y}: ${bon?"bonus check":"extra check"}, ${amt} deposited">${dObj(d).getDate()}</span>`}
+      const cls=have.has(d)?"have":d<=todayISO?"miss":d===next?"next":"";
+      const t=have.has(d)?"stub loaded":d<=todayISO?"paid, stub missing":d===next?"next payday":"upcoming";
+      const rs=m.ys.find(s=>s.payDate===d&&!isExtra(s)),sel=!!(selKey&&rs&&selKey===skey(rs));const vh=rs?Object.values(stubPto(rs)).reduce((a,o)=>a+o.h,0):0;
+      return `<span class="pd ${cls}${sel?" on":""}${vh>0.05?" vac":""}"${have.has(d)?` role="button" tabindex="0" data-chk="${d}"`:""} title="${nice(d)}, ${y}: ${t}${vh>0.05?` · ${vh<7.95?Math.round(vh)+" hr":+(vh/8).toFixed(1)+(Math.abs(vh-8)<0.05?" day":" days")} time off`:""}">${dObj(d).getDate()}</span>`}).join("");
+    return `<div class="mo${ds.length===3?" three":""}"><div class="mo-h"><span>${MON[mi]}</span>${ds.length===3?'<span class="x3">3 checks</span>':""}</div><div class="pds">${pills}</div></div>`}).join("");
+  const miss=m.pds.filter(d=>d<=todayISO&&!have.has(d)).length;const threes=byMonth.map((d,i)=>d.length===3?MON[i]:null).filter(Boolean);
+  const ptoH=m.ys.reduce((a,s)=>a+Object.values(stubPto(s)).reduce((b,o)=>b+o.h,0),0);
+  setSum("cal",`<strong>${have.size}/${m.pds.length}</strong> stubs`+(ptoH>0.05?` · ${+(ptoH/8).toFixed(1)} days off`:"")+(miss?` · <span class="warn">${miss} missing</span>`:"")+(next?` · next payday ${nice(next)}`:""));
+  const xs=m.ys.filter(isExtra),nb=xs.filter(isBonusCheck).length,no=xs.length-nb;
+  $("calSummary").textContent=`${have.size} of ${m.pds.length} stubs loaded`+(ptoH>0.05?` · ${+(ptoH/8).toFixed(1)} days time off paid`:"")+(nb?` + ${nb} bonus check${nb>1?"s":""}`:"")+(no?` + ${no} other extra`:"")+(miss?` · ${miss} missing`:"")+(threes.length?` · 3-check months: ${threes.join(", ")}`:"");
+}
+
+/* ---------- render: breakdown ---------- */
+const CATS=[["net","Take-home pay","--c-net"],["fed","Federal income tax","--c-fed"],["fica","Social Security + Medicare","--c-fica"],["state","State + local tax","--c-state"],["ret","401(k)","--c-ret"],["health","Health insurance","--c-health"],["loan","401(k) loan repayment","--c-loan"],["child","Child support","--c-child"],["hsa","HSA","--c-er-hsa"],["fsa","Health FSA","--c-fsa"],["other","Other deductions","--c-other"]];
+function breakdown(m,f){
+  const gross=m.val(i=>i.sec==="earnings",f);
+  const fed=m.val(isFed,f),fica=m.val(i=>isSS(i)||isMedi(i),f),st=m.val(isStateLocal,f),ret=m.val(isRet,f);
+  const health=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&!isFSA(i)&&(/MED|DENT|VIS|HEALTH|INS/i.test(i.label)),f);
+  const fsa=m.val(isFSA,f);
+  const hsa=m.val(isHSA,f);
+  const loan=m.val(isLoan,f);
+  const child=m.val(isChild,f);
+  const other=m.val(i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isLoan(i)&&!isChild(i)&&!(/MED|DENT|VIS|HSA|FSA|HEALTH|INS/i.test(i.label)),f);
+  const net=r2(gross-fed-fica-st-ret-health-hsa-fsa-loan-child-other);
+  return{gross,parts:{net,fed,fica,state:st,ret,health,hsa,fsa,loan,child,other}};
+}
+function chosenCheck(m){const ys=m.ys;let s=ys.find(x=>skey(x)===state.checkKey);if(!s){s=m.reg;state.checkKey=skey(s)}state.checkDate=s.payDate;return s}
+function checkModel(m){const s=chosenCheck(m);return Object.assign({},m,{reg:s,latest:s,val:(p,f)=>f==="cur"?r2(s.items.filter(p).reduce((a,i)=>a+i.cur,0)):m.val(p,f)})}
+let pdfStub=null;
+const H2C="lib/html2canvas.min.js";
+const CPROPS=["color","background-color","border-top-color","border-right-color","border-bottom-color","border-left-color","background-image","outline-color","box-shadow","fill","stroke","text-decoration-color"];
+const toRgb=v=>v.replace(/color\(srgb\s+([\d.e-]+)\s+([\d.e-]+)\s+([\d.e-]+)(?:\s*\/\s*([\d.e-]+))?\)/g,(m,r,g,b,a)=>`rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},${a==null?1:+a})`);
+function fixColors(root){const view=root.ownerDocument.defaultView;[root,...root.querySelectorAll("*")].forEach(el=>{const cs=view.getComputedStyle(el);
+  for(const k of CPROPS){const v=cs.getPropertyValue(k);if(v&&v.includes("color("))el.style.setProperty(k,toRgb(v),"important")}})}
+function inlineSvg(root){root.querySelectorAll("svg").forEach(svg=>{svg.querySelectorAll("*").forEach(el=>{const cs=getComputedStyle(el);
+  for(const k of ["fill","stroke","stroke-width","stroke-dasharray","opacity","fill-opacity","stroke-opacity","font-size","font-weight","font-family","text-anchor"]){const v=cs.getPropertyValue(k);if(v&&v!=="normal")el.setAttribute(k,v)}});
+  const r=svg.getBoundingClientRect();svg.setAttribute("width",r.width);svg.setAttribute("height",r.height)})}
+async function makeReport(kind){
+  const wait=document.createElement("div");wait.className="rptwait";wait.innerHTML=`<div>Building your report…</div><small id="rptStep">Getting ready</small>`;document.body.appendChild(wait);
+  const keep={tab:state.tab,view:state.view,mode:state.mode,y:window.scrollY};const step=t=>{const e=document.getElementById("rptStep");if(e)e.textContent=t};
+  const html=document.documentElement;
+  try{
+    if(!window.jspdf)await loadScript(JSPDF);if(!window.html2canvas)await loadScript(H2C);
+    html.classList.add("rpt");state.tab=kind;state.view=kind==="all"?"all":"year";if(kind==="year")state.mode="ytd";render();
+    if(kind==="year"){const ss=document.querySelector('section[data-k="sscap"]');if($("ssCap").innerHTML.trim())ss.hidden=false;
+      ["whatif","bonusEst"].forEach(k=>{const e=document.querySelector(`section[data-k="${k}"]`);if(e)e.hidden=true})}
+    await new Promise(r=>setTimeout(r,250));
+    const secs=kind==="all"?[$("yoyTop"),...document.querySelectorAll("#yoyView section.panel[data-k]")].filter(e=>e&&!e.hidden&&e.offsetHeight>0)
+      :[...document.querySelectorAll(".wrap > section.panel[data-k], .wrap > .grid2 > section.panel[data-k]")].filter(e=>!e.hidden&&e.offsetParent!==null&&e.dataset.k!=="add"&&e.dataset.k!=="whatif"&&e.dataset.k!=="bonusEst");
+    secs.forEach(inlineSvg);
+    const doc=new window.jspdf.jsPDF({unit:"pt",format:"letter"}),PW=612,PH=792,M=40,CW=PW-2*M,TOP=48,BOT=PH-46;
+    /* cover */
+    const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))].sort((a,b)=>a-b);
+    doc.setFillColor(47,140,255);doc.rect(0,0,PW,10,"F");
+    doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(46,162,124);doc.text("PAYCHECK X-RAY",M,90);
+    doc.setFontSize(34);doc.setTextColor(22,25,29);doc.text(kind==="all"?`${ys[0]}–${ys[ys.length-1]}`:String(state.year),M,140);
+    doc.setFont("helvetica","normal");doc.setFontSize(15);doc.setTextColor(92,99,108);doc.text(kind==="all"?"All-years pay report":"Year pay report",M,166);
+    const rows=(kind==="all"?ys:[state.year]).map(yoyRow).filter(Boolean),P=r=>r.proj?r.sofar:r.full,S=k=>rows.reduce((a,r)=>a+(P(r)[k]||0),0);
+    const kp=[["Gross pay",S("gross")],["Take-home",S("net")],["Taxes",S("fed")+S("fica")+S("state")],["Into your 401(k)",S("ret")+S("er401")]];
+    kp.forEach(([l,v],i)=>{const x=M+(i%2)*(CW/2),y=230+Math.floor(i/2)*92;doc.setFillColor(i===1?232:244,i===1?248:245,i===1?241:247);doc.roundedRect(x,y,CW/2-10,74,6,6,"F");
+      doc.setFontSize(10);doc.setTextColor(92,99,108);doc.text(l.toUpperCase(),x+14,y+24);doc.setFont("helvetica","bold");doc.setFontSize(22);doc.setTextColor(22,25,29);doc.text(fmt0(v),x+14,y+54);doc.setFont("helvetica","normal")});
+    const cur=rows.some(r=>r.proj);doc.setFontSize(10);doc.setTextColor(120,126,134);
+    doc.text(`${cur?"Current year counted so far. ":""}Made ${nice(todayISO)}, ${todayISO.slice(0,4)} from ${state.stubs.length} stubs.`,M,430);
+    doc.text("Sections",M,470);doc.setTextColor(40,44,50);doc.setFontSize(11);
+    secs.forEach((e,i)=>{const t=(e.querySelector("h2")||{}).textContent||"";doc.text(`${i+1}.  ${t.trim()}`,M,492+i*17)});
+    /* sections */
+    doc.addPage();let y=TOP;
+    for(let i=0;i<secs.length;i++){const sec=secs[i];step(`Section ${i+1} of ${secs.length}`);await new Promise(r=>setTimeout(r,0));
+      sec.setAttribute("data-rpt",String(i));
+      {let need=0;sec.querySelectorAll(".tbl-wrap").forEach(w=>{const t=w.querySelector("table");if(t&&w.offsetParent!==null)need=Math.max(need,t.scrollWidth-w.clientWidth)});if(need>0)sec.style.width=(sec.offsetWidth+need+24)+"px"}
+      let br=[];const breaks=sec=>{const t0=sec.getBoundingClientRect().top,out=new Set();
+        sec.querySelectorAll("tr, .chart, .legend-row, p, .yd, .tiles>*, .meter, .meter small, .statline, .stat, .bd-row, .er-head, h3, .mheat, .months, .mo, .tc, .bar, .k401, .chk, .card, li, .verdict").forEach(e=>{if(e.offsetParent===null)return;const r=e.getBoundingClientRect();if(r.height>0)out.add(Math.round((r.bottom-t0)*2))});
+        return [...out].sort((a,b)=>a-b)};
+      const cut=(off,maxPx)=>{const lim=off+maxPx;let best=0;for(const b of br){if(b>off+60&&b<=lim)best=b}return best||Math.min(lim,Number.MAX_SAFE_INTEGER)};
+      const c=await window.html2canvas(sec,{scale:2,backgroundColor:"#ffffff",windowWidth:Math.max(840,sec.offsetWidth+60),width:sec.offsetWidth,logging:false,onclone:d=>{const e=d.querySelector(`[data-rpt="${i}"]`);if(e){fixColors(e);br=breaks(e)}}});
+      sec.removeAttribute("data-rpt");sec.style.width="";
+      if(c.width>2*1000){/* wide table: its own landscape page(s) */
+        const LW=792-2*M,LB=612-46,pxPer=c.width/LW;let off=0;
+        while(off<c.height){doc.addPage("letter","l");const room=Math.round((LB-TOP)*pxPer),hPx=c.height-off<=room?c.height-off:cut(off,room)-off,hPt=hPx/pxPer;
+          const part=document.createElement("canvas");part.width=c.width;part.height=hPx;part.getContext("2d").drawImage(c,0,off,c.width,hPx,0,0,c.width,hPx);
+          doc.addImage(part.toDataURL("image/jpeg",.9),"JPEG",M,TOP,LW,hPt);off+=hPx;if(c.height-off<56)off=c.height}
+        doc.addPage("letter","p");y=TOP;continue}
+      const ih=c.height*CW/c.width;
+      if(ih<=BOT-y){doc.addImage(c.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,ih);y+=ih+14;continue}
+      if(ih<=BOT-TOP){doc.addPage();y=TOP;doc.addImage(c.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,ih);y+=ih+14;continue}
+      if(BOT-y<(BOT-TOP)*.3){doc.addPage();y=TOP}
+      const pxPer=c.width/CW;let off=0;
+      while(off<c.height){const room=Math.round((BOT-y)*pxPer),hPx=c.height-off<=room?c.height-off:cut(off,room)-off,hPt=hPx/pxPer;
+        const part=document.createElement("canvas");part.width=c.width;part.height=hPx;part.getContext("2d").drawImage(c,0,off,c.width,hPx,0,0,c.width,hPx);
+        doc.addImage(part.toDataURL("image/jpeg",.88),"JPEG",M,y,CW,hPt);off+=hPx;if(c.height-off<56)off=c.height;y+=hPt+14;if(off<c.height){doc.addPage();y=TOP}}}
+    {const blank=doc.getNumberOfPages();if(y===TOP)doc.deletePage(blank)}
+    const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);const pw=doc.internal.pageSize.getWidth(),ph=doc.internal.pageSize.getHeight();doc.setFontSize(8.5);doc.setTextColor(150,156,164);
+      doc.text("Paycheck X-Ray · recreated from your stub data, not an official statement",M,ph-22);doc.text(`${i} / ${n}`,pw-M,ph-22,{align:"right"})}
+    const blob=doc.output("blob"),name=kind==="all"?`paycheck-report-${ys[0]}-${ys[ys.length-1]}.pdf`:`paycheck-report-${state.year}.pdf`;
+    html.classList.remove("rpt");state.tab=keep.tab;state.view=keep.view;state.mode=keep.mode;render();window.scrollTo(0,keep.y);wait.remove();
+    let f=null;try{f=new File([blob],name,{type:"application/pdf"})}catch(e){}
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:name});return}catch(e){if(e&&e.name==="AbortError")return}}
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast(`Saved ${name}.`);
+  }catch(e){console.error(e);toast("Couldn't build the report. Check your connection and try again.",true)}
+  finally{if(html.classList.contains("rpt")){html.classList.remove("rpt");state.tab=keep.tab;state.view=keep.view;state.mode=keep.mode;render();window.scrollTo(0,keep.y)}wait.remove()}
+}
+const JSPDF="lib/jspdf.umd.min.js";
+async function stubToPdf(s){
+  if(!window.jspdf)await loadScript(JSPDF);
+  const doc=new window.jspdf.jsPDF({unit:"pt",format:"letter"}),W=612,L=54,R=W-54;let y=64;
+  const money=v=>(v<0?"-":"")+"$"+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const yr=s.payDate.slice(0,4),its=s.items.filter(i=>!i.est);
+  doc.setFont("helvetica","bold");doc.setFontSize(20);doc.setTextColor(17,19,23);doc.text("Pay statement",L,y);
+  doc.setFontSize(12);doc.text(`${nice(s.payDate)}, ${yr}`,R,y,{align:"right"});y+=22;
+  doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(90,96,104);
+  const meta=[s.employer||"",s.period&&s.period[0]?`Pay period ${nice(s.period[0])}, ${s.period[0].slice(0,4)} – ${nice(s.period[1])}, ${s.period[1].slice(0,4)}`:"",
+    s.payRate?`Rate ${money(s.payRate)} per ${isSemi(s)?"half month":"two weeks"}`:"",isExtra(s)?(isBonusCheck(s)?"Bonus check":"Extra check"):"Regular check",s.filing?`Withholding: ${s.filing}`:""].filter(Boolean);
+  meta.forEach(t=>{doc.text(t,L,y);y+=13});y+=6;
+  {const sm=p=>its.filter(p).reduce((a,x)=>a+x.cur,0),gross=sm(x=>x.sec==="earnings"),tax=sm(x=>x.sec==="taxes"),ded=sm(x=>x.sec==="pretax"||x.sec==="posttax");
+   const box=[["Gross pay",gross],["Taxes",tax],["Deductions",ded],["Net pay",s.net?s.net.cur:gross-tax-ded]],bw=(R-L-18)/4;
+   box.forEach(([l,v],i)=>{const x=L+i*(bw+6);if(i===3)doc.setFillColor(232,248,241);else doc.setFillColor(244,245,247);doc.roundedRect(x,y,bw,44,4,4,"F");
+     doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(110,116,124);doc.text(l.toUpperCase(),x+9,y+15);
+     doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(17,19,23);doc.text(money(v),x+9,y+34)});y+=60}
+  doc.setDrawColor(47,140,255);doc.setLineWidth(2);doc.line(L,y,R,y);y+=20;
+  const C1=R-110,C2=R;
+  const head=()=>{doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(120,126,134);doc.text("THIS CHECK",C1,y,{align:"right"});doc.text("YEAR TO DATE",C2,y,{align:"right"});y+=6};
+  const page=()=>{if(y>748){doc.addPage();y=64}};
+  for(const[sec,name]of SECN){const it=its.filter(x=>x.sec===sec&&(Math.abs(x.cur)>=0.005||Math.abs(x.ytd||0)>=0.005));if(!it.length)continue;page();
+    doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.setTextColor(17,19,23);doc.text(name,L,y);head();y+=6;
+    doc.setFont("helvetica","normal");doc.setFontSize(9.5);
+    for(const x of it){page();doc.setTextColor(40,44,50);doc.text(String(x.label),L+8,y);doc.text(money(x.cur),C1,y,{align:"right"});doc.text(x.ytd!=null?money(x.ytd):"",C2,y,{align:"right"});y+=12.5}
+    const tc=it.reduce((a,x)=>a+x.cur,0),ty=it.reduce((a,x)=>a+(x.ytd||0),0);
+    doc.setDrawColor(210,214,219);doc.setLineWidth(.6);doc.line(L+8,y-9,R,y-9);doc.setFont("helvetica","bold");doc.text("Total",L+8,y+2);doc.text(money(tc),C1,y+2,{align:"right"});doc.text(money(ty),C2,y+2,{align:"right"});y+=22}
+  if(s.net){page();doc.setFillColor(232,248,241);doc.roundedRect(L,y-16,R-L,30,4,4,"F");doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(17,19,23);
+    doc.text("Net pay (deposit)",L+10,y+3);doc.text(money(s.net.cur),C1,y+3,{align:"right"});doc.text(s.net.ytd!=null?money(s.net.ytd):"",C2,y+3,{align:"right"});y+=40}
+  doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(140,146,154);
+  if(y>758){doc.addPage();y=64}doc.text("Recreated by Paycheck X-Ray from stub data. Not an official pay statement; account and routing numbers are never stored.",L,770);
+  return{blob:doc.output("blob"),name:`paystub-${s.payDate}${isExtra(s)?"-extra":""}.pdf`};
+}
+async function savePdf(){
+  const s=pdfStub;if(!s)return;const b=$("sdPdf");b.disabled=true;b.textContent="Making PDF…";
+  try{const{blob,name}=await stubToPdf(s);
+    let f=null;try{f=new File([blob],name,{type:"application/pdf"})}catch(e){}
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:name});return}catch(e){if(e&&e.name==="AbortError")return}}
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast(`Saved ${name}.`)}
+  catch(e){toast("Couldn't make the PDF. Check your connection and try again.",true)}
+  finally{b.disabled=false;b.textContent="Save as PDF"}}
+const SECN=[["earnings","Earnings"],["taxable","Taxable benefits (not paid in cash)"],["pretax","Pre-tax deductions"],["taxes","Taxes"],["posttax","After-tax deductions"],["memo","Paid by your employer (not in your pay)"]];
+function renderCheckUI(m){
+  const cur=state.mode==="cur";$("chkBar").hidden=!cur;$("stubDetail").hidden=!cur;if(!cur)return;
+  const ys=m.ys,s=chosenCheck(m),i=ys.indexOf(s);pdfStub=s;
+  $("checkSel").innerHTML=[...ys].reverse().map(x=>`<option value="${esc(skey(x))}"${x===s?" selected":""}>${nice(x.payDate)} · ${x.net&&x.net.cur!=null?fmt0(x.net.cur):"—"}${isExtra(x)?(isBonusCheck(x)?" ★":" +"):""}</option>`).join("");
+  $("chkPrev").disabled=i<=0;$("chkNext").disabled=i>=ys.length-1;
+  const regs=ys.filter(x=>!isExtra(x));let pv=isExtra(s)?null:regs[regs.indexOf(s)-1]||null;
+  const pv0=pv;if(pv&&!s.items.some(x=>{const q=pv.items.find(j=>j.sec===x.sec&&j.label===x.label);return Math.abs(x.cur-(q?q.cur:0))>=0.005}))pv=null;
+  const g=s.items.filter(x=>x.sec==="earnings").reduce((a,x)=>a+x.cur,0);
+  $("sdMeta").innerHTML=[`<span>Paid <b>${nice(s.payDate)}, ${s.payDate.slice(0,4)}</b></span>`,s.period&&s.period[0]?`<span>Period <b>${nice(s.period[0])} – ${nice(s.period[1])}</b></span>`:"",
+    s.payRate?`<span>Rate <b>${fmt(s.payRate)}</b> per ${isSemi(s)?"half month":"two weeks"}</span>`:"",isExtra(s)?`<span><b>Extra check</b>${s.seq&&!/taxadj/.test(s.seq)?" #"+esc(s.seq):""}</span>`:"",
+    s.filing?`<span>Withholding <b>${esc(s.filing)}</b></span>`:"",s.employer?`<span>${esc(s.employer)}</span>`:"",pv?`<span>Diff compares with <b>${nice(pv.payDate)}</b></span>`:pv0?`<span>Same as <b>${nice(pv0.payDate)}</b>, line for line</span>`:""].filter(Boolean).join("");
+  const dif=(x)=>{if(!pv)return"";const q=pv.items.find(j=>j.sec===x.sec&&j.label===x.label);const d=r2(x.cur-(q?q.cur:0));if(Math.abs(d)<0.005)return"";
+    const bad=x.sec==="earnings"||x.sec==="memo"?d<0:d>0;return`<td class="n dif ${bad?"up":"dn"}">${d>0?"+":"−"}${fmt(Math.abs(d)).slice(1)}</td>`};
+  let h=`<thead><tr><th>Line</th><th class="n">Check</th><th class="n pc">% of gross</th><th class="n">YTD</th>${pv?'<th class="n">Diff</th>':""}</tr></thead><tbody>`;
+  for(const[sec,name]of SECN){const it=s.items.filter(x=>x.sec===sec);if(!it.length)continue;
+    const tc=r2(it.reduce((a,x)=>a+x.cur,0)),ty=r2(it.reduce((a,x)=>a+(x.ytd||0),0));
+    h+=`<tr class="sec"><td>${name}</td><td class="n">${fmt(tc)}</td><td class="n pc">${g?(tc/g*100).toFixed(1)+"%":""}</td><td class="n">${fmt(ty)}</td>${pv?"<td></td>":""}</tr>`;
+    h+=it.map(x=>`<tr${Math.abs(x.cur)<0.005&&!dif(x)?' class="z"':""}><td>${esc(x.label)}${x.est?'<span class="estm">*</span>':""}</td><td class="n">${fmt(x.cur)}</td><td class="n pc">${g?(x.cur/g*100).toFixed(1)+"%":""}</td><td class="n">${x.ytd!=null?fmt(x.ytd):"—"}</td>${pv?(dif(x)||"<td></td>"):""}</tr>`).join("")}
+  if(s.net){const nd=pv&&pv.net?r2(s.net.cur-pv.net.cur):0;
+    h+=`<tr class="net"><td>Net pay (deposit)</td><td class="n">${fmt(s.net.cur)}</td><td class="n pc">${g?(s.net.cur/g*100).toFixed(1)+"%":""}</td><td class="n">${s.net.ytd!=null?fmt(s.net.ytd):"—"}</td>${pv?(Math.abs(nd)>=0.005?`<td class="n dif ${nd<0?"up":"dn"}">${nd>0?"+":"−"}${fmt(Math.abs(nd)).slice(1)}</td>`:"<td></td>"):""}</tr>`}
+  if(s.items.some(x=>x.est))h+=`<tr class="estrow"><td colspan="${pv?5:4}">${estNote()}</td></tr>`;
+  $("sdTbl").innerHTML=h+"</tbody>";
+  if(s.note)$("sdMeta").innerHTML+=`<span style="flex-basis:100%"><b>${esc(s.noteTitle||"Note")}:</b> ${esc(s.note)}</span>`;
+}
+function renderBreakdown(m){
+  if(state.mode==="cur")m=checkModel(m);
+  const f=state.mode;["cur","ytd","proj"].forEach(k=>$("m-"+k).setAttribute("aria-pressed",String(k===f)));
+  const b=breakdown(m,f);const g=b.gross||1;
+  const shown=CATS.filter(([k])=>b.parts[k]>0.004);
+  $("bar").innerHTML=shown.map(([k,l,c])=>`<div style="width:${(b.parts[k]/g*100).toFixed(3)}%;background:var(${c})" title="${l}: ${fmt(b.parts[k])}"></div>`).join("");
+  $("bar").setAttribute("aria-label",shown.map(([k,l])=>`${l} ${Math.round(b.parts[k]/g*100)}%`).join(", "));
+  const SUBP={health:i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&!isFSA(i)&&/MED|DENT|VIS|HEALTH|INS/i.test(i.label),
+    fica:i=>isSS(i)||isMedi(i),state:isStateLocal,ret:isRet};
+  const subName=i=>isRoth(i)?"Roth 401(k)":isPreRet(i)?"Pre-tax 401(k)":isSS(i)?`Social Security (${pctS()})`:isMedi(i)?"Medicare (1.45%)":/^OH\b|OHIO/i.test(i.label)?"State income tax":/SCHL|SCHOOL|SD\b|SdW/i.test(i.label)?(()=>{const n=i.label.replace(/\s*(Schl|School|Sd)\b.*$|\s*SdW.*$/i,"").trim();return n?`School district tax (${n.charAt(0)+n.slice(1).toLowerCase()})`:"School district tax"})():i.sec==="taxes"?i.label:i.label.charAt(0)+i.label.slice(1).toLowerCase();
+  const subs=k=>{if(!SUBP[k])return"";
+    const lines=m.latest.items.filter(SUBP[k])
+      .map(i=>({n:subName(i),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+    return lines.length>1?lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.n)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${(x.v/g*100).toFixed(1)}%</span></div>`).join(""):""};
+  $("bdList").innerHTML=shown.map(([k,l,c])=>{const sb=subs(k);return grpRow("ee-"+k,c,l,fmt(b.parts[k]),(b.parts[k]/g*100).toFixed(1)+"%",!!sb)+sb+"</div>"}).join("");
+  setSum("gross",`<strong>${fmt0(b.parts.net)}</strong> take-home of ${fmt0(b.gross)} · ${f==="cur"?`check of ${nice(m.reg.payDate)}`:f==="ytd"?"so far":m.partial?`through ${nice(m.latest.payDate)}`:"full year"}`);
+  const label=f==="cur"?`${isExtra(m.reg)?(isBonusCheck(m.reg)?"Bonus check":"Extra check"):"Check"} of ${nice(m.reg.payDate)}`:f==="ytd"?`Through ${nice(m.latest.payDate)}`:(m.partial?`Through ${nice(m.latest.payDate)}`:m.remaining?`Projected to Dec 31`:`Full year ${state.year}`);
+  const sub=f==="proj"&&!m.partial&&m.remaining?`gross · ${m.remaining} paydays left`:f==="proj"&&m.partial?"gross · rest not loaded":"gross pay";
+  const totalTax=b.parts.fed+b.parts.fica+b.parts.state;
+  $("bdStats").innerHTML=`<div class="stat"><small>${label}</small><b>${fmt(b.gross)}</b><small>${sub}</small></div>
+    <div class="stat"><small>Kept</small><b>${(b.parts.net/g*100).toFixed(1)}%</b><small>as take-home</small></div>
+    <div class="stat"><small>All taxes</small><b>${(totalTax/g*100).toFixed(1)}%</b><small>${fmt0(totalTax)}</small></div>
+    <div class="stat"><small>You saved</small><b>${((b.parts.ret+m.val(isHSA,f))/g*100).toFixed(1)}%</b><small>401(k) + HSA</small><small>${((b.parts.ret+m.val(isHSA,f)+m.val(isErRet,f)+m.val(isHSAer,f))/g*100).toFixed(1)}% with employer</small></div>`;
+  const lv=erLive(m),er=r2(m.val(i=>(i.sec==="memo"||isPerk(i)||isGtl(i))&&lv(i),f)+erTaxes(m,f).tot),erRet=m.val(isErRet,f);
+  renderEmployer(m,f,b.gross,er);
+  void erRet;renderCheckUI(m);
+}
+
+/* ---------- render: employer-paid ---------- */
+const ER_GROUPS=[
+  ["ret","Retirement","--c-er-ret",i=>isErRet(i)],
+  ["med","Health coverage","--c-er-med",i=>i.sec==="memo"&&!/FSA/i.test(i.label)&&/MEDICAL|DENTAL|VISION/i.test(i.label)],
+  ["hsa","HSA deposit","--c-er-hsa",i=>isHSAer(i)],
+  ["life","Life + disability","--c-er-life",i=>i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!/MEDICAL|DENTAL|VISION/i.test(i.label)],
+  ["perk","Gifts and perks","--c-er-perk",i=>isPerk(i)],
+  ["gtl","Life insurance taxable value (portal method)","--c-er-gtl",i=>isGtl(i)]];
+function erName(l){
+  const map=[[/401K\s*MATCH/i,"401(k) match"],[/PENSION\s*45/i,"Pension 45+"],[/SAFE\s*HARBOR/i,"Safe harbor"],[/MEDICAL/i,"Medical"],[/DENTAL/i,"Dental"],[/VISION/i,"Vision"],
+    [/PENSION\s*LT\s*45/i,"Pension (under 45)"],[/AD&D/i,"AD&D"],[/BASIC\s*LIFE/i,"Basic life"],[/LTD/i,"Long-term disability"],[/STD/i,"Short-term disability"],[/HSA/i,"HSA deposit"]];
+  for(const[re,n]of map)if(re.test(l))return n;return l.replace(/\bER\b|\bCOST\b/gi,"").trim();
+}
+function renderEmployer(m,f,gross,er){
+  const box=$("erBlock");if(!(er>0)){box.innerHTML="";return}
+  const memo=[...new Map(m.ys.flatMap(x=>x.items).filter(i=>(i.sec==="memo"||isPerk(i)||isGtl(i))&&erLive(m)(i)).map(i=>[i.sec+i.label,i])).values()];
+  const groups=ER_GROUPS.map(([k,name,c,pred])=>{
+    const lines=memo.filter(pred).map(i=>({name:(isGtl(i)?"IRS value of coverage over $50K":i.sec==="taxable"?i.label.replace(/\bGU\b/,"").trim().toLowerCase().replace(/^./,c=>c.toUpperCase()):erName(i.label))+(hasEst(m.ys,i.label)?"*":""),v:m.val(j=>j.sec===i.sec&&j.label===i.label,f)})).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+    return{k,name,c,v:r2(lines.reduce((a,x)=>a+x.v,0)),lines}}).filter(g=>g.v>0.004);
+  const T=erTaxes(m,f);if(T.tot>0.004)groups.push({k:"tax",name:"Payroll taxes (est.)",c:"--c-fica",v:T.tot,lines:[{name:"Social Security match",v:T.ss},{name:"Medicare match",v:T.med},{name:"Federal unemployment",v:T.futa},{name:"Ohio unemployment"+(T.sutaEst?" (est.)":"")+(T.sutaOther?" + other Ohio items":""),v:T.suta}].filter(x=>x.v>0.004)});
+  const pct=v=>(v/er*100).toFixed(1)+"%";
+  const eo=isOpen("employer");box.classList.toggle("collapsed",!eo);
+  box.innerHTML=`<button type="button" class="er-tog" aria-expanded="${eo}"><h3>${CHEV}Employer</h3><span class="num" style="font-size:20px;font-weight:600">${fmt(er)}</span></button>
+    <div class="er-body"><p class="bd-sub" style="margin:-6px 0 0">Paid by your employer on top of your gross. None of it shows up in your deposit.</p>
+    <div class="bar" role="img" aria-label="${groups.map(g=>`${g.name} ${Math.round(g.v/er*100)}%`).join(", ")}">${groups.map(g=>`<div style="width:${(g.v/er*100).toFixed(3)}%;background:var(${g.c})" title="${g.name}: ${fmt(g.v)}"></div>`).join("")}</div>
+    <div class="bd-list">${groups.map(g=>`${grpRow("er-"+g.k,g.c,g.name,fmt(g.v),pct(g.v),g.lines.length>1)}
+      ${g.lines.length>1?g.lines.map(x=>`<div class="bd-row sub"><span></span><span>${esc(x.name)}</span><span class="num">${fmt(x.v)}</span><span class="num pct">${pct(x.v)}</span></div>`).join(""):""}</div>`).join("")}</div>
+    <p class="note" style="margin:8px 0 0">Payroll taxes are estimated: your employer matches your Social Security and Medicare and pays federal unemployment. ${T.suta>0?(T.sutaEst?"Ohio unemployment uses the rate from your nearest year with a statement amount.":"Ohio unemployment comes from your employer statement."):"Ohio unemployment isn't included until you add amounts from your employer statement (All years → Total comp)."} Life insurance's taxable value (W2 GRP LF INS) is counted the way your employer's statement does it, even though Basic life already covers what the policy costs, so life insurance shows up twice.</p>
+    </div><div class="tc"><div><small>Total compensation</small><small>Gross ${fmt(gross)} + employer ${fmt(er)}</small></div><b class="num">${fmt(r2(gross+er))}</b></div>${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}`;
+}
+
+/* ---------- 401(k) total: you + employer ---------- */
+let k401Sum=0;
+function k401Total(m,catchUp){
+  const parts=[{name:"You (pre-tax deferral)",c:"--c-k-you",pred:isPreRet,you:true},{name:"You (Roth)",c:"--c-k-roth",pred:isRoth,you:true}];
+  const kc=["--c-k-match","--c-k-p45","--c-k-sh","--c-other"];let n=0;
+  for(const i of m.latest.items.filter(isErRet)){parts.push({name:erName(i.label)+(hasEst(m.ys,i.label)?"*":""),c:kc[Math.min(n++,3)],pred:j=>j.sec==="memo"&&j.label===i.label})}
+  parts.forEach(p=>{p.y=m.val(p.pred,"ytd");p.p=m.val(p.pred,"proj")});
+  const shown=parts.filter(p=>p.p>0.004);
+  const tY=r2(shown.reduce((a,p)=>a+p.y,0)),tP=r2(shown.reduce((a,p)=>a+p.p,0));
+  const youY=r2(shown.filter(p=>p.you).reduce((a,p)=>a+p.y,0)),youP=r2(shown.filter(p=>p.you).reduce((a,p)=>a+p.p,0));
+  const erY=r2(tY-youY),erP=r2(tP-youP);
+  const lim=LIM.total+catchUp;k401Sum=tP;const gP=m.val(i=>i.sec==="earnings","proj")||1;const pc=v=>(v/gP*100).toFixed(1)+"%";
+  return`<div class="k401"><div class="er-head"><h3>401(k) total, you + employer</h3><span class="num">${fmt0(tP)}</span></div>
+    <p class="bd-sub" style="margin:-6px 0 0">${m.remaining?"Projected for":"Total for"} ${m.latest.payDate.slice(0,4)}: ${fmt0(youP)} from you and ${fmt0(erP)} from your employer. ${youP>0?`Your employer puts in about ${fmt(erP/youP)} for every $1 you do.`:""}</p>
+    <div class="bar" role="img" aria-label="${shown.map(p=>`${p.name} ${Math.round(p.p/tP*100)}%`).join(", ")}">${shown.map(p=>`<div style="width:${(p.p/tP*100).toFixed(3)}%;background:var(${p.c})" title="${p.name}: ${fmt(p.p)}"></div>`).join("")}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Source</th><th class="n">YTD</th><th class="n">Dec 31</th><th class="n">% of pay</th></tr></thead><tbody>
+      ${shown.map(p=>`<tr${p.you?' class="you"':""}><td><span class="sw" style="background:var(${p.c})"></span>${esc(p.name)}</td><td class="n">${fmt0(p.y)}</td><td class="n">${fmt0(p.p)}</td><td class="n">${pc(p.p)}</td></tr>`).join("")}
+      <tr><td><span class="sw" style="background:transparent"></span>Employer subtotal</td><td class="n">${fmt0(erY)}</td><td class="n">${fmt0(erP)}</td><td class="n">${pc(erP)}</td></tr>
+      <tr class="total"><td><span class="sw" style="background:transparent"></span>Total into your 401(k)</td><td class="n">${fmt0(tY)}</td><td class="n">${fmt0(tP)}</td><td class="n">${pc(tP)}</td></tr>
+    </tbody></table></div>
+    ${hasEst(m.ys)?`<p class="estnote">${estNote()}</p>`:""}<small class="bd-sub">The IRS cap on everything going into the plan this year is ${fmt0(lim)} (${fmt0(LIM.total)} plus your ${fmt0(catchUp)} catch-up). You're projected to use ${Math.round(tP/lim*100)}% of it. % of pay is each amount divided by projected ${m.latest.payDate.slice(0,4)} gross pay of ${fmt0(gP)}.</small></div>`;
+}
+
+/* ---------- render: checks ---------- */
+function runChecks(m,y){
+  const out=[];const ys=m.ys;const have=new Set(ys.filter(s=>!isExtra(s)).map(s=>s.payDate));
+  const missPast=m.pds.filter(d=>d<=todayISO&&!have.has(d));
+  if(missPast.length)out.push(["warn",`${missPast.length} paid stub${missPast.length>1?"s":""} not loaded`,`Missing: ${missPast.slice(0,6).map(nice).join(", ")}${missPast.length>6?` and ${missPast.length-6} more`:""}. `+(m.partial?`Totals only run through ${nice(m.latest.payDate)}; checks after that aren't loaded yet.`:m.remaining?"Projections lean on the latest stub, so add the newest one first.":"Year totals still come from the last stub's year-to-date, so they include these checks; only their individual details are missing.")]);
+  let totBad=0,ytdBad=0,ficaBad=0,netBad=0,ytdChecked=0,capNoted=false;
+  ys.forEach((s,idx)=>{
+    for(const[sec,t]of Object.entries(s.totals||{})){const sum=r2(s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0));
+      if(t&&t.cur!=null&&Math.abs(sum-t.cur)>0.02){totBad++;out.push(["bad",`${nice(s.payDate)}: ${sec} lines don't add up`,`Lines total ${fmt(sum)}, the stub says ${fmt(t.cur)}. Either a line was misread or payroll's total is off.`])}}
+    if(s.net&&s.net.cur!=null){const sum=(sec)=>s.items.filter(i=>i.sec===sec).reduce((a,i)=>a+i.cur,0);
+      const calc=r2(sum("earnings")-sum("pretax")-sum("posttax")-sum("taxes"));
+      if(Math.abs(calc-s.net.cur)>0.02){netBad++;out.push(["bad",`${nice(s.payDate)}: net pay doesn't match`,`Earnings minus deductions and taxes is ${fmt(calc)}, but ${fmt(s.net.cur)} was deposited.`])}}
+    const emp=m.grp.get(s);const sameEmp=ys.slice(0,idx).filter(x=>m.grp.get(x)===emp);
+    const prev=sameEmp[sameEmp.length-1];const before=ys[idx-1];
+    const newEmp=idx>0&&!prev&&before&&m.grp.get(before)!==emp;
+    if(s._renamedFrom&&before&&(before.employer||"")!==(s.employer||""))out.push(["info",`Employer name changed on ${nice(s.payDate)}`,`${s._renamedFrom} → ${s.employer}. Year-to-date totals carry on, so it's the same employer and one W-2.`]);
+    const first=(idx===0&&m.pds[0]===s.payDate)||newEmp;
+    const gap=prev?Math.round((dObj(s.payDate)-dObj(prev.payDate))/864e5):99;
+    const prevOk=prev&&((gap>=6&&gap<=19)||prev.payDate===s.payDate||(before&&before!==prev&&addDays(before.payDate,14)===s.payDate&&m.grp.get(before)!==emp));
+    if(newEmp)out.push(["info",`New employer on ${nice(s.payDate)}`,`${s.employer||"Unnamed employer"}${before.employer?` (was ${before.employer})`:""}. Year-to-date totals restart, and you'll get a separate W-2 from each.`]);
+    if(first||prevOk){for(const i of s.items){if(i.ytd==null)continue;ytdChecked++;
+      const pi=prevOk?prev.items.find(j=>j.sec===i.sec&&j.label===i.label):null;
+      if(s.conversion&&!pi){ytdChecked--;continue}const exp=r2((pi&&pi.ytd!=null?pi.ytd:0)+i.cur);
+      if(Math.abs(exp-i.ytd)>0.02){ytdBad++;out.push(["bad",`${nice(s.payDate)}: ${i.label} year-to-date jumped`,`Expected ${fmt(exp)} (previous YTD plus this check), stub shows ${fmt(i.ytd)}. Off by ${fmt(i.ytd-exp)}.`])}}}
+    const Y=(p)=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);
+    const ssW=Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125);
+    const ss=Y(isSS),md=Y(isMedi),LIMY=limFor(+s.payDate.slice(0,4));
+    /* payroll rounds each check, so allow about a cent per check so far this year */
+    const tol=0.02+0.01*state.stubs.filter(x=>x.payDate.slice(0,4)===s.payDate.slice(0,4)&&x.payDate<=s.payDate).length;
+    const ficaNow=s.items.filter(i=>isSS(i)||isMedi(i)).reduce((a,i)=>a+Math.abs(i.cur),0);
+    if(isExtra(s)&&ficaNow<0.005){}else{
+    if(ss&&ssW<=LIMY.ssBase&&Math.abs(ss-ssW*SSR)>tol){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security isn't ${pctS()}`,`Year-to-date Social Security wages ${fmt(ssW)} × ${pctS()} = ${fmt(ssW*SSR)}, withheld ${fmt(ss)}.`])}
+    if(ss&&ssW>LIMY.ssBase&&Math.abs(ss-LIMY.ssBase*SSR)>tol){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Social Security over the cap`,`Wages passed the ${fmt0(LIMY.ssBase)} cap, so withholding should stop at ${fmt(LIMY.ssBase*SSR)}. Year-to-date withheld: ${fmt(ss)}.`])}
+    if(ss&&ssW>LIMY.ssBase&&!capNoted){capNoted=true;out.push(["info",`Hit the Social Security cap on ${nice(s.payDate)}`,`Wages passed ${fmt0(LIMY.ssBase)}, so Social Security stopped at ${fmt(LIMY.ssBase*SSR)} for the year. Checks after this are bigger.`])}
+    if(md&&ssW<=200000&&Math.abs(md-ssW*.0145)>tol){ficaBad++;out.push(["bad",`${nice(s.payDate)}: Medicare isn't 1.45%`,`${fmt(ssW)} × 1.45% = ${fmt(ssW*.0145)}, withheld ${fmt(md)}.`])}}
+    if(isExtra(s)){
+      const what=s.items.filter(i=>(i.sec==="earnings"||i.sec==="taxable")&&i.cur>0).map(i=>`${i.label} ${fmt(i.cur)}`).join(", ");
+      const tax=s.items.filter(i=>i.sec==="taxes").reduce((a,i)=>a+i.cur,0);
+      const earnCur=s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0);
+      if(Math.abs(earnCur)<0.005){
+        if(Math.abs(tax)>0.005)out.push(["info",`Tax adjustment on ${nice(s.payDate)}`,tax<0?`${fmt(-tax)} of withholding refunded${s.net&&s.net.cur>0?`, paid out as ${fmt(s.net.cur)}`:""}.`:`${fmt(tax)} of withholding taken back${s.net&&s.net.cur<0?` (${fmt(s.net.cur)} net)`:""}, reversing an earlier refund.`]);
+        else out.push(["info",`Adjustment on ${nice(s.payDate)}`,`No pay or tax changed hands${what?`; benefit values recorded: ${what}`:""}.`]);
+        return;
+      }
+      out.push(["info",`Extra check on ${nice(s.payDate)}`,`${what}. Taxes ${fmt(tax)}, deposit ${s.net?fmt(s.net.cur):"—"}.`+(/GIFT|GU\b/i.test(what)?" A taxable gift card with a tax gross-up: the company covered the tax, and the card's value counts as W-2 wages.":"")]);
+      return;
+    }
+    const regsBefore=ys.slice(0,idx).filter(x=>!isExtra(x));const pv=regsBefore[regsBefore.length-1];
+    if(s.conversion){const opened=s.items.filter(i=>!(pv&&pv.items.some(j=>j.sec===i.sec&&j.label===i.label))&&Math.abs((i.ytd||0)-i.cur)>0.004);
+      out.push(["info",`Payroll system changed on ${nice(s.payDate)}`,`Line names changed, and some earlier amounts appear only in year-to-date totals from here on`+(opened.length?`: ${opened.map(i=>`${i.label} ${fmt(r2(i.ytd-i.cur))}`).join(", ")}.`:".")])}
+    if(s.note)out.push(["info",`${nice(s.payDate)}: ${s.noteTitle||"Note"}`,s.note]);
+    if(pv&&!s.conversion){
+      const gr=x=>x.items.filter(i=>i.sec==="earnings"&&!/NON PENS/i.test(i.label)).reduce((a,i)=>a+i.cur,0)||1;
+      if(pv.payRate&&s.payRate&&Math.abs(pv.payRate-s.payRate)>0.005)out.push(["info",`Pay rate changed on ${nice(s.payDate)}`,`${fmt(pv.payRate)} → ${fmt(s.payRate)} per period (${((s.payRate/pv.payRate-1)*100).toFixed(1)}%).`]);
+      for(const i of s.items){if(!["pretax","posttax","memo","taxable"].includes(i.sec))continue;const pi=pv.items.find(j=>j.sec===i.sec&&j.label===i.label);
+        if(!pi||(pi.cur===0&&pi.ytd===0)){if(i.cur>0)out.push(["info",i.sec==="memo"?`Employer added ${i.label} on ${nice(s.payDate)}`:`New line on ${nice(s.payDate)}: ${i.label}`,`${fmt(i.cur)} this check.`]);continue}
+        if(Math.abs(pi.cur-i.cur)<=0.01)continue;
+        if(i.cur===0&&i.sec!=="pretax")continue;
+        if(pi.cur===0&&i.cur>0&&i.sec!=="pretax")continue;
+        const pctBased=/401|403|457|PENSION|MATCH|HARBOR/i.test(i.label);
+        if(pctBased&&Math.abs(pi.cur/gr(pv)-i.cur/gr(s))<0.0015)continue;
+        out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check.`+(pctBased?` Now ${(i.cur/gr(s)*100).toFixed(2)}% of gross.`:"")])}
+      const preSum=x=>x.items.filter(i=>i.sec==="pretax").reduce((a,i)=>a+i.cur,0);const preDiff=r2(preSum(s)-preSum(pv));
+      if(Math.abs(gr(pv)-gr(s))<0.01)for(const i of s.items.filter(x=>x.sec==="taxes"&&!isSS(x)&&!isMedi(x))){const pi=pv.items.find(j=>j.sec==="taxes"&&j.label===i.label);
+        if(!(pi&&pi.cur>0&&Math.abs(pi.cur-i.cur)/pi.cur>0.01))continue;
+        const pp=regsBefore[regsBefore.length-2],ppi=pp&&pp.items.find(j=>j.sec==="taxes"&&j.label===i.label);
+        if(ppi&&ppi.cur>0&&Math.abs(ppi.cur-pi.cur)/ppi.cur>0.5&&Math.abs(ppi.cur-i.cur)/ppi.cur<0.75){out.push(["info",`${i.label} was unusual on ${nice(pv.payDate)}`,`Only ${fmt(pi.cur)} that check, against ${fmt(ppi.cur)} on ${nice(pp.payDate)} and ${fmt(i.cur)} on ${nice(s.payDate)}. Likely a one-time payroll correction; the year-to-date still adds up.`]);continue}
+        out.push(["info",`${i.label} changed on ${nice(s.payDate)}`,`${fmt(pi.cur)} → ${fmt(i.cur)} per check with the same gross pay. `+(Math.abs(preDiff)>0.01?`Pre-tax deductions ${preDiff>0?"rose":"fell"} by ${fmt(Math.abs(preDiff))}, which changes the taxable amount.`:`Payroll likely switched to new withholding tables.`)])}
+      for(const pi of pv.items){if(!["pretax","posttax"].includes(pi.sec))continue;if(!s.items.some(j=>j.sec===pi.sec&&j.label===pi.label))out.push(["info",`${pi.label} stopped on ${nice(s.payDate)}`,`It was ${fmt(pi.cur)} per check before.`])}
+    }
+  });
+  if(m.lastByEmp&&m.lastByEmp.length>1){const ssAll=m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0);const mx=LIM.ssBase*SSR;
+    if(ssAll>mx+0.05)out.push(["info","Extra Social Security withheld",`With ${m.lastByEmp.length} employers, ${fmt(ssAll)} of Social Security was withheld, ${fmt(ssAll-mx)} over the ${fmt(mx)} yearly maximum. You get the extra back as a credit on your federal return (Form 1040, Schedule 3).`]);}
+  if(m.latest){const hsaIt=m.latest.items.filter(isHSA);if(hsaIt.length){const fam=hsaIt.some(i=>/FAM/i.test(i.label));const age=ageFor(y);
+      const hl=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);const ht=m.val(isHSAall,m.remaining?"proj":"ytd");
+      if(ht>hl+0.5)out.push(["warn",m.remaining?"HSA on pace to go over the limit":"HSA went over the limit",`You and your employer ${m.remaining?"are on pace to put in":"put in"} ${fmt(ht)} against the ${fmt0(hl)} ${fam?"family":"self-only"} limit, ${fmt(ht-hl)} over. `+(m.remaining?"Lower your HSA deduction before year end.":"Extra contributions have to be withdrawn by the tax-filing deadline, or they cost 6% a year until they are. Check with your HSA provider or that year's Form 8889.")])}}
+  if(m.latest){const ssWproj=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
+    if(m.remaining>0&&ssWproj>LIM.ssBase&&!capNoted)out.push(["info","You'll hit the Social Security cap",`Projected Social Security wages ${fmt0(ssWproj)} pass the ${fmt0(LIM.ssBase)} limit, so late-year checks should get bigger.`]);}
+  const n=ys.length;
+  if(n){if(!totBad&&Object.keys(ys[0].totals||{}).length)out.push(["ok","Section totals add up",`Every earnings, deduction and tax section matches its total on all ${n} stub${n>1?"s":""}.`]);
+    if(!netBad)out.push(["ok","Net pay matches the math",`Gross minus deductions and taxes equals the deposit on every stub.`]);
+    if(!ytdBad&&ytdChecked)out.push(["ok","Year-to-date totals carry forward",`Each line's YTD equals the previous YTD plus the current check (${ytdChecked} lines checked).`]);
+    if(!ficaBad)out.push(["ok","FICA rates are right",`Social Security is ${pctS()} (up to the yearly cap) and Medicare 1.45% of wages after insurance and HSA, as expected.`]);}
+  const order={bad:0,warn:1,info:2,ok:3};out.sort((a,b)=>order[a[0]]-order[b[0]]);return out;
+}
+function renderChecks(m,y,ck){
+  const all=runChecks(m,y);const lab={bad:"Problem",warn:"Check",info:"Change",ok:"OK"};let cs=all;
+  if(ck){const dn=nice(ck.payDate),re=new RegExp("\\b"+dn.replace(" ","\\s")+"\\b");const mine=all.filter(c=>c[0]!=="ok"&&(re.test(c[1])||re.test(c[2])));
+    cs=[["info",`Notes for the ${dn} check`,mine.length?`${mine.length>1?mine.length+" notes below mention":"The note below mentions"} this check. Switch to Year to date to see the whole year.`:"Nothing unusual on this check: no changes or problems flagged. Switch to Year to date to see the whole year."]].concat(mine,all.filter(c=>c[0]==="ok"))}
+  $("checks").innerHTML=cs.map(([s,t,d])=>`<li class="ck"><span class="chip ${s}">${lab[s]}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join("");
+  const bad=cs.filter(c=>c[0]==="bad").length,gap=cs.filter(c=>c[0]==="warn").length;
+  setSum("checks",bad||gap?`<span class="warn">${bad?`${bad} problem${bad>1?"s":""}`:""}${bad&&gap?" · ":""}${gap?`${gap} to check`:""}</span>`:`No payroll errors · ${cs.filter(c=>c[0]==="info").length} changes noted`);
+  const sig=cs.filter(c=>c[0]==="bad"||c[0]==="warn").map(c=>c[1]).join("|");
+  if(sig&&ui.checksSig!==sig){ui.checksSig=sig;setOpen("checks",true);const sec=document.querySelector('section[data-k="checks"]');if(sec)applyPanel(sec,true)}
+  $("ckSummary").textContent=bad?`${bad} problem${bad>1?"s":""} found`:"No payroll errors found";
+}
+
+/* ---------- render: W-2 ---------- */
+function renderW2(m,y){
+  $("w2year").textContent=y;
+  const box=(f)=>{const earn=m.val(i=>i.sec==="earnings"||i.sec==="taxable",f);
+    return[
+      ["1","Wages, tips, other comp",earn-m.val(i=>i.sec==="pretax",f)],
+      ["2","Federal income tax withheld",m.val(isFed,f)],
+      ["3","Social Security wages",Math.min(earn-m.val(isSec125,f),limFor(y).ssBase)],
+      ["4","Social Security tax withheld",m.val(isSS,f)],
+      ["5","Medicare wages",earn-m.val(isSec125,f)],
+      ["6","Medicare tax withheld",m.val(isMedi,f)],
+      ["12 C","Group-term life over $50k",m.val(isLife,f)],
+      ["12 D","401(k) deferrals",m.val(isPreRet,f)],
+      ["12 W","HSA (you + employer)",m.val(isHSAall,f)],
+      ["12 AA","Roth 401(k)",m.val(isRoth,f)],
+      ["12 DD","Health coverage cost",m.val(i=>/MEDICAL|DENTAL|VISION/i.test(i.label)&&!/FSA/i.test(i.label)&&(i.sec==="memo"||i.sec==="pretax"),f)],
+      ["17","State income tax",m.val(i=>isStateLocal(i)&&/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)],
+      ["19","Local / school district tax",m.val(i=>isStateLocal(i)&&!/\bOH\b|OHIO|STATE|\bSIT\b/i.test(i.label),f)]]};
+  const a=box("ytd"),p=box("proj");
+  const wn=$("w2emp");if(wn){const n=m.lastByEmp?m.lastByEmp.length:1;wn.hidden=n<2;wn.textContent=n<2?"":`Combined from ${n} employers: ${m.lastByEmp.map(g=>g.e||"unnamed").join(" and ")}. You'll get a separate W-2 from each.`}
+  renderSsCap(m,y);
+  setSum("w2",`Box 1 wages <strong>${fmt0(p[0][2])}</strong> · fed withheld ${fmt0(p[1][2])}`);
+  renderW2Check(m,y,box);
+  $("w2").innerHTML=`<thead><tr><th>Box</th><th class="n">YTD</th><th class="n">Dec 31</th></tr></thead><tbody>`+
+    a.map((r,k)=>r[2]||p[k][2]?`<tr><td><span class="box">${r[0]}</span>${r[1]}</td><td class="n">${fmt0(r[2])}</td><td class="n">${fmt0(p[k][2])}</td></tr>`:"").join("")+`</tbody>`;
+}
+
+/* ---------- W-2 check ---------- */
+const W2SHORT={"1":"Wages","2":"Federal tax","3":"SS wages","4":"SS tax","5":"Medicare wages","6":"Medicare tax","12 C":"Life insurance","12 D":"401(k)","12 W":"HSA","12 AA":"Roth 401(k)","12 DD":"Health cost","17":"Ohio tax","19":"School tax"};
+const W2WHY={"1":"Box 1 is gross minus every before-tax deduction (401(k), health, HSA, FSA). A difference usually means a deduction or a taxable perk (gift card, life insurance) was handled differently.",
+  "2":"Federal tax withheld should match your stubs to the cent. A difference may mean a stub is missing or a year-end adjustment was made.",
+  "3":"Social Security wages include your 401(k) but not health, HSA or FSA deductions, and stop at the yearly cap.","4":"Should be 6.2% of Box 3.",
+  "5":"Medicare wages, like Box 3 but with no cap.","6":"Should be 1.45% of Box 5, plus 0.9% on wages over $200,000.",
+  "12 C":"Taxable value of life insurance over $50,000 (W2 GRP LF INS on your stubs).","12 D":"Your pre-tax 401(k) for the year.",
+  "12 W":"HSA from you and your employer. A difference often means an employer deposit made outside payroll.","12 AA":"Roth 401(k).",
+  "12 DD":"Total cost of health coverage, yours and your employer's. Information only; not taxed.","17":"Ohio income tax withheld.","19":"School district / local tax withheld."};
+function renderW2Check(m,y,box){
+  const det=$("w2chkBox");const done=!m.remaining&&!m.partial,curY=+todayISO.slice(0,4);
+  det.hidden=!(done||y===curY);if(det.hidden)return;
+  const rows=box(m.remaining?"proj":"ytd"),W=((state.settings.w2||{})[y])||{};
+  let ok=0,bad=0,n=0;
+  $("w2chk").innerHTML=rows.filter(r=>Math.abs(r[2])>0.004||W[r[0]]!=null).map(r=>{
+    const v=W[r[0]],has=v!=null&&v!=="",d=has?r2(+v-r[2]):null,good=has&&Math.abs(d)<=1;if(has){n++;good?ok++:bad++}
+    return`<div class="w2r${has?(good?" ok":" bad"):""}"><div class="w2l"><span class="box">${r[0]}</span>${W2SHORT[r[0]]||r[1]}<small>Stubs ${fmt(r[2])}</small></div>
+      <input class="w2in" data-box="${r[0]}" type="number" inputmode="decimal" step="0.01" placeholder="Your W-2" value="${has?v:""}" aria-label="Your W-2 box ${r[0]}">
+      <span class="w2res">${has?(good?"✓":(d>0?"+":"−")+fmt(Math.abs(d)).slice(1)):""}</span>${has&&!good?`<p class="w2why">${W2WHY[r[0]]||""}</p>`:""}</div>`}).join("");
+  const sm=det.querySelector("summary");sm.textContent=n?`Check your W-2 · ${ok} of ${n} match${bad?` · ${bad} to look at`:""}`:"Check your W-2";
+  if(m.remaining)sm.textContent+=" (stubs projected to Dec 31)";
+}
+document.addEventListener("change",e=>{const t=e.target;if(!t.classList||!t.classList.contains("w2in"))return;const y=state.year,all=state.settings.w2=state.settings.w2||{},W=all[y]=all[y]||{};
+  const v=t.value.trim();if(v===""||!isFinite(+v))delete W[t.dataset.box];else W[t.dataset.box]=+v;save();keepPos(()=>render())});
+
+/* ---------- year-end checklist ---------- */
+function renderYearEnd(m,y){
+  const sec=document.querySelector('section[data-k="yearend"]');const cur=+todayISO.slice(0,4),mo=+todayISO.slice(5,7);
+  const show=y===cur&&m.remaining>0&&!m.partial&&mo>=10&&state.tab==="year";
+  if(!show){sec.hidden=true;return}
+  const n=m.remaining,items=[],L=limFor(y),age=ageFor(y),pds=m.pds.filter(d=>d>m.latest.payDate),lastPd=pds[pds.length-1];
+  const dl=d=>`${nice(d)}`;
+  /* HSA */
+  const hsaItems=m.latest.items.filter(isHSA);
+  if(hsaItems.length){const fam=hsaItems.some(i=>/FAM/i.test(i.label)),hLim=(fam?L.hsaFam:L.hsaSelf)+(age>=55?L.hsaCatch:0),hP=m.val(isHSAall,"proj"),room=r2(hLim-hP),now=r2(m.val(isHSA,"cur"));
+    if(room>1)items.push({k:"hsa",t:`HSA: ${fmt0(room)} of room left`,d:`Raise your HSA to about <b class="num">${fmt(now+room/n)}</b> per check (from ${fmt(now)}) for the last ${n} paydays, or make a one-time deposit to your HSA before Dec 31. After that, ${y}'s room is gone.`,due:pds[0]});
+    else if(room<-0.5)items.push({k:"hsa",t:`HSA: ${fmt0(-room)} over the limit`,d:`Lower your HSA to about <b class="num">${fmt(Math.max(0,now+room/n))}</b> per check. Over-contributions are taxed unless removed before you file.`,due:pds[0],warn:1})}
+  /* withholding */
+  if(/single/i.test(m.latest.filing||"Single")){const T=taxCalc(m);
+    if(T.gap>100)items.push({k:"wh",t:`Federal tax: on track to owe ${fmt0(T.gap)}`,d:`Add about <b class="num">${fmt0(Math.ceil(T.per))}</b> per check on W-4 line 4(c) for the ${n} paydays left, or set the money aside for April.${T.gap<1000?" Owing under $1,000 generally avoids an underpayment penalty.":""}`,due:pds[0],warn:T.gap>=1000});
+    else if(T.gap<-1500)items.push({k:"wh",t:`Federal tax: on track for a ${fmt0(-T.gap)} refund`,d:`That's money you lent the IRS. For next year, consider lowering withholding (a new W-4) so it lands in your checks instead.`})}
+  /* 401(k) */
+  {const cu=age>=60&&age<=63?L.c60:age>=50?L.c50:0,kLim=L.k401+cu,kP=m.val(isDefer,"proj"),kY=m.val(isDefer,"ytd"),room=r2(kLim-kP),now=r2(m.val(isDefer,"cur"));
+    if(room>500)items.push({k:"k401",t:`401(k): ${fmt0(room)} of room you won't use`,d:`You're on pace for ${fmt0(kP)} of your ${fmt0(kLim)} limit${cu?` (includes the ${fmt0(cu)} age-${age>=60&&age<=63?"60–63":"50"} catch-up)`:""}. To use all of it you'd need about <b class="num">${fmt0((kLim-kY)/n)}</b> per check (now ${fmt(now)}); any amount helps. Unused room doesn't carry over.`,due:pds[0]})}
+  /* next year's Roth catch-up line */
+  {const R=rothCatch(y+1);if(R&&(R.over||R.gap<15000))items.push({k:"rothcu",t:R.over?`${y+1} catch-ups will have to be Roth`:`${fmt0(R.gap)} under the Roth catch-up line`,
+    d:R.over?`Your ${y} Social Security wages are on pace for ${fmt0(R.b3)}, over ${fmt0(R.thr)}. Anything you put in above the ${fmt0(R.reg)} regular limit in ${y+1} goes in as Roth. It only matters if you contribute more than ${fmt0(R.reg)}.`:`Your ${y} Social Security wages are on pace for ${fmt0(R.b3)}. Going over ${fmt0(R.thr)} (a bonus, a raise) makes ${y+1} catch-ups Roth-only. It only matters if you contribute more than ${fmt0(R.reg)}.`,warn:R.over})}
+  /* bonus */
+  {const prev=state.stubs.filter(x=>isExtra(x)&&isBonusCheck(x)&&x.payDate.startsWith((y-1)+"")).sort((a,b)=>a.payDate<b.payDate?-1:1);
+    const got=m.ys.some(x=>isExtra(x)&&isBonusCheck(x)&&x.payDate>=`${y}-${prev.length?prev[0].payDate.slice(5,7):"11"}-01`);
+    if(prev.length&&!got){const amt=prev.reduce((a,x)=>a+x.items.filter(i=>i.sec==="earnings").reduce((b,i)=>b+i.cur,0),0),T=taxCalc(m),k=m.val(isDefer,"cur")/(m.val(i=>i.sec==="earnings","cur")||1);
+      const extra=Math.max(0,(T.top-.22))*amt*(1-k);
+      items.push({k:"bonus",t:`Bonus: usually arrives around ${dl(prev[0].payDate)}`,d:`Last year's was ${fmt0(amt)}. Bonuses are withheld at a flat 22% federal${T.top>.22?`, but your top bracket is ${Math.round(T.top*100)}%, so a bonus that size adds about <b class="num">${fmt0(extra)}</b> to what you'll owe in April`:""}. Plan → Bonus estimator shows what you'd keep.`})}}
+  /* Social Security cap */
+  {const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");if(ssW>L.ssBase)items.push({k:"ss",t:`Social Security stops this year`,d:`Your wages pass the ${fmt0(L.ssBase)} cap, so the last checks of the year will be bigger. See W-2 → Social Security cap.`})}
+  /* next year */
+  {const NL=LIMS[y+1];if(NL&&hsaItems.length){const fam=hsaItems.some(i=>/FAM/i.test(i.label)),age1=ageFor(y+1),lim=(fam?NL.hsaFam:NL.hsaSelf)+(age1>=55?NL.hsaCatch:0),er=m.val(isHSAer,"proj"),np=payDates(y+1).filter(d=>d.startsWith((y+1)+"")).length||26,need=Math.max(0,(lim-er)/np);
+    items.push({k:"next",t:`${y+1}: set your HSA to ${fmt(need)} per check`,d:`The ${y+1} limit is ${fmt0(lim)}${age1>=55?" with your catch-up":""}. With ${fmt0(er)} from your employer, ${fmt(need)} × ${np} paydays fills it. Make the change during open enrollment. Plan → Next year has the details.`})}}
+  const Y=((state.settings.ye||{})[y])||{},todo=items.filter(i=>!Y[i.k]),dn=items.filter(i=>Y[i.k]);
+  $("yeList").innerHTML=items.length?[...todo,...dn].map(i=>`<label class="ye${Y[i.k]?" done":""}${i.warn?" warn":""}"><input type="checkbox" data-ye="${i.k}"${Y[i.k]?" checked":""}><span><b>${i.t}</b><small>${i.d}${i.due&&!Y[i.k]?` <em>Next payday: ${dl(i.due)}.</em>`:""}</small></span></label>`).join(""):`<p class="note">Nothing to do: HSA, 401(k) and withholding are all on track.</p>`;
+  $("yeNote").textContent=`Built from your stubs through ${nice(m.latest.payDate)} and the ${n} paydays left. Check items off as you handle them.`;
+  setSum("yearend",todo.length?`<strong>${todo.length}</strong> to do before Dec 31`:"All done");
+  sec.hidden=false;
+}
+document.addEventListener("change",e=>{const t=e.target;if(!t.dataset||!t.dataset.ye)return;const y=state.year,all=state.settings.ye=state.settings.ye||{},Y=all[y]=all[y]||{};if(t.checked)Y[t.dataset.ye]=1;else delete Y[t.dataset.ye];save();keepPos(()=>render())});
+
+/* ---------- render: tax ---------- */
+function taxCalc(m){const st=taxIn(+m.latest.payDate.slice(0,4));
+  const wages=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj");
+  const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
+  const se=Math.max(0,+st.seProfit||0),oth=Math.max(0,+st.otherInc||0),est=Math.max(0,+st.estPaid||0);
+  const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*(0.062+SSR)+seBase*0.029:0;const halfSE=seTax/2;
+  const agi=wages+oth+se-halfSE;const pre=Math.max(0,agi-LIM.std-(LIM.exempt||0));
+  const qbi=LIM.noQbi?0:Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
+  const inc=bracketTax(taxable);
+  /* 0.9% Additional Medicare over $200,000 (single); payroll withholds it on wages over $200,000, side-business earnings add to the base */
+  const addMed=Math.max(0,ssW+(se>=400?seBase:0)-200000)*0.009,addMedWh=Math.max(0,ssW-200000)*0.009;
+  const total=inc+seTax+addMed;const withheld=m.val(isFed,"proj")+est+addMedWh;
+  const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*SSR):0;
+  const gap=total-withheld-ssCredit;
+  const top=(LIM.br.find(([hi])=>taxable<=hi)||LIM.br[LIM.br.length-1])[1];
+  return{gap,per:m.remaining?gap/m.remaining:0,taxable,top}}
+
+/* W-4 fix-it: what to change so the year ends at the refund you want */
+function w4Fix(m,gap,taxable){
+  const want=+(state.settings.w4t||0)||0,n=m.remaining,need=gap+want,per=need/n,top=(LIM.br.find(([hi])=>taxable<=hi)||[0,.22])[1]||.22;
+  const npy=m.pds.length||26,ded=Math.round(-per*npy/top/100)*100;
+  let out;
+  if(Math.abs(per)<1)out=`You're right on target. Leave your W-4 as it is.`;
+  else if(per>0)out=`Add <b class="num">${fmt0(Math.ceil(per))}</b> per check to W-4 Step 4(c) (on top of any amount already there) for the ${n} paydays left. That withholds about ${fmt0(Math.ceil(per)*n)} more by Dec 31.`;
+  else out=`You're on track to get back ${fmt0(-need)} more than you want. If Step 4(c) has an amount, lower it by <b class="num">${fmt0(Math.floor(-per))}</b> per check. If it's blank, enter about <b class="num">${fmt0(ded)}</b> on Step 4(b) (deductions) instead.`;
+  return`<div class="w4fix"><div class="er-head"><h3>W-4 fix-it</h3>
+    <label class="field" style="flex-direction:row;align-items:center;gap:8px;white-space:nowrap">Refund I want <input id="w4t" class="w2in" style="width:110px;flex:none" type="number" inputmode="decimal" step="100" value="${want}" aria-label="Refund you want, in dollars"></label></div>
+    <p class="note" style="margin:6px 0 0">${out}</p>
+    <p class="note" style="margin:6px 0 0">Give the new W-4 to payroll; it usually starts within a check or two. A Step 4(c) amount stays until you change it, so reset it in January if you only needed it this year. Use 0 to aim for owing nothing.</p></div>`}
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="w4t"){const v=e.target.value.trim();state.settings.w4t=v===""?0:+v||0;save();keepPos(()=>render())}});
+function bracketTax(t){let tax=0,lo=0;for(const[hi,r]of LIM.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax}
+function renderTax(m){
+  if(m.partial){$("fsLabel").textContent="";$("taxOut").innerHTML=`<p class="note">Only stubs through ${nice(m.latest.payDate)} are loaded for ${state.year}, so there's no full-year estimate yet. Add the rest of the year to see one.</p>`;setSum("tax",`Partial year (through ${nice(m.latest.payDate)})`);return}
+  const st=taxIn(state.year);const fs=m.latest.filing||"Single";$("fsLabel").textContent=`Filing as ${fs}`;
+  if(!/single/i.test(fs)){$("taxOut").innerHTML=`<p class="note">This estimate only handles Single filing. Withholding for ${state.year} was set as ${esc(fs)}, and a joint return depends on a spouse's income too, so no estimate is shown.</p>`;setSum("tax",`No estimate (withholding set as ${esc(fs)})`);return}
+  const wages=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(i=>i.sec==="pretax","proj");
+  const ssW=m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj");
+  const se=Math.max(0,+st.seProfit||0),oth=Math.max(0,+st.otherInc||0),est=Math.max(0,+st.estPaid||0);
+  const seBase=se*0.9235;const seTax=se>=400?Math.min(seBase,Math.max(0,LIM.ssBase-ssW))*(0.062+SSR)+seBase*0.029:0;const halfSE=seTax/2;
+  const agi=wages+oth+se-halfSE;const pre=Math.max(0,agi-LIM.std-(LIM.exempt||0));
+  const qbi=LIM.noQbi?0:Math.min(0.2*Math.max(0,se-halfSE),0.2*pre);const taxable=Math.max(0,pre-qbi);
+  const inc=bracketTax(taxable);
+  /* 0.9% Additional Medicare over $200,000 (single); payroll withholds it on wages over $200,000, side-business earnings add to the base */
+  const addMed=Math.max(0,ssW+(se>=400?seBase:0)-200000)*0.009,addMedWh=Math.max(0,ssW-200000)*0.009;
+  const total=inc+seTax+addMed;const withheld=m.val(isFed,"proj")+est+addMedWh;
+  const ssCredit=m.lastByEmp&&m.lastByEmp.length>1?Math.max(0,m.lastByEmp.reduce((a,g)=>a+g.last.items.filter(isSS).reduce((b,i)=>b+(i.ytd!=null?i.ytd:i.cur),0),0)-LIM.ssBase*SSR):0;
+  const gap=total-withheld-ssCredit;
+  const per=m.remaining?gap/m.remaining:0;
+  const rows=[[(m.remaining?"Projected W-2 wages":"W-2 wages")+" (Box 1)",wages],se?["Side business profit",se]:null,oth?["Other taxable income",oth]:null,se?["Half of self-employment tax",-halfSE]:null,
+    ["Standard deduction",-LIM.std],LIM.exempt?["Personal exemption",-LIM.exempt]:null,qbi?["Qualified business income deduction",-qbi]:null,["Taxable income",taxable,1],["Income tax",inc],se?["Self-employment tax",seTax]:null,addMed>0.5?["Additional Medicare tax (0.9%)",addMed]:null,["Total federal tax",total,1],
+    ["Withheld by Dec 31"+(est?" + estimates":""),-withheld],ssCredit>0.5?["Extra Social Security credit",-ssCredit]:null].filter(Boolean);
+  const owe=gap>0.5;
+  setSum("tax",owe?`<span class="warn">${m.remaining?"Projected to owe":"Estimated owed"} <strong>${fmt0(gap)}</strong></span>`:`Projected refund <strong>${fmt0(-gap)}</strong>`);
+  $("taxOut").innerHTML=`<div class="verdict ${owe?"owe":"refund"}"><span class="eyebrow">${m.remaining?(owe?"Projected to owe":"Projected refund"):(owe?`Estimated owed for ${state.year}`:`Estimated refund for ${state.year}`)}</span><span class="big">${fmt0(Math.abs(gap))}</span>
+    <span class="note">${owe?(m.remaining?`The W-4 fix-it below shows what to change.`:"The year's paychecks are all in, so this is what withholding left to settle on the return.")+(gap<1000?" Owing under $1,000 generally avoids an underpayment penalty.":""):"Withholding covers the estimate."}</span></div>
+    <div class="tbl-wrap"><table><tbody>${rows.map(r=>`<tr${r[2]?' class="total"':""}><td>${r[0]}</td><td class="n">${fmt0(r[1])}</td></tr>`).join("")}</tbody></table></div>
+    ${m.remaining?w4Fix(m,gap,taxable):""}
+    <p class="note">Estimate using ${state.year} Single brackets and the standard deduction. It assumes the latest check repeats, ignores credits and itemizing, and treats side-business profit as qualified business income.</p>`;
+}
+
+/* ---------- render: meters ---------- */
+function meter(cls,title,ytd,proj,limit,lines,cu,ahead){
+  const pct=v=>Math.min(100,v/limit*100).toFixed(2);
+  const zone=cu>0?`<div class="cu" style="left:${pct(limit-cu)}%" title="Age catch-up: ${fmt0(cu)}"></div><div class="cutick" style="left:${pct(limit-cu)}%"></div>`:"";
+  return`<div class="meter"><div class="meter-top"><b>${title}</b><span class="num">${fmt0(proj)} of ${fmt0(limit)}</span></div>
+    <div class="track ${cls}" role="img" aria-label="${title}: ${fmt0(ytd)} so far, ${fmt0(proj)} projected, limit ${fmt0(limit)}">${zone}<div class="proj" style="width:${pct(proj)}%"></div><div class="ytd" style="width:${pct(ytd)}%"></div></div>
+    ${cu>0?`<div class="cu-leg">${ahead?"":'<span><i class="sw sw-ytd"></i>So far</span>'}<span><i class="sw sw-proj"></i>Projected</span><span><i class="sw sw-cu"></i>Catch-up ${fmt0(cu)} (regular limit ${fmt0(limit-cu)})</span></div>`:""}
+    ${lines.map(l=>`<small>${l}</small>`).join("")}</div>`;
+}
+function renderMeters(m){
+  const age=ageFor(state.year);const catchUp=age>=60&&age<=63?LIM.c60:age>=50?LIM.c50:0;const kLim=LIM.k401+catchUp;
+  const nReg=m.ys.filter(s=>!isExtra(s)).length||1;
+  const kY=m.val(isDefer,"ytd"),kP=m.val(isDefer,"proj"),kC=m.remaining?m.val(isDefer,"cur"):r2(kY/nReg);
+  const rothY=m.val(isRoth,"ytd"),loanY=m.val(isLoan,"ytd");
+  const need=m.remaining?Math.max(0,(kLim-kY)/m.remaining):0;
+  const mY=m.val(isMatch,"ytd");const erP=m.val(isErRet,"proj");
+  const gross=m.remaining?m.val(i=>i.sec==="earnings","cur"):r2(m.val(i=>i.sec==="earnings","ytd")/nReg);const perLbl=m.remaining?"per check":"per check on average";
+  const kLines=[`${fmt0(kY)} so far`+(rothY?` (${fmt0(kY-rothY)} pre-tax + ${fmt0(rothY)} Roth)`:"")+` · ${fmt(kC)} ${perLbl} (${gross?(kC/gross*100).toFixed(1):0}% of gross).`,
+    m.partial?`Only stubs through ${nice(m.latest.payDate)} are loaded, so the year isn't complete.`:m.remaining===0?(kY<kLim?`Year finished ${fmt0(kLim-kY)} under the limit.`:`Reached the limit.`):kP<kLim?`To max out, raise it to about <b class="num">${fmt0(need)}</b> per check for the ${m.remaining} paydays left.`:`On pace to reach the limit.`,
+    (catchUp?`Limit includes the ${fmt0(catchUp)} age catch-up.`:`No catch-up yet; that starts the year you turn 50.`)+(kY&&mY?` Match runs about ${Math.round(mY/kY*100)}% of what you put in.`:"")+(erP?` Employer retirement money this year: about <b class="num">${fmt0(erP)}</b>.`:" These stubs don't list employer contributions.")+(loanY?` 401(k) loan repayments (${fmt0(loanY)}) aren't contributions and aren't counted here.`:"")];
+  const hsaItems=m.latest.items.filter(isHSA);const fam=hsaItems.some(i=>/FAM/i.test(i.label));
+  const hLim=(fam?LIM.hsaFam:LIM.hsaSelf)+(age>=55?LIM.hsaCatch:0);
+  const hY=m.val(isHSAall,"ytd"),hP=m.val(isHSAall,"proj"),hEr=m.val(isHSAer,"ytd"),hC=m.remaining?m.val(isHSA,"cur"):r2((hY-hEr)/nReg);
+  const hNeed=m.remaining?Math.max(0,(hLim-hY)/m.remaining):0;
+  const extraPer=m.remaining?(hLim-hP)/m.remaining:0;
+  const hLines=[`${fmt0(hY)} so far: ${fmt0(hY-hEr)} from you (${fmt(hC)} ${perLbl}) and ${fmt0(hEr)} from your employer.`,
+    m.remaining===0?(hY>hLim+0.5?`<b>Year finished ${fmt0(hY-hLim)} over the limit.</b>`:(hLim-hY>1?`Year finished ${fmt0(hLim-hY)} under the limit.`:`Hit the limit exactly.`)):hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it by about ${fmt0(-extraPer)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. Adding about <b class="num">${fmt0(extraPer)}</b> per check (about <b class="num">${fmt0(hC+extraPer)}</b> total) would fill it.`:`On pace to hit the limit exactly.`,
+    `${fam?"Family":"Self-only"} limit${age>=55?" plus the age-55 catch-up":""}. Employer deposits count toward it.`];
+  {const rl=rothCatchLine(rothCatch(state.year),kP);if(rl)kLines.push(rl)}
+  $("meters").innerHTML=meter("",rothY?"401(k), your contributions (pre-tax + Roth)":"401(k), your contributions",kY,kP,kLim,kLines,catchUp)+(hsaItems.length?meter("hsa","HSA",hY,hP,hLim,hLines,age>=55?LIM.hsaCatch:0):"")+k401Total(m,catchUp);
+  setSum("savings",`401(k) <strong>${fmt0(k401Sum)}</strong> total`+(hsaItems.length?` · HSA `+(hP>hLim+0.5?`<span class="warn">${fmt0(hP-hLim)} over</span>`:`<strong>${fmt0(Math.max(0,hLim-hP))}</strong> room left`):""));
+}
+
+/* ---------- Social Security wage cap ---------- */
+function renderSsCap(m,y){
+  const box=$("ssCap");const L=limFor(y),base=L.ssBase,rate=L.ssRate||.062;
+  if(!m.latest||!base){box.innerHTML="";return}
+  if(m.lastByEmp.length>1){const f=m.remaining?"proj":"ytd",w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f)),t=m.val(isSS,f),max=r2(base*rate),xs=r2(t-max);
+    setSum("sscap",`${m.lastByEmp.length} employers`);
+    box.innerHTML=meter("",`Social Security wages, ${y}, all employers`,w,w,base,[
+      `Each employer withholds Social Security on its own and only stops at the cap on its own pay, so the combined ${fmt0(w)} ${w>base?`passed the ${fmt0(base)} cap`:`is under the ${fmt0(base)} cap`}.`,
+      xs>0.5?`<b>${fmt0(xs)} more than the ${fmt(max)} maximum was withheld.</b> It comes back as a credit on your tax return (Schedule 3, excess Social Security).`:`Withheld ${fmt(t)}, within the ${fmt(max)} maximum.`],0);return}
+  const ssw=s=>{const Y=p=>s.items.filter(p).reduce((a,i)=>a+(i.ytd!=null?i.ytd:i.cur),0);return r2(Y(i=>i.sec==="earnings"||i.sec==="taxable")-Y(isSec125))};
+  const cur=s=>r2(s.items.filter(i=>i.sec==="earnings"||i.sec==="taxable").reduce((a,i)=>a+i.cur,0)-s.items.filter(isSec125).reduce((a,i)=>a+i.cur,0));
+  const ytd=ssw(m.latest),per=cur(m.reg),proj=r2(ytd+per*m.remaining),max=base*rate,bump=Math.min(per,Math.max(0,per))*rate;
+  let lines=[],head="";
+  const hit=m.ys.find(s=>ssw(s)>base+0.005);
+  if(hit){const before=r2(base-(ssw(hit)-cur(hit)));
+    head=`Hit the cap on ${nice(hit.payDate)}`;
+    lines=[`Social Security wages passed ${fmt0(base)} on that check, so only ${fmt(Math.max(0,before)*rate)} came out of it and none after. The year's maximum is ${fmt(max)}.`,
+      m.ys.some(x=>x.payDate>hit.payDate&&!isExtra(x))||m.remaining?`Each regular check after that is about <b class="num">${fmt(bump)}</b> bigger.`:`That was the last check of the year, so it was the only one that got bigger.`]}
+  else if(proj>base+0.005&&per>0){const n=Math.ceil((base-ytd)/per),d=m.pds.filter(x=>x>m.latest.payDate)[n-1];
+    head=`On pace to hit the cap${d?` on ${nice(d)}`:""}`;
+    lines=[`${fmt0(ytd)} so far, about ${fmt0(per)} per check. Social Security stops once wages pass ${fmt0(base)}.`,
+      `Checks after that would be about <b class="num">${fmt(bump)}</b> bigger, with ${fmt(max)} withheld for the year.`]}
+  else{const short=r2(base-proj);
+    head=m.remaining?`Won't reach the cap in ${y}`:`Didn't reach the cap in ${y}`;
+    lines=[`${m.remaining?"Projected":"Total"} Social Security wages ${fmt0(proj)}, ${fmt0(short)} under the ${fmt0(base)} cap, so Social Security comes out of every check.`,
+      m.remaining?`A bonus or extra pay of about <b class="num">${fmt0(short)}</b> more this year would reach it. After that, checks would be about ${fmt(bump)} bigger.`:`You'd have needed ${fmt0(short)} more in wages to reach it.`]}
+  lines.push(`Social Security wages are gross pay plus taxable benefits, minus health, dental, vision, HSA and FSA deductions. Your 401(k) doesn't lower them. Medicare has no cap.`);
+  setSum("sscap",head);
+  box.innerHTML=meter("",`Social Security wages, ${y}`,ytd,Math.max(proj,ytd),base,lines,0);
+}
+
+/* ---------- what-if paycheck ---------- */
+function wiBasis(s){const E=s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0),T=s.items.filter(i=>i.sec==="taxable").reduce((a,i)=>a+i.cur,0),D=s.items.filter(isPreRet).reduce((a,i)=>a+i.cur,0);
+  if(!(D>0))return{E,T,b:E};const near=v=>Math.abs(v*200-Math.round(v*200));return{E,T,b:near(D/(E+T))<near(D/E)?E+T:E}}
+function renderWhatIf(m,y){
+  const sec=document.querySelector('section[data-k="whatif"]');const s=m.reg;
+  if(!s||!s.net||s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0)<=0){sec.hidden=true;return}
+  const L=limFor(y),n=m.pds.length||26;
+  const sum=p=>r2(s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0));
+  const {E,T,b}=wiBasis(s);const D=sum(isPreRet),H=sum(isHSA),fed=sum(isFed),fica=sum(isSS),med=sum(isMedi);
+  const pre=sum(i=>i.sec==="pretax"),post=sum(i=>i.sec==="posttax"),sec125=sum(isSec125),other125=r2(sec125-H);
+  const W=r2(E+T-pre);const st=s.items.filter(isStateLocal);
+  const w=state.settings.wi||{};const kNow=b?D/b*100:0;
+  const ins=re=>sum(i=>isHealthEE(i)&&re.test(i.label)),mN=ins(/MED/i),dN=ins(/DENT/i),vN=ins(/VIS/i);
+  const raise=w.raise!=null?+w.raise:0,kPct=w.k!=null?+w.k:Math.round(kNow*100)/100,hsa=w.hsa!=null?+w.hsa:H,xf=w.x!=null?+w.x:0;
+  const mW=w.med!=null?+w.med:mN,dW=w.den!=null?+w.den:dN,vW=w.vis!=null?+w.vis:vN,dIns=r2(mW+dW+vW-mN-dN-vN);
+  [["wiRaise",raise],["wiK",kPct],["wiH",hsa],["wiX",xf],["wiMed",mW],["wiDen",dW],["wiVis",vW]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(+(+v).toFixed(2))});
+  /* federal: calibrate an annual adjustment so 2026-style percentage method reproduces today's withholding */
+  const br=t=>{let tax=0,lo=0;for(const[hi,r]of L.br){if(t<=lo)break;tax+=(Math.min(t,hi)-lo)*r;lo=hi}return tax};
+  let lo=-200000,hi=200000;for(let k=0;k<80;k++){const mid=(lo+hi)/2;if(br(Math.max(0,W*n-mid))/n>fed)lo=mid;else hi=mid}const adj=(lo+hi)/2;
+  const calOK=fed>0.5&&Math.abs(br(Math.max(0,W*n-adj))/n-fed)<1;
+  const f=1+raise/100,E2=r2(E*f),b2=r2(b-E+E2),D2=r2(b2*kPct/100),H2=r2(hsa);
+  const pre2=r2(pre-D+D2-H+H2+dIns),W2=r2(E2+T-pre2),sw2=r2(E2+T-(other125+H2+dIns));
+  const fed2=r2((calOK?br(Math.max(0,W2*n-adj))/n:(W?fed*W2/W:0))+xf);
+  const ssw=r2(E+T-sec125),fica2=ssw>0?r2(fica*sw2/ssw):0,med2=ssw>0?r2(med*sw2/ssw):0;
+  const st2=st.map(i=>({l:i.label,a:i.cur,b:W>0?r2(i.cur*W2/W):i.cur}));
+  const net=s.net.cur,net2=r2(E2-pre2-post-fed2-fica2-med2-st2.reduce((a,x)=>a+x.b,0)),netCalc=r2(E-pre-post-fed-fica-med-st.reduce((a,i)=>a+i.cur,0)),drift=r2(net-netCalc);
+  const net2a=r2(net2+drift);
+  const erR=s.items.filter(isErRet),er=r2(erR.reduce((a,i)=>a+i.cur,0)),er2=b?r2(er*b2/b):er;
+  const healthIns=sum(i=>(i.sec==="pretax"||i.sec==="posttax")&&isHealthEE(i));
+  const rows=[["Gross pay",E,E2,1],["401(k)",D,D2],["HSA",H,H2],mN||mW?["Medical",mN,mW]:null,dN||dW?["Dental",dN,dW]:null,vN||vW?["Vision",vN,vW]:null,
+    r2(healthIns-mN-dN-vN)>0.004?["Other insurance",r2(healthIns-mN-dN-vN),r2(healthIns-mN-dN-vN)]:null,
+    r2(pre-D-H-healthIns)>0.004?["Other before-tax",r2(pre-D-H-healthIns),r2(pre-D-H-healthIns)]:null,
+    ["Federal income tax",fed,fed2],["Social Security",fica,fica2],["Medicare",med,med2],...st2.map(x=>[esc(x.l),x.a,x.b]),
+    post>0.004?["After-tax deductions",post,post]:null].filter(Boolean);
+  const dc=(a,b2,good)=>{const d=r2(b2-a);if(Math.abs(d)<0.005)return'<td class="n"></td>';const up=good?d>0:d<0;return`<td class="n ${good==null?"":up?"up":"down"}">${d>0?"+":"−"}${fmt(Math.abs(d)).slice(1)}</td>`};
+  $("wiBase").textContent=`Starts from your ${nice(s.payDate)} check${kNow?`, where 401(k) is ${kNow.toFixed(2).replace(/\.?0+$/,"")}% of pay`:""}. Change any box; blank boxes go back to that check.`;
+  $("wiTbl").innerHTML=`<thead><tr><th>Per check</th><th class="n">Now</th><th class="n">What if</th><th class="n">Change</th></tr></thead><tbody>`+
+    rows.map(([l,a,b2,g])=>`<tr${g?' class="sec"':""}><td>${l}</td><td class="n">${fmt(a)}</td><td class="n">${fmt(b2)}</td>${dc(a,b2,g?true:null)}</tr>`).join("")+
+    `<tr class="net"><td>Take-home</td><td class="n">${fmt(net)}</td><td class="n">${fmt(net2a)}</td>${dc(net,net2a,true)}</tr>`+
+    (er?`<tr><td>Employer 401(k)</td><td class="n">${fmt(er)}</td><td class="n">${fmt(er2)}</td>${dc(er,er2,true)}</tr>`:"")+`</tbody>`;
+  /* limits: this year or next (next by default when viewing the latest year) */
+  const lastY=Math.max(...state.stubs.map(x=>+x.payDate.slice(0,4))),canNext=y===lastY&&!!LIMS[y+1];
+  const LY=canNext&&(w.ly||"next")==="next"?y+1:y,LL=limFor(LY),nL=LY===y?n:(payDates(LY).filter(d=>d.startsWith(LY+"")).length||26);
+  const age=ageFor(LY),cu=age>=60&&age<=63?LL.c60:age>=50?LL.c50:0,kLim=LL.k401+cu;
+  const fam=s.items.filter(isHSA).some(i=>/FAM/i.test(i.label))||m.ys.some(x=>x.items.some(i=>isHSA(i)&&/FAM/i.test(i.label)));
+  const hEr=m.val(isHSAer,"proj"),hLim=(fam?LL.hsaFam:LL.hsaSelf)+(age>=55?LL.hsaCatch:0);
+  const yr=[["Take-home",net*nL,net2a*nL,true],["401(k), you",D*nL,D2*nL,null],["HSA, you + employer",H*nL+hEr,H2*nL+hEr,null],["Medical, dental, vision",(mN+dN+vN)*nL,(mW+dW+vW)*nL,null],["Taxes",(fed+fica+med+st.reduce((a,i)=>a+i.cur,0))*nL,(fed2+fica2+med2+st2.reduce((a,x)=>a+x.b,0))*nL,null]];
+  $("wiYear").innerHTML=(canNext?`<div class="seg wi-ly" role="group" aria-label="Check limits for"><button type="button" data-ly="cur" aria-pressed="${LY===y}">${y} limits</button><button type="button" data-ly="next" aria-pressed="${LY!==y}">${y+1} limits</button></div>`:"")+`<div class="tbl-wrap"><table><thead><tr><th>Over ${nL} paydays in ${LY}</th><th class="n">Now</th><th class="n">What if</th><th class="n">Change</th></tr></thead><tbody>`+
+    yr.map(([l,a,b2,g])=>{const d=b2-a;return`<tr><td>${l}</td><td class="n">${fmt0(a)}</td><td class="n">${fmt0(b2)}</td><td class="n ${Math.abs(d)<0.5||g==null?"":(g?d>0:d<0)?"up":"down"}">${Math.abs(d)<0.5?"":(d>0?"+":"−")+fmt0(Math.abs(d)).slice(1)}</td></tr>`}).join("")+`</tbody></table></div>`+
+    (D2*nL>kLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">401(k) would be ${fmt0(D2*nL-kLim)} over your ${fmt0(kLim)} ${LY} limit over a full year.</span></div>`:"")+
+    (H2*nL+hEr>hLim+0.5?`<div class="verdict owe" style="margin-top:10px"><span class="note">HSA would be ${fmt0(H2*nL+hEr-hLim)} over your ${fmt0(hLim)} ${LY} limit, counting ${fmt0(hEr)} from your employer.</span></div>`:"");
+  $("wiNote").textContent=`Estimate. Federal uses ${y} brackets, tuned so it matches what this check actually withheld; Social Security, Medicare, state and local scale with the wages they're figured on. Insurance premiums come out before tax, so a change also moves every tax line. After-tax deductions stay the same. Employer 401(k) money scales with pay.${Math.abs(drift)>0.004?` This check's own lines are off from its deposit by ${fmt(Math.abs(drift))}, so that's carried over.`:""}`;
+  sec.hidden=state.tab!=="plan";
+  setSum("whatif",(raise||Math.abs(kPct-kNow)>0.005||Math.abs(hsa-H)>0.005||xf||Math.abs(dIns)>0.004)?`Take-home <strong>${fmt(net2a)}</strong> (${net2a>=net?"+":"−"}${fmt(Math.abs(net2a-net)).slice(1)})`:"Try a raise, 401(k) % or HSA amount");
+}
+{const wiSet=(k,v)=>{const w=state.settings.wi=state.settings.wi||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
+  [["wiRaise","raise"],["wiK","k"],["wiH","hsa"],["wiX","x"],["wiMed","med"],["wiDen","den"],["wiVis","vis"]].forEach(([id,k])=>$(id).addEventListener("change",e=>wiSet(k,e.target.value)));
+  $("wiYear").addEventListener("click",e=>{const b=e.target.closest("[data-ly]");if(!b)return;const w=state.settings.wi=state.settings.wi||{};w.ly=b.dataset.ly;save();keepPos(()=>render())});
+  $("wiReset").addEventListener("click",()=>{state.settings.wi={};save();keepPos(()=>render())});}
+
+/* ---------- bonus estimator ---------- */
+function renderBonusEst(m,y){
+  const sec=document.querySelector('section[data-k="bonusEst"]');
+  const bcs=state.stubs.filter(s=>isExtra(s)&&isBonusCheck(s)&&s.net&&s.net.cur>0&&s.payDate<=(m.latest?m.latest.payDate:"9999")).sort((a,b)=>a.payDate<b.payDate?-1:1);
+  const last=bcs[bcs.length-1];if(!last||!m.reg){sec.hidden=true;return}
+  const sm=(s,p)=>r2(s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0));
+  const lE=sm(last,i=>i.sec==="earnings"),lT=sm(last,i=>i.sec==="taxable"),lPre=sm(last,i=>i.sec==="pretax"),lW=r2(lE+lT-lPre),lK=sm(last,isPreRet);
+  const st=last.items.filter(isStateLocal).filter(i=>i.cur>0).map(i=>({l:i.label,r:lW>0?Math.round(i.cur/lW*2000)/2000:0}));
+  const fedR=lW>0&&sm(last,isFed)>0?Math.round(sm(last,isFed)/lW*1000)/1000:.22;
+  const recent=bcs.filter(s=>s.payDate>=addDays(last.payDate,-365)),big=recent.reduce((a,s)=>Math.max(a,sm(s,i=>i.sec==="earnings")),0);
+  const w=state.settings.be||{},B=w.amt!=null?+w.amt:big,kp=w.k!=null?+w.k:Math.round(lK/lE*10000)/100,rp=w.roth!=null?+w.roth:0;
+  [["beAmt",B],["beK",kp],["beR",rp]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(+(+v).toFixed(2))});
+  const L=limFor(y),rate=L.ssRate||.062,f=m.remaining?"proj":"ytd";
+  const ohio=x=>/\bOH\b|OHIO/i.test(x.l);let ohNote="";
+  if(L.ohSupp)st.forEach(x=>{if(ohio(x)&&Math.abs(x.r-L.ohSupp)>0.00001){ohNote=` Ohio uses its ${y} bonus rate of ${(L.ohSupp*100).toFixed(2)}% instead of the ${(x.r*100).toFixed(2).replace(/\.?0+$/,"")}% on that check.`;x.r=L.ohSupp}});
+  const ssW=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f)),room=Math.max(0,L.ssBase-ssW);
+  const K=r2(B*kp/100),R=r2(B*rp/100),W=r2(B-K),fed=r2(W*fedR),ss=r2(Math.min(B,room)*rate),md=r2(B*.0145+Math.max(0,ssW+B-Math.max(200000,ssW))*.009);
+  const stv=st.map(x=>({l:x.l,v:r2(W*x.r)})),kept=r2(B-K-R-fed-ss-md-stv.reduce((a,x)=>a+x.v,0));
+  const {b}=wiBasis(m.reg),erR=b?sm(m.reg,isErRet)/b:0,er=r2(B*erR);
+  $("beStats").innerHTML=`<div class="stat"><small>You'd keep</small><b>${fmt(kept)}</b><small>${B?(kept/B*100).toFixed(1):0}% of ${fmt0(B)}</small></div>
+    <div class="stat"><small>Into your 401(k)</small><b>${fmt0(K+R+er)}</b><small>${R?`${fmt0(K)} pre-tax + ${fmt0(R)} Roth`:`${fmt0(K)} you`} + ${fmt0(er)} employer</small></div>`;
+  const rows=[["Bonus",B],["401(k), "+(+kp.toFixed(2))+"%",-K],...(R?[["Roth 401(k), "+(+rp.toFixed(2))+"% (after tax)",-R]]:[]),[`Federal, ${(fedR*100).toFixed(1)}% flat`,-fed],[room<B?`Social Security (cap reached after ${fmt0(room)})`:"Social Security",-ss],["Medicare",-md],...stv.map(x=>[esc(x.l),-x.v])];
+  $("beTbl").innerHTML=`<tbody>${rows.map(([l,v],i)=>`<tr${i?"":' class="sec"'}><td>${l}</td><td class="n">${v<0?"−"+fmt(-v).slice(0):fmt(v)}</td><td class="n pc">${B&&i?(-v/B*100).toFixed(1)+"%":""}</td></tr>`).join("")}
+    <tr class="net"><td>You keep</td><td class="n">${fmt(kept)}</td><td class="n pc">${B?(kept/B*100).toFixed(1)+"%":""}</td></tr>
+    ${er?`<tr><td>Employer 401(k) on top</td><td class="n">${fmt(er)}</td><td class="n pc">${(erR*100).toFixed(1)}%</td></tr>`:""}</tbody>`;
+  const past=bcs.slice(-6).reverse();
+  $("bePast").innerHTML=`<thead><tr><th>Paid</th><th class="n">Bonus</th><th class="n">Deposited</th><th class="n">Kept</th></tr></thead><tbody>`+past.map(s=>{const g=sm(s,i=>i.sec==="earnings");return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}</td><td class="n">${fmt0(g)}</td><td class="n">${fmt0(s.net.cur)}</td><td class="n">${(s.net.cur/g*100).toFixed(1)}%</td></tr>`}).join("")+"</tbody>";
+  $("beNote").textContent=`Rates come from your ${nice(last.payDate)}, ${last.payDate.slice(0,4)} bonus check: federal ${(fedR*100).toFixed(1)}% (the flat rate for bonuses)`+st.map(x=>`, ${x.l} ${(x.r*100).toFixed(2).replace(/\.?0+$/,"")}%`).join("")+`, all figured after the 401(k).${ohNote} Social Security ${room<B?`stops once ${y} wages reach the ${fmt0(L.ssBase)} cap`:"is 6.2%"}; Medicare is 1.45%. Roth comes out after taxes, so it doesn't lower them. Other deductions on a bonus check would lower what you keep. Bonus withholding isn't your final tax; the year-end return settles it.`;
+  setSum("bonusEst",`Keep <strong>${fmt0(kept)}</strong> of ${fmt0(B)}`);
+  sec.hidden=state.tab!=="plan";
+}
+{const beSet=(k,v)=>{const w=state.settings.be=state.settings.be||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
+  $("beAmt").addEventListener("change",e=>beSet("amt",e.target.value));$("beK").addEventListener("change",e=>beSet("k",e.target.value));$("beR").addEventListener("change",e=>beSet("roth",e.target.value));}
+
+/* ---------- paychecks to retirement ---------- */
+function renderRetire(){
+  const sec=document.querySelector('section[data-k="retire"]');if(state.tab!=="plan"){sec.hidden=true;return}
+  const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))].sort((a,b)=>a-b),Y0=ys[ys.length-1],M=model(Y0),s=M.reg;
+  const age=ageFor(Y0);if(!s||!annualBase(s)||!age){sec.hidden=true;return}
+  const w=state.settings.rt||{},ev=yoyEvents();
+  const rAge=w.age!=null?+w.age:65,endY=Y0+(rAge-age),end=w.date||`${endY}-12-31`;
+  const recentR=ev.raises.slice(-5),avgR=recentR.length?recentR.reduce((a,r)=>a+r.pct,0)/recentR.length*100:3;
+  const raise=w.raise!=null?+w.raise:Math.round(avgR*2)/2;
+  const bRows=ys.filter(y=>y<+todayISO.slice(0,4)).slice(-3).map(y=>yoyRow(y)).filter(Boolean),avgB=bRows.length?bRows.reduce((a,r)=>a+r.full.bonus,0)/bRows.length:0;
+  const bonus=w.bonus!=null?+w.bonus:Math.round(avgB/500)*500;
+  [["rtAge",rAge],["rtRaise",raise],["rtBonus",bonus]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
+  if(document.activeElement!==$("rtDate"))$("rtDate").value=end;
+  const per=annualBase(s)/(isSemi(s)?24:26),sum=p=>s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0);
+  const E=sum(i=>i.sec==="earnings"),{b}=wiBasis(s),kR=b?sum(isPreRet)/b:0,erR=b?sum(isErRet)/b:0,netR=E>0&&s.net?s.net.cur/E:0;
+  const lb=state.stubs.filter(x=>isExtra(x)&&isBonusCheck(x)&&x.net&&x.net.cur>0).sort((a,c)=>a.payDate<c.payDate?-1:1).pop();
+  const bNetR=lb?lb.net.cur/lb.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0):.6;
+  const last=state.stubs.map(x=>x.payDate).sort().pop();const rows=[];let all=[];
+  for(let y=Y0;y<=+end.slice(0,4);y++){const pd=payDates(y).filter(d=>d.startsWith(y+"")&&d>last&&d<=end);
+    const g1=per*Math.pow(1+raise/100,y-Y0),bon=(y>Y0||!state.stubs.some(x=>x.payDate.startsWith(y+"")&&isBonusCheck(x)))&&end>=`${y}-11-20`?bonus*Math.pow(1+raise/100,y-Y0):0;
+    if(!pd.length&&!bon)continue;all=all.concat(pd);
+    const g=g1*pd.length;rows.push({y,n:pd.length,g:g+bon,net:g*netR+bon*bNetR,k:(g+bon)*kR,er:(g+bon)*erR})}
+  const n=all.length,T=k=>rows.reduce((a,r)=>a+r[k],0);
+  const first=state.stubs.map(x=>x.payDate).sort()[0],done=state.stubs.filter(x=>!isExtra(x)).length,pct=done/(done+n)*100;
+  const ms=(new Date(end)-new Date(todayISO))/864e5,yrs=Math.floor(ms/365.25),mos=Math.floor((ms-yrs*365.25)/30.44);
+  $("rtStats").innerHTML=`<div class="stat"><small>Paychecks left</small><b>${n}</b><small>${n?`last one about ${nice(all[n-1])}, ${all[n-1].slice(0,4)}`:"none before that date"}</small></div>
+    <div class="stat"><small>Time left</small><b>${ms>0?`${yrs}y ${mos}m`:"—"}</b><small>to ${nice(end)}, ${end.slice(0,4)}${w.date?"":` (the year you turn ${rAge})`}</small></div>`;
+  $("rtBar").innerHTML=`<div class="meter"><div class="track" role="img" aria-label="${pct.toFixed(0)}% of the way"><div class="ytd" style="width:${pct.toFixed(2)}%"></div></div>
+    <small>${done} regular checks loaded since ${nice(first)}, ${first.slice(0,4)}. That's ${pct.toFixed(0)}% of the way to your last one.</small></div>`;
+  $("rtTbl").innerHTML=rows.length?`<thead><tr><th>Year</th><th class="n">Checks</th><th class="n">Gross</th><th class="n">Take-home</th><th class="n">401(k) you</th><th class="n">Employer</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${r.y}</td><td class="n">${r.n}</td><td class="n">${fmt0(r.g)}</td><td class="n">${fmt0(r.net)}</td><td class="n">${fmt0(r.k)}</td><td class="n">${fmt0(r.er)}</td></tr>`).join("")+
+    `<tr class="total"><td>All</td><td class="n">${n}</td><td class="n">${fmt0(T("g"))}</td><td class="n">${fmt0(T("net"))}</td><td class="n">${fmt0(T("k"))}</td><td class="n">${fmt0(T("er"))}</td></tr></tbody>`:"";
+  $("rtNote").textContent=`From your ${nice(s.payDate)}, ${s.payDate.slice(0,4)} check: base pay ${fmt(per)} per check, raised ${raise}% each January, with a ${fmt0(bonus)} bonus each November (default is your average over the last 3 years). Take-home keeps today's ${(netR*100).toFixed(1)}% of pay (${(bNetR*100).toFixed(1)}% on bonuses). 401(k) keeps today's ${(kR*100).toFixed(1)}% from you and ${(erR*100).toFixed(1)}% from your employer; IRS limits aren't applied. Dollars are as paid, not adjusted for inflation.`;
+  setSum("retire",n?`<strong>${n}</strong> paychecks left`:"");
+  sec.hidden=false;
+}
+{const rtSet=(k,v)=>{const w=state.settings.rt=state.settings.rt||{};const t=String(v).trim();if(t===""||(k!=="date"&&!isFinite(+t)))delete w[k];else w[k]=k==="date"?t:+t;if(k==="age")delete w.date;save();keepPos(()=>render())};
+  [["rtAge","age"],["rtDate","date"],["rtRaise","raise"],["rtBonus","bonus"]].forEach(([id,k])=>$(id).addEventListener("change",e=>rtSet(k,e.target.value)));}
+
+/* ---------- year in review ---------- */
+function yirCards(y){
+  const r=yoyRow(y);if(!r)return null;const cur=y>=+todayISO.slice(0,4),P=r.proj?r.sofar:r.full,tag=cur?" so far":"";
+  const ys=yearStubs(y),pv=yoyRow(y-1),PV=pv&&(pv.proj?pv.sofar:pv.full);
+  const big=ys.filter(x=>x.net&&x.net.cur>0).sort((a,b)=>b.net.cur-a.net.cur)[0];
+  const tax=P.fed+P.fica+P.state,save401=P.ret+P.er401,hsa=(P.hsa||0)+(P.erHsa||0);
+  const ptoH=Object.values(r.pto||{}).reduce((a,o)=>a+o.h,0);
+  const ev=yoyEvents(),rz=ev.raises.filter(x=>x.d.startsWith(y+""));
+  const chg=(a,b)=>b?`${a>=b?"up":"down"} ${Math.abs((a/b-1)*100).toFixed(1)}% from ${y-1}${cur?" at this point":""}`:"";
+  /* current year: compare with last year through the same date, not all of last year */
+  let PVc=PV;if(cur&&PV){const md=(ys[ys.length-1]||{payDate:todayISO}).payDate.slice(5),py=yearStubs(y-1).filter(x=>x.payDate.slice(5)<=md),ck=py[py.length-1];
+    if(ck){const mm=model(y-1,ck);PVc={gross:mm.val(i=>i.sec==="earnings","ytd"),bonus:mm.val(isBonusE,"ytd")}}else PVc=null}
+  const cards=[{k:"Your year in pay",big:String(y),sub:`${ys.filter(x=>!isExtra(x)).length} paychecks${ys.some(isExtra)?` + ${ys.filter(isExtra).length} extra`:""}${tag}`},
+    {k:"You earned",big:fmt0(P.gross),sub:PVc?chg(P.gross,PVc.gross):"gross pay"},
+    {k:"You took home",big:fmt0(P.net),sub:`${(P.net/P.gross*100).toFixed(1)}% of gross`+(big?` · biggest deposit ${fmt0(big.net.cur)} on ${nice(big.payDate)}`:"")},
+    {k:"Taxes",big:fmt0(tax),sub:`${P.gross>0?(tax/P.gross*100).toFixed(1):"0.0"}% of gross`+(!cur&&!r.partial?` · Tax Freedom Day was ${dayLabel(y,tfdDay(r))}`:"")},
+    {k:"Into your 401(k)",big:fmt0(save401),sub:`${fmt0(P.ret)} from you + ${fmt0(P.er401)} from your employer`+(hsa>0.5?` · HSA ${fmt0(hsa)}`:"")}];
+  if(rz.length)cards.push({k:"Your raise",big:"+"+(rz.reduce((a,x)=>a*(1+x.pct),1)*100-100).toFixed(1)+"%",sub:rz[0].inf==null?`No price data for ${y} yet to compare with inflation`:`Prices rose ${(rz[0].inf*100).toFixed(1)}% · ${rz.every(x=>x.real>=0)?"you beat inflation":"inflation beat it"}`});
+  if(P.bonus>0.5)cards.push({k:"Bonus",big:fmt0(P.bonus),sub:PVc&&PVc.bonus>0.5?chg(P.bonus,PVc.bonus):"gross"});
+  if(ptoH>0.5)cards.push({k:"Time off",big:`${+(ptoH/8).toFixed(1)} days`,sub:"paid vacation, holidays and personal days"});
+  return{y,cur,cards,sum:[["Earned",fmt0(P.gross)],["Took home",fmt0(P.net)],["Taxes",fmt0(tax)],["Into 401(k)",fmt0(save401)]].concat(P.bonus>0.5?[["Bonus",fmt0(P.bonus)]]:[]).concat(ptoH>0.5?[["Time off",`${+(ptoH/8).toFixed(1)} days`]]:[])};
+}
+function openYir(y){
+  const d=yirCards(y);if(!d)return;
+  const ov=document.createElement("div");ov.className="yir";ov.setAttribute("role","dialog");ov.setAttribute("aria-label",`${y} in review`);
+  const cards=d.cards.map((c,i)=>`<section class="yir-card${i?"":" first"}"><small>${esc(c.k)}</small><b>${esc(c.big)}</b><p>${esc(c.sub)}</p></section>`).join("")+
+    `<section class="yir-card sum"><small>${y}${d.cur?" so far":""} at a glance</small><div class="yir-grid">${d.sum.map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join("")}</div>
+     <button type="button" class="btn" id="yirSave">Save image</button></section>`;
+  const n=d.cards.length+1;
+  ov.innerHTML=`<button type="button" class="yir-x" aria-label="Close">✕</button><div class="yir-track">${cards}</div><div class="yir-dots">${Array.from({length:n},(_,i)=>`<i${i?"":' class="on"'}></i>`).join("")}</div><p class="yir-hint">Swipe →</p>`;
+  document.body.appendChild(ov);document.documentElement.style.overflow="hidden";
+  const tr=ov.querySelector(".yir-track"),dots=[...ov.querySelectorAll(".yir-dots i")];
+  tr.addEventListener("scroll",()=>{const i=Math.round(tr.scrollLeft/tr.clientWidth);dots.forEach((x,j)=>x.classList.toggle("on",i===j));ov.querySelector(".yir-hint").style.opacity=i?0:1},{passive:true});
+  const close=()=>{ov.remove();document.documentElement.style.overflow=""};
+  ov.querySelector(".yir-x").addEventListener("click",close);
+  ov.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
+  ov.querySelector("#yirSave").addEventListener("click",()=>saveYir(d));
+}
+async function saveYir(d){
+  const W=1080,H=1350,c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
+  const bg=g.createLinearGradient(0,0,W,H);bg.addColorStop(0,"#10241D");bg.addColorStop(1,"#07080A");g.fillStyle=bg;g.fillRect(0,0,W,H);
+  const F=(w,px)=>`${w} ${px}px "Nunito Sans", -apple-system, "Segoe UI", sans-serif`;
+  g.fillStyle="#2F8CFF";g.font=F(700,34);g.fillText("PAYCHECK X-RAY",90,140);
+  g.fillStyle="#ECEEF0";g.font=F(700,120);g.fillText(String(d.y),86,280);
+  g.fillStyle="#9BA1A8";g.font=F(500,44);g.fillText(d.cur?"so far, at a glance":"at a glance",90,350);
+  d.sum.forEach(([l,v],i)=>{const col=i%2,row=Math.floor(i/2),x=90+col*470,yy=490+row*230;
+    g.fillStyle="#9BA1A8";g.font=F(500,38);g.fillText(l,x,yy);g.fillStyle=i===1?"#2F8CFF":"#ECEEF0";g.font=F(700,74);g.fillText(v,x,yy+86)});
+  g.fillStyle="#2F8CFF";g.fillRect(90,H-150,120,8);
+  const blob=await new Promise(r=>c.toBlob(r,"image/png"));const name=`paycheck-${d.y}-review.png`;
+  try{const f=new File([blob],name,{type:"image/png"});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:`${d.y} in review`});return}}catch(e){if(e&&e.name==="AbortError")return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();toast("Image saved.");
+}
+$("yirBtn").addEventListener("click",()=>openYir(state.year));
+$("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
+{const IC={dark:'<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',light:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',auto:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5z" fill="currentColor"/></svg>'};
+  const NM={dark:"Dark",light:"Light",auto:"Auto"},mq=matchMedia("(prefers-color-scheme: light)");
+  const apply=()=>{const t=ui.theme||"dark",light=t==="light"||(t==="auto"&&mq.matches);document.documentElement.classList.toggle("light",light);
+    $("themeMeta").setAttribute("content",light?"#F4F5F7":"#07080A");$("themeBtn").innerHTML=IC[t]+NM[t];$("themeBtn").setAttribute("aria-label",`Theme: ${NM[t]}. Tap to change.`);
+    if(state.stubs.length&&state.tab==="all")renderYoy()};
+  $("themeBtn").addEventListener("click",()=>{const order=["dark","light","auto"],t=order[(order.indexOf(ui.theme||"dark")+1)%3];setOpen("theme",t);apply();toast(`Theme: ${NM[t]}${t==="auto"?" (follows your iPhone)":""}`)});
+  try{mq.addEventListener("change",()=>{if((ui.theme||"dark")==="auto")apply()})}catch(e){}
+  window.__applyTheme=apply;}
+{const fill=()=>{const o=state.settings.ohUt||{};$("ohUtIn").value=Object.keys(o).sort().reverse().map(k=>{const v=o[k];return typeof v==="object"&&v.parts?`${k} ${v.parts.map(x=>(+x).toFixed(2)).join(" + ")}`:`${k} ${ohTot(v).toFixed(2)}`}).join("\n")};
+  $("ohUtSave").addEventListener("click",()=>{const o={};for(const ln of $("ohUtIn").value.split(/\n|;/)){const mm=ln.match(/^\s*(20\d\d)\b(.*)$/);if(!mm)continue;const ns=(mm[2].match(/[\d,]*\.?\d+/g)||[]).map(x=>+x.replace(/,/g,"")).filter(x=>isFinite(x));if(!ns.length)continue;
+      o[mm[1]]=ns.length===1?r2(ns[0]):{ut:r2(ns[0]),tot:r2(ns.reduce((a,b)=>a+b,0)),parts:ns}}
+    state.settings.ohUt=o;save();yoyCache=null;fill();keepPos(()=>render());toast(`Saved Ohio unemployment for ${Object.keys(o).length} year${Object.keys(o).length===1?"":"s"}.`)});
+  window.__fillOh=fill;}
+{const fill=()=>{const B=state.settings.bal||{};if(document.activeElement!==$("balIn"))$("balIn").value=Object.keys(B).sort().reverse().map(y=>{const b=B[y],h=b.hi!=null?`${b.hc||0}/${b.hi}`:`${b.h||0}`;return`${y} ${b.k||0} ${h}${b.sp||b.mv?" "+(b.sp||0):""}${b.mv?" "+b.mv:""}`}).join("\n")};
+  $("balSave").addEventListener("click",()=>{const B={};for(const ln of $("balIn").value.split(/\n/)){const mm=ln.match(/^\s*((?:19|20)\d\d)\b(.*)$/);if(!mm)continue;
+      const toks=mm[2].trim().split(/\s+/).filter(Boolean),num=x=>+String(x).replace(/[$,]/g,"")||0;if(!toks.length)continue;
+      const e={k:num(toks[0])},ht=toks[1]||"0";
+      if(ht.includes("/")){const[c,i]=ht.split("/");e.hc=num(c);e.hi=num(i);e.h=r2(e.hc+e.hi)}else e.h=num(ht);
+      if(toks[2]&&num(toks[2]))e.sp=num(toks[2]);if(toks[3]&&num(toks[3]))e.mv=num(toks[3]);B[mm[1]]=e}
+    state.settings.bal=B;save();yoyCache=null;keepPos(()=>render());toast(`Saved balances for ${Object.keys(B).length} year${Object.keys(B).length===1?"":"s"}.`)});
+  window.__fillBal=fill;}
+{const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  EYEX='<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.7 8.5 2 12 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  const MONEY_IN=["sbEarn","rtBonus","beAmt","wiH","wiX","wiMed","wiDen","wiVis","seProfit","otherInc","estPaid","ssaYouSS","ssaErSS","ssaYouMd","ssaErMd","ohUtIn","ssaIn","balIn","pasteBox"];
+  MONEY_IN.forEach(id=>{const e=$(id);if(e)e.classList.add("money")});
+  const show=()=>{document.documentElement.classList.toggle("hide",HIDE);const b=$("hideBtn");b.innerHTML=HIDE?EYEX:EYE;b.classList.toggle("on",HIDE);b.setAttribute("aria-pressed",String(HIDE));b.setAttribute("aria-label",HIDE?"Dollar amounts hidden. Tap to show.":"Hide dollar amounts")};
+  show();$("hideBtn").addEventListener("click",()=>{HIDE=!HIDE;setOpen("hide",HIDE);show();keepPos(()=>render());toast(HIDE?"Dollar amounts hidden":"Dollar amounts shown")});}
+$("rptBtn").addEventListener("click",()=>makeReport(state.tab==="all"?"all":"year"));
+
+/* ---------- SSA record + Social Security benefit ---------- */
+const AWI={1989:20099.55,1990:21027.98,1991:21811.60,1992:22935.42,1993:23132.67,1994:23753.53,1995:24705.66,1996:25913.90,1997:27426.00,1998:28861.44,1999:30469.84,2000:32154.82,2001:32921.92,2002:33252.09,2003:34064.95,2004:35648.55,2005:36952.94,2006:38651.41,2007:40405.48,2008:41334.97,2009:40711.61,2010:41673.83,2011:42979.61,2012:44321.67,2013:44888.16,2014:46481.52,2015:48098.63,2016:48642.15,2017:50321.89,2018:52145.80,2019:54099.99,2020:55628.60,2021:60575.07,2022:63795.13,2023:66621.80,2024:69846.57,2025:72800.33};
+const AWI_Y=2025,BEND=[1340,8077]; /* SSA: 2025 wage index; 2027 bend points come from it */
+function ssaFill(){const S=state.settings.ssa||{},R=S.rec||{},P=S.paid||{};
+  if(document.activeElement!==$("ssaIn"))$("ssaIn").value=Object.keys(R).sort().reverse().map(y=>`${y} ${R[y][0]}${R[y][1]!=null&&R[y][1]!==R[y][0]?" "+R[y][1]:""}`).join("\n");
+  [["ssaYouSS","youSS"],["ssaErSS","erSS"],["ssaYouMd","youMd"],["ssaErMd","erMd"]].forEach(([id,k])=>{if(document.activeElement!==$(id))$(id).value=P[k]!=null?P[k]:""})}
+$("ssaSave").addEventListener("click",()=>{const rec={};
+  for(const ln of $("ssaIn").value.split(/\n/)){const mm=ln.match(/^\s*((?:19|20)\d\d)\b(.*)$/);if(!mm)continue;const ns=(mm[2].match(/[\d,]+(?:\.\d+)?/g)||[]).map(x=>+x.replace(/,/g,"")).filter(x=>isFinite(x));if(!ns.length)continue;rec[mm[1]]=[ns[0],ns.length>1?ns[1]:ns[0]]}
+  const paid={};[["ssaYouSS","youSS"],["ssaErSS","erSS"],["ssaYouMd","youMd"],["ssaErMd","erMd"]].forEach(([id,k])=>{const v=$(id).value.trim();if(v!==""&&isFinite(+v))paid[k]=+v});
+  state.settings.ssa={rec,paid};save();yoyCache=null;keepPos(()=>render());toast(`Saved ${Object.keys(rec).length} years of your SSA record.`)});
+function ssEarnings(){/* SSA record where you have it, otherwise your stubs (capped) */
+  const R=(state.settings.ssa||{}).rec||{},out={};
+  const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))];
+  for(const y of ys){const m=model(y);if(!m.latest)continue;const f=m.remaining?"proj":"ytd",w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f));out[y]={v:Math.min(w,limFor(y).ssBase),src:"stubs",proj:!!m.remaining}}
+  for(const y in R)if(!(out[y]&&out[y].proj))out[y]={v:+R[y][0],src:"ssa"};return out}
+function piaOf(A){const[b1,b2]=BEND;return Math.floor((.9*Math.min(A,b1)+.32*Math.max(0,Math.min(A,b2)-b1)+.15*Math.max(0,A-b2))*10)/10}
+function renderSsBen(){
+  const sec=document.querySelector('section[data-k="ssben"]');if(state.tab!=="plan"){sec.hidden=true;return}
+  const age=+state.settings.age||0,ay=+state.settings.ageYear||+todayISO.slice(0,4);if(!age||!state.stubs.length){sec.hidden=true;return}
+  const born=ay-age,fraM=(born>=1960?67*12:born>=1955?66*12+Math.min(10,(born-1954)*2):66*12);
+  const E=ssEarnings(),cur=+todayISO.slice(0,4),rt=state.settings.rt||{},w=state.settings.sb||{};
+  const lastDef=rt.date?+rt.date.slice(0,4):born+(rt.age!=null?+rt.age:65);
+  const last=w.last!=null?+w.last:lastDef,curE=E[cur]?E[cur].v:(E[cur-1]?E[cur-1].v:0),fut=w.earn!=null?+w.earn:Math.round(curE/1000)*1000;
+  [["sbLast",last],["sbEarn",fut]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
+  const base=limFor(cur).ssBase,idx=y=>AWI[y]&&y<AWI_Y?AWI[AWI_Y]/AWI[y]:1;
+  const calc=L=>{const list=[];for(const y in E){const yy=+y;if(yy>L)continue;if(yy===cur&&E[y].proj&&L<cur)continue;list.push(E[y].v*idx(yy))}
+    for(let y=cur+1;y<=L;y++)list.push(Math.min(fut,base));
+    const top=list.sort((a,b)=>b-a).slice(0,35),A=Math.floor(top.reduce((a,v)=>a+v,0)/420);return{A,pia:piaOf(A),n:list.filter(v=>v>0).length}};
+  const R=calc(last),R0=calc(Math.min(last,cur)),add=Math.floor(R.pia)-Math.floor(R0.pia);
+  const at=mo=>{const d=mo-fraM;const f=d<0?(-d<=36?1+d*5/900:1-0.2-(-d-36)*5/1200):1+Math.min(d,70*12-fraM)*(2/3)/100;return Math.floor(R.pia*f)};
+  const ages=[62,63,64,65,66,67,68,69,70];
+  const hasRec=Object.keys((state.settings.ssa||{}).rec||{}).length>0;
+  $("sbStats").innerHTML=`<div class="stat"><small>At full retirement age (${Math.floor(fraM/12)})</small><b>${fmt0(Math.floor(R.pia))}</b><small>a month, in today's dollars</small></div>
+    <div class="stat"><small>Working through ${last} adds</small><b>+${fmt0(add)}</b><small>a month, vs. stopping after ${cur}${!hasRec&&R0.n<35?`. Likely too high: years before your stubs count as $0 until you add your SSA record`:""}</small></div>`;
+  $("sbTbl").innerHTML=`<thead><tr><th>Start at</th><th class="n">Per month</th><th class="n">Per year</th><th class="n">vs full age</th></tr></thead><tbody>`+ages.map(a=>{const v=at(a*12);return`<tr${a*12===fraM?' class="sec"':""}><td>${a}${a*12===fraM?" (full)":""}</td><td class="n">${fmt0(v)}</td><td class="n">${fmt0(v*12)}</td><td class="n">${a*12===fraM?"—":(v>=R.pia?"+":"−")+Math.abs(Math.round((v/R.pia-1)*100))+"%"}</td></tr>`}).join("")+"</tbody>";
+  $("sbNote").textContent=`Estimate in today's dollars, the way the SSA figures it: your highest 35 years of earnings, each raised to ${AWI_Y} wage levels, averaged per month (${fmt0(R.A)}), then the benefit formula (90% / 32% / 15% at ${fmt0(BEND[0])} and ${fmt0(BEND[1])}). ${R.n} years with earnings, including future ones; only the best 35 count${hasRec?"":"; add your SSA record (All years → Taxes → SS record) to include years before your stubs, otherwise they count as zero"}. Future years use ${fmt0(Math.min(fut,base))} a year through ${last}. Starting before full retirement age is reduced for life; each year you wait past it adds 8%. Not counted: spousal benefits, the earnings test if you work while collecting before full age, and future cost-of-living raises (the SSA adds those every year).`;
+  setSum("ssben",`<strong>${fmt0(Math.floor(R.pia))}</strong>/mo at ${Math.floor(fraM/12)}`);
+  sec.hidden=false;
+}
+{const sbSet=(k,v)=>{const w=state.settings.sb=state.settings.sb||{};const t=String(v).trim();if(t===""||!isFinite(+t))delete w[k];else w[k]=+t;save();keepPos(()=>render())};
+  $("sbLast").addEventListener("change",e=>sbSet("last",e.target.value));$("sbEarn").addEventListener("change",e=>sbSet("earn",e.target.value));}
+
+/* ---------- next year at today's settings ---------- */
+/* Roth catch-up check for year Y (rule year), from the prior year's W-2 Box 3 */
+function rothCatch(Y){
+  const L=LIMS[Y];if(!L||!L.rcT||ageFor(Y)<50)return null;
+  const P=Y-1,w2=(state.settings.w2||{})[P]||{};let b3=null,actual=false,onPace=false;
+  if(w2["3"]!=null&&w2["3"]!==""&&isFinite(+w2["3"])){b3=+w2["3"];actual=true}
+  else{if(!yearStubs(P).length)return null;const pm=model(P);if(pm.partial)return null;
+    b3=Math.min(pm.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-pm.val(isSec125,"proj"),limFor(P).ssBase);onPace=pm.remaining>0}
+  const over=b3>L.rcT;return{Y,P,b3,thr:L.rcT,over,gap:L.rcT-b3,actual,onPace,reg:L.k401}}
+function rothCatchLine(R,dP){if(!R)return"";
+  const src=R.actual?`your ${R.P} W-2 Box 3 is`:R.onPace?`your ${R.P} Social Security wages are on pace for`:`your ${R.P} Social Security wages were`;
+  if(R.over)return`<b>Roth catch-up:</b> ${src} ${fmt0(R.b3)}, over ${fmt0(R.thr)}, so any ${R.Y} catch-up (what you put in above the ${fmt0(R.reg)} regular limit) must go in as Roth, taxed now. `+
+    (dP!=null?(dP<=R.reg+0.5?`You're putting in about ${fmt0(dP)}, under the regular limit, so this doesn't change your checks.`:`About ${fmt0(dP-R.reg)} of yours is catch-up and will be after-tax.`):"");
+  return`<b>Roth catch-up:</b> ${src} ${fmt0(R.b3)}, ${fmt0(R.gap)} under the ${fmt0(R.thr)} line, so ${R.Y} catch-ups can stay pre-tax.`+(R.onPace&&R.gap<15000?` A bonus or raise of more than ${fmt0(R.gap)} before Dec 31 would make them Roth-only.`:"")}
+function nextYear(){
+  const y=state.year,ny=y+1,lastY=Math.max(...state.stubs.map(s=>+s.payDate.slice(0,4)));
+  if(y!==lastY||!LIMS[ny])return"";
+  const M=model(y),s=M.reg;if(!s)return"";
+  const earn=r2(s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+(+i.cur||0),0));if(!(earn>0))return"";
+  const L=limFor(ny),raise=(+state.settings.nextRaise||0)/100,n=payDates(ny).filter(d=>d.startsWith(ny+"")).length||26;
+  const age=ageFor(ny),cu=age>=60&&age<=63?L.c60:age>=50?L.c50:0,kLim=L.k401+cu;
+  const per=r2(earn*(1+raise)),kNow=r2(s.items.filter(isDefer).reduce((a,i)=>a+i.cur,0)),kPct=kNow/earn,kPer=r2(per*kPct),kP=r2(kPer*n);
+  const kNeed=kLim/n;
+  const kLines=[`${fmt(kPer)} per check (${(kPct*100).toFixed(1)}% of ${fmt(per)}) × ${n} paydays.`,
+    kP>kLim+0.5?`<b>Projected ${fmt0(kP-kLim)} over the limit.</b> Keep it to about ${fmt0(kNeed)} per check.`:kLim-kP>1?`Room left: ${fmt0(kLim-kP)}. To max out, set about <b class="num">${fmt0(kNeed)}</b> per check (${(kNeed/per*100).toFixed(1)}% of pay).`:"On pace to hit the limit exactly.",
+    `Regular checks only; a bonus would add ${(kPct*100).toFixed(1)}% of the bonus. `+(cu?`Limit includes the ${fmt0(cu)} age catch-up.`:"")+(L.proj401?` ${ny} 401(k) limits are forecasts until the IRS announces them, usually in November.`:""),
+    rothCatchLine(rothCatch(ny),kP)].filter(Boolean);
+  let out=meter("",`401(k), you, in ${ny}`,0,kP,kLim,kLines,cu,true);
+  const hItems=s.items.filter(isHSA);
+  if(hItems.length){const fam=hItems.some(i=>/FAM/i.test(i.label)),hNow=r2(hItems.reduce((a,i)=>a+i.cur,0)),hSet=state.settings.nextHsa,hPer=hSet!=null&&hSet!==""&&isFinite(+hSet)?r2(+hSet):hNow,hEr=M.val(isHSAer,"proj");
+    const hc=age>=55?L.hsaCatch:0,hLim=(fam?L.hsaFam:L.hsaSelf)+hc,hP=r2(hPer*n+hEr),hNeed=Math.max(0,(hLim-hEr)/n);
+    const hLines=[`${fmt(hPer)} per check × ${n} = ${fmt0(hPer*n)} from you, plus ${fmt0(hEr)} from your employer (same as ${y}).`,
+      hP>hLim+0.5?`<b>Projected ${fmt0(hP-hLim)} over the limit.</b> Lower it to about ${fmt(hNeed)} per check.`:hLim-hP>1?`Room left: ${fmt0(hLim-hP)}. To fill it, set about <b class="num">${fmt(hNeed)}</b> per check.`:"On pace to hit the limit exactly.",
+      `${fam?"Family":"Self-only"} limit ${fmt0(hLim-hc)}${hc?` plus the ${fmt0(hc)} age-55 catch-up`:""}. Employer deposits count toward it.`];
+    out+=meter("hsa",`HSA in ${ny}`,0,hP,hLim,hLines,hc,true)}
+  return`<div class="nextyr"><div class="er-head"><span class="bd-sub" style="margin:0">${ny}, at today's settings</span>
+    <label class="field" style="flex-direction:row;align-items:center;gap:8px">Raise <input id="nyRaise" type="number" inputmode="decimal" step="0.5" min="0" max="50" value="${+state.settings.nextRaise||0}" style="width:64px"> %</label>
+    ${s.items.some(isHSA)?`<label class="field" style="flex-direction:row;align-items:center;gap:8px">HSA $ <input id="nyHsa" type="number" inputmode="decimal" step="1" min="0" value="${state.settings.nextHsa!=null&&state.settings.nextHsa!==""?+state.settings.nextHsa:r2(s.items.filter(isHSA).reduce((a,i)=>a+i.cur,0))}" style="width:84px"> per check</label>`:""}</div>
+    <p class="bd-sub" style="margin:0">Starts from your ${nice(s.payDate)} check: same 401(k) %, the HSA amount above, and this year's employer HSA deposits. Clear the HSA box to go back to your current amount.</p>
+    <div class="grid2">${out}</div></div>`;
+}
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="nyRaise"){state.settings.nextRaise=Math.max(0,+e.target.value||0);save();keepPos(()=>render())}
+  if(e.target&&e.target.id==="nyHsa"){const v=e.target.value.trim();state.settings.nextHsa=v===""?null:Math.max(0,+v||0);save();keepPos(()=>render())}});
+
+/* ---------- render: stub table ---------- */
+let armed=null;
+function renderStubs(){
+  const ys=[...state.stubs].sort((a,b)=>a.payDate<b.payDate?1:-1);
+  $("stubCount").textContent=`${state.stubs.length} stored`;setSum("add",`${state.stubs.length} stubs stored`);
+  if(state.tab!=="stubs"){$("stubTbl").innerHTML="";return}
+  $("stubTbl").innerHTML=`<thead><tr><th>Pay date</th><th class="n">Gross</th><th class="n">Net</th><th></th></tr></thead><tbody>`+
+    ys.map(s=>{const g=s.items.filter(i=>i.sec==="earnings").reduce((a,i)=>a+i.cur,0);
+      const k=skey(s);return`<tr><td>${nice(s.payDate)}, ${s.payDate.slice(0,4)}${s.kind==="Additional"?' <span class="muted">· extra</span>':""}</td><td class="n">${fmt(g)}</td><td class="n">${s.net?fmt(s.net.cur):"—"}</td>
+      <td class="n"><button class="btn ghost small${armed===k?" danger":""}" data-del="${esc(k)}">${armed===k?"Confirm":"Remove"}</button></td></tr>`}).join("")+`</tbody>`;
+}
+
+/* ---------- year over year ---------- */
+/* CPI-U, US city average, annual averages (BLS). 2026 = Jan–Jul average. */
+const CPI={2010:218.056,2011:224.939,2012:229.594,2013:232.957,2014:236.736,2015:237.017,2016:240.007,2017:245.120,2018:251.107,2019:255.657,2020:258.811,2021:270.970,2022:292.655,2023:304.702,2024:313.689,2025:321.943,2026:331.180};
+const CPI_YEARS=Object.keys(CPI).map(Number).sort((a,b)=>a-b);const CPI_BASE=CPI_YEARS[CPI_YEARS.length-1];
+const cpiOf=y=>CPI[y]||CPI[y<CPI_YEARS[0]?CPI_YEARS[0]:CPI_BASE];
+/* no yearly price average yet for years after CPI_BASE: inflation comparisons are left blank there */
+const hasCpi=y=>y<=CPI_BASE;
+const isOTe=i=>i.sec==="earnings"&&/\bOT\b|OVERTIME/i.test(i.label);
+const isBonusE=i=>i.sec==="earnings"&&/\bBONUS\b/i.test(i.label);
+const isErHealth=i=>i.sec==="memo"&&/MEDICAL|DENTAL|VISION/i.test(i.label);
+const isHealthEE=i=>(i.sec==="pretax"||i.sec==="posttax")&&!isRet(i)&&!isHSA(i)&&!isFSA(i)&&/MED|DENT|VIS|HEALTH|INS/i.test(i.label);
+function premRow(r){const s=r.m.reg;if(!s)return null;const c=(p)=>r2(s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0));
+  const med=c(i=>isHealthEE(i)&&/MED/i.test(i.label)),den=c(i=>isHealthEE(i)&&/DENT/i.test(i.label)),vis=c(i=>isHealthEE(i)&&/VIS/i.test(i.label)),you=c(isHealthEE),er=c(isErHealth);
+  return{med,den,vis,you,er,tot:er>0.004?you+er:0,d:s.payDate}}
+const stubHours=s=>{if(isSemi(s))return 2080/24;const p=s.period;if(p&&p[0]&&p[1]){const d=Math.round((dObj(p[1])-dObj(p[0]))/864e5)+1;if(d>0&&d<14)return 80*d/14}return 80};
+const tfdDay=r=>!(r.full.gross>0)?0:(r.full.fed+r.full.fica+r.full.state)/r.full.gross*(new Date(r.y,1,29).getDate()===29?366:365);
+const dayLabel=(y,n)=>{const d=new Date(y,0,1);d.setDate(d.getDate()+Math.ceil(n)-1);return MON[d.getMonth()]+" "+d.getDate()};
+const annualBase=s=>{const r=s&&s.payRate;if(!r)return null;return r<500?r*2080:r*(isSemi(s)?24:26)};
+const pc1=(a,b)=>b?(a/b*100).toFixed(1)+"%":"—";
+const sgn=p=>(p>=0?"+":"−")+Math.abs(p*100).toFixed(1)+"%";
+const kfmt=v=>{if(HIDE)return v?"$**":"$0";const t=(x)=>String(+x.toFixed(1));return v>=1e6?"$"+t(v/1e6)+"M":v>=1000?"$"+t(v/1000)+"k":"$"+Math.round(v)};
+function niceStep(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return(n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
+function niceMax(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return(n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
+let yoyCache=null;
+
+function yoyRow(y){const k="r"+y;if(!MEMO.has(k))MEMO.set(k,yoyRowCalc(y));return MEMO.get(k)}
+function yoyRowCalc(y){
+  const m=model(y);if(!m.latest)return null;
+  const f=m.remaining?"proj":"ytd";
+  const LV=erLive(m);const pack=f=>{const b=breakdown(m,f),v=p=>m.val(p,f);
+    return Object.assign({gross:b.gross,er401:v(isErRet),erHsa:v(isHSAer),erHealth:v(isErHealth),erOther:v(i=>((i.sec==="memo"&&!isErRet(i)&&!isHSAer(i)&&!isErHealth(i))||isPerk(i)||isGtl(i))&&LV(i)),erTax:erTaxes(m,f).tot,ot:v(isOTe),bonus:v(isBonusE)},b.parts)};
+  const regs=m.ys.filter(s=>!isExtra(s));const lim=limFor(y);const age=ageFor(y);
+  const cu=age>=60&&age<=63?(lim.c60||lim.c50):age>=50?lim.c50:0;
+  const notes=[];
+  if(f==="proj")notes.push(`Projected (stubs through ${nice(m.latest.payDate)})`);
+  if(m.partial)notes.push(`Partial year (through ${nice(m.latest.payDate)})`);
+  if(regs.some(isSemi)&&regs.some(s=>!isSemi(s)))notes.push("Switched to every-two-weeks pay");
+  else if(regs.length&&regs.every(isSemi))notes.push("Paid twice a month");
+  if(m.pds.length===27)notes.push("27 paydays");
+  if((lim.ssRate||.062)<.062)notes.push(`Social Security at ${(lim.ssRate*100).toFixed(1)}%`);
+  if(m.ys.length>regs.length)notes.push(`${m.ys.length-regs.length} extra check${m.ys.length-regs.length>1?"s":""}`);
+  const bn={bonus:0,bonusNet:0,bonusTax:0,bonus401:0,bonusEst:false,bonusDates:[],bonusSkipped:0,bonusItems:[]};
+  for(const s of m.ys){const e=s.items.filter(i=>i.sec==="earnings"),be=e.filter(isBonusE).reduce((a,i)=>a+i.cur,0);if(!(be>0.004))continue;
+    if(isExtra(s)&&s.net&&Math.abs(s.net.cur||0)<0.005){bn.bonusSkipped+=be;continue}
+    bn.bonus+=be;
+    const eT=e.reduce((a,i)=>a+i.cur,0)||be,sh=be/eT,sum=p=>s.items.filter(p).reduce((a,i)=>a+i.cur,0);
+    const it={d:s.payDate,gross:be,net:(s.net&&s.net.cur!=null?s.net.cur:0)*sh,tax:sum(i=>i.sec==="taxes")*sh,k:sum(isRet)*sh,est:!isExtra(s),
+      what:[...new Set(e.filter(i=>isBonusE(i)&&i.cur>0).map(i=>i.label))].join(", ")};bn.bonusItems.push(it);
+    bn.bonusNet+=it.net;bn.bonusTax+=it.tax;bn.bonus401+=it.k;
+    if(!isExtra(s))bn.bonusEst=true;if(be>=500)bn.bonusDates.push(s.payDate)}
+  const pto={};for(const s of m.ys)for(const[t,o]of Object.entries(stubPto(s))){const p=pto[t]||(pto[t]={h:0,d:0});p.h+=o.h;p.d+=o.d}
+  const hrs=regs.reduce((a,s)=>a+stubHours(s),0)+(f==="proj"?m.remaining*(isSemi(m.reg)?2080/24:80):0);
+  const mc={};for(const d of m.pds){const k=d.slice(0,7);mc[k]=(mc[k]||0)+1}
+  const full=Object.assign(pack(f),bn),sofar=Object.assign(pack("ytd"),bn);
+  return{y,m,est:hasEst(m.ys),proj:f==="proj",partial:m.partial,full,sofar,pto,base:annualBase(m.reg),hrs,threes:Object.values(mc).filter(n=>n>=3).length,
+    checks:regs.length,k401Lim:lim.k401+cu,ssRate:lim.ssRate||.062,notes,latest:m.latest.payDate};
+}
+function yoyEvents(){
+  const regs=sortStubs(state.stubs.filter(s=>!isExtra(s)));
+  const raises=[],events=[];let prev=null,lastEmp=null,prevS=null;
+  for(const s of regs){
+    const b=annualBase(s);
+    if(prev&&b&&prev.b&&Math.abs(b/prev.b-1)>0.001){const y=+s.payDate.slice(0,4);const pct=b/prev.b-1;const inf=hasCpi(y)?cpiOf(y)/cpiOf(y-1)-1:null;
+      raises.push({d:s.payDate,from:prev.b,to:b,pct,inf,real:inf==null?null:(1+pct)/(1+inf)-1})}
+    if(prevS&&isSemi(prevS)&&!isSemi(s))events.push({d:s.payDate,t:"Pay moved from twice a month to every two weeks"});
+    if(s.employer&&lastEmp&&s.employer!==lastEmp.employer){
+      const same=lastEmp.payDate.slice(0,4)===s.payDate.slice(0,4);
+      const cont=same&&s.net&&lastEmp.net&&Math.abs(lastEmp.net.ytd+(s.net.cur||0)-s.net.ytd)<0.02;
+      events.push({d:s.payDate,t:`Stubs show employer as ${s.employer}`+(cont?" (renamed; year-to-date carried over)":same?" (year-to-date restarted)":"")})}
+    if(s.employer)lastEmp=s;
+    if(b)prev={b,s};prevS=s;
+  }
+  return{raises,events,first:regs.find(s=>annualBase(s)),last:[...regs].reverse().find(s=>annualBase(s))};
+}
+const yv=(r,k,which)=>{const v=(which==="sofar"?r.sofar:r.full)[k]||0;return state.real?v*cpiOf(CPI_BASE)/cpiOf(r.y):v};
+const rf=y=>state.real?cpiOf(CPI_BASE)/cpiOf(y):1;
+
+function barChart(el,o){
+  const W=Math.max(280,Math.round(el.clientWidth||640)),H=o.h||200,L=44,R=4,T=10,B=22,pw=W-L-R,ph=H-T-B,n=o.years.length;
+  const tot=o.years.map((y,i)=>o.series.reduce((a,s)=>a+(s.vals[i]||0),0));
+  const top=Math.max(0,...tot,...(o.marker||[0]).map(v=>v||0)),st=niceStep(top/4),mx=Math.max(st,Math.ceil(top/st-1e-9)*st),nt=Math.round(mx/st);
+  const Y=v=>T+ph-(v/mx)*ph,step=pw/Math.max(n,1),bw=Math.min(34,step*.7),short=n>8&&W<620;
+  let g="";
+  for(let k=0;k<=nt;k++){const v=st*k,yy=Y(v).toFixed(1);g+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" class="gl"/><text x="${L-6}" y="${(+yy+4).toFixed(1)}" class="ax" text-anchor="end">${(o.yFmt||kfmt)(v)}</text>`}
+  o.years.forEach((y,i)=>{const x=L+step*i+(step-bw)/2;let acc=0,bars="";
+    o.series.forEach(s=>{const v=s.vals[i]||0;if(v<=0)return;const y0=Y(acc),y1=Y(acc+v);bars+=`<rect x="${x.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(.5,y0-y1).toFixed(1)}" fill="var(${s.c})"/>`;acc+=v});
+    const mk=o.marker&&o.marker[i]?`<line x1="${(x-3).toFixed(1)}" x2="${(x+bw+3).toFixed(1)}" y1="${Y(o.marker[i]).toFixed(1)}" y2="${Y(o.marker[i]).toFixed(1)}" class="mk"/>`:"";
+    g+=`<g class="col${o.proj&&o.proj.has(y)?" proj":""}${state.yoySel===y?" sel":""}" data-y="${y}"><rect class="hit" x="${(L+step*i).toFixed(1)}" y="${T}" width="${step.toFixed(1)}" height="${ph+B}"/>${bars}${mk}<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" class="ax" text-anchor="middle">${short?"’"+String(y).slice(2):y}</text></g>`});
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||"")}">${g}</svg>`;
+}
+function lineChart(el,o){
+  const W=Math.max(280,Math.round(el.clientWidth||640)),H=o.h||200,L=44,R=8,T=10,B=22,pw=W-L-R,ph=H-T-B;
+  const all=o.series.flatMap(s=>s.pts.map(p=>p[1]));const lo=o.yMin!=null?o.yMin:Math.min(...all),hi=Math.max(...all);
+  const st=niceStep((hi-lo)/4),mn=Math.floor(lo/st)*st,mx=Math.max(mn+st,Math.ceil(hi/st-1e-9)*st),nt=Math.round((mx-mn)/st);
+  const X=x=>L+(x-o.x0)/(o.x1-o.x0)*pw,Y=v=>T+ph-(v-mn)/(mx-mn)*ph;
+  let g="";
+  for(let k=0;k<=nt;k++){const v=mn+st*k,yy=Y(v).toFixed(1);g+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" class="gl"/><text x="${L-6}" y="${(+yy+4).toFixed(1)}" class="ax" text-anchor="end">${o.yFmt(v)}</text>`}
+  if(o.cols)o.cols.forEach(c=>{g+=`<g class="col${state.yoySel===c.y?" sel":""}" data-y="${c.y}"><rect class="hit" x="${X(c.a).toFixed(1)}" y="${T}" width="${(X(c.b)-X(c.a)).toFixed(1)}" height="${ph+B}"/></g>`});
+  const short=W<620;
+  (o.ticks||[]).forEach((t,i)=>{if(short&&o.thin&&i%2)return;g+=`<text x="${X(t.x).toFixed(1)}" y="${H-5}" class="ax${state.yoySel===t.y?" on":""}" text-anchor="middle">${short?"’"+String(t.label).slice(2):t.label}</text>`});
+  o.series.forEach(s=>{if(!s.pts.length)return;let d="";
+    s.pts.forEach((p,i)=>{const x=X(p[0]).toFixed(1),y=Y(p[1]).toFixed(1);d+=i===0?`M${x} ${y}`:s.step?`H${x}V${y}`:`L${x} ${y}`});
+    if(s.step&&s.endX!=null)d+=`H${X(s.endX).toFixed(1)}`;
+    g+=`<path d="${d}" fill="none" stroke="var(${s.c})" stroke-width="${s.w||2.2}"${s.dash?' stroke-dasharray="5 4"':""} stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(s.dots)s.pts.forEach(p=>{g+=`<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="${p[2]?3.2:2.6}" fill="${p[2]?"var(--surface)":`var(${s.c})`}" stroke="var(${s.c})" stroke-width="1.6"/>`})});
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||"")}">${g}</svg>`;
+}
+/* by-year table under a chart: cols = [header, value(row), kind, total] ; kind $ % $c n txt ; total "sum" or function(rows) */
+const EST_T=new Set(["tbComp","tb401","tbSave"]);
+function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows].reverse();const est=EST_T.has(id)&&rows.some(r=>r.est);
+  const f=(k,v)=>v==null||v===""?"—":k==="$"?fmt(v):k==="$c"?fmt(v):k==="%"?(isFinite(v)?(v*100).toFixed(1)+"%":"—"):k==="n"?Math.round(v).toLocaleString():k==="pm"?(isFinite(v)?sgn(v):"—"):k==="$pm"?(isFinite(v)?(Math.abs(v)<0.5?"$0":(v>0?"+":"−")+fmt0(Math.abs(v))):"—"):v;
+  const cls=(k,v)=>k==="txt"?"nt":k==="pmc"?"n "+(v==null?"":v>=0?"up":"down"):k==="pmi"?"n "+(v==null||Math.abs(v)<0.0005?"":v<0?"up":"down"):"n";
+  const hasT=cols.some(c=>c[3]);
+  el.innerHTML=`<thead><tr><th>Year</th>${cols.map(c=>`<th class="${c[2]==="txt"?"":"n"}">${c[0]}</th>`).join("")}</tr></thead><tbody>`+
+    br.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}"><td>${r.y}${r.tag?`<span class="pj">${r.tag}</span>`:r.proj?'<span class="pj">projected</span>':r.partial?'<span class="pj">partial</span>':""}${est&&r.est?'<span class="estm">*</span>':""}</td>${cols.map(c=>{const v=c[1](r);return`<td class="${cls(c[2],v)}">${f(c[2]==="pmc"||c[2]==="pmi"?"pm":c[2],v)}</td>`}).join("")}</tr>`).join("")+
+    (hasT?`<tr class="total"><td>All</td>${cols.map(c=>`<td class="${c[2]==="txt"?"":"n"}">${c[3]==="sum"?f(c[2],rows.reduce((a,r)=>a+(+c[1](r)||0),0)):typeof c[3]==="function"?f(c[2],c[3](rows)):""}</td>`).join("")}</tr>`:"")+"</tbody>";
+  const w=el.closest(".tbl-wrap");if(w){let n=w.nextElementSibling;if(!(n&&n.classList.contains("estnote"))){n=null}
+    if(est){if(!n){n=document.createElement("p");n.className="estnote";w.after(n)}n.textContent=estNote()}else if(n)n.remove()}
+}
+const legend=items=>items.map(([c,l,cls])=>`<span><i class="sw${cls?" "+cls:""}" style="background:var(${c})"></i>${l}</span>`).join("");
+const openBtn=y=>` <button class="linkbtn" data-open="${y}">Open ${y} →</button>`;
+
+function renderYoy(){
+  const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort((a,b)=>a-b);
+  const rows=years.map(yoyRow).filter(Boolean);if(!rows.length)return;
+  const ev=yoyEvents();yoyCache={rows,ev};
+  const proj=new Set(rows.filter(r=>r.proj).map(r=>r.y));
+  const sel=rows.find(r=>r.y===state.yoySel);
+  $("yoyReal").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.real==="1")===!!state.real)));
+  $("yoyRealNote").textContent=state.real?`Dollar amounts are in ${CPI_BASE} dollars, adjusted with the Consumer Price Index.`:"Dollar amounts are as paid.";
+  const span=rows.length>1?`${rows[0].y}–${rows[rows.length-1].y}`:`${rows[0].y}`;const lastR=rows[rows.length-1];
+  /* headline */
+  const S=k=>rows.reduce((a,r)=>a+yv(r,k,"sofar"),0);
+  const gross=S("gross"),net=S("net"),tax=S("fed")+S("fica")+S("state"),you=S("ret"),er=S("er401");
+  const f0=ev.first,f1=ev.last;let baseStat="";
+  if(f0&&f1&&f0.payDate.slice(0,4)!==f1.payDate.slice(0,4)){const b0=annualBase(f0),b1=annualBase(f1);const yrs=(dObj(f1.payDate)-dObj(f0.payDate))/(365.25*864e5);
+    const g=b1/b0-1,cagr=Math.pow(b1/b0,1/Math.max(yrs,1))-1,pEnd=Math.min(+f1.payDate.slice(0,4),CPI_BASE),prices=cpiOf(pEnd)/cpiOf(+f0.payDate.slice(0,4))-1,real=(1+g)/(1+prices)-1;
+    baseStat=`<div class="stat"><small>Base pay since ${f0.payDate.slice(0,4)}</small><b>${sgn(g)}</b><small>${fmt0(b0)} → ${fmt0(b1)} · ${(cagr*100).toFixed(1)}% a year</small></div>
+    <div class="stat"><small>After inflation</small><b class="${real>=0?"up":"down"}">${sgn(real)}</b><small>Prices rose ${(prices*100).toFixed(1)}% ${pEnd<+f1.payDate.slice(0,4)?`through ${pEnd} (latest price data)`:"over the same span"}</small></div>`}
+  $("yoyStats").innerHTML=`<div class="stat"><small>Gross pay, ${span}</small><b>${fmt0(gross)}</b><small>through ${nice(lastR.latest)}, ${lastR.y}${state.real?` · ${CPI_BASE} dollars`:""}</small></div>
+    <div class="stat"><small>Take-home</small><b>${fmt0(net)}</b><small>${pc1(net,gross)} of gross</small></div>
+    <div class="stat"><small>Taxes</small><b>${fmt0(tax)}</b><small>${pc1(tax,gross)} of gross</small></div>
+    <div class="stat"><small>Into your 401(k)</small><b>${fmt0(you+er)}</b><small>${fmt0(you)} you + ${fmt0(er)} employer</small></div>${baseStat}`;
+  setSum("yoySum",`<strong>${fmt0(gross)}</strong> gross over ${rows.length} years`);
+  const Y=rows.map(r=>r.y),V=k=>rows.map(r=>yv(r,k));
+  const projNote=proj.size?` ${[...proj].join(", ")} is projected to Dec 31 from the latest stub (lighter bar).`:"";
+  /* records and milestones */
+  {const all=sortStubs([...state.stubs]),regsA=all.filter(s=>!isExtra(s)),net=s=>s.net&&s.net.cur!=null?s.net.cur:-Infinity;
+    const big=all.reduce((a,s)=>net(s)>net(a)?s:a,all[0]),bigR=regsA.reduce((a,s)=>net(s)>net(a)?s:a,regsA[0]),
+      smR=regsA.filter(s=>s.net&&s.net.cur>0).reduce((a,s)=>s.net.cur<a.net.cur?s:a,regsA.find(s=>s.net&&s.net.cur>0));
+    const dl=s=>`${nice(s.payDate)}, ${s.payDate.slice(0,4)}`;
+    const why=s=>{const i=regsA.indexOf(s),p=i>0?regsA[i-1]:null;if(!p)return"";let best=null;
+      for(const it of s.items){if(it.sec!=="pretax"&&it.sec!=="posttax")continue;const q=p.items.find(j=>j.sec===it.sec&&j.label===it.label);const d=it.cur-(q?q.cur:0);if(d>50&&(!best||d>best.d))best={d,it}}
+      return best?` · ${esc(best.it.label)} ${fmt0(best.it.cur)} that check`:""};
+    const R=ev.raises,ry=new Set(R.map(r=>+r.d.slice(0,4)));let streak=0;for(let y=years[years.length-1];ry.has(y);y--)streak++;
+    const avgR=R.length?R.reduce((a,r)=>a+r.pct,0)/R.length:0,maxR=R.reduce((a,r)=>!a||r.pct>a.pct?r:a,null);
+    const maxed=rows.filter(r=>!r.proj&&r.full.ret>=r.k401Lim-1).map(r=>r.y);
+    const tf=rows.filter(r=>!r.partial).map(r=>({y:r.y,n:tfdDay(r),proj:r.proj}));const done=tf.filter(t=>!t.proj);
+    const early=done.reduce((a,t)=>!a||t.n<a.n?t:a,null),late=done.reduce((a,t)=>!a||t.n>a.n?t:a,null),cur=tf.find(t=>t.proj);
+    const lf=[...rows].reverse().find(r=>!r.proj&&!r.partial);
+    const comp=r=>r.full.gross+r.full.er401+r.full.erHealth+r.full.erHsa+r.full.erOther+r.full.erTax;
+    /* next three-paycheck months from the latest every-two-weeks payday */
+    const lastBi=[...regsA].reverse().find(s=>!isSemi(s));let next=[];
+    if(lastBi){const cnt={};for(let d=lastBi.payDate;d<addDays(todayISO,800);d=addDays(d,14)){const k=d.slice(0,7);cnt[k]=(cnt[k]||0)+1}
+      next=Object.keys(cnt).filter(k=>cnt[k]>=3&&k>=todayISO.slice(0,7)).slice(0,2).map(k=>MON[+k.slice(5)-1]+" "+k.slice(0,4))}
+    const thisY=rows.find(r=>r.y===+todayISO.slice(0,4));
+    const T=(lbl,val,sub,y,k)=>`<${y?`button type="button" class="tile" data-open="${y}"${k?` data-key="${esc(k)}"`:""}`:'div class="tile"'}><span class="tl">${lbl}</span><b>${val}</b><small>${sub}</small></${y?"button":"div"}>`;
+    const erT=rows.reduce((a,r)=>a+r.sofar.er401,0),youT=rows.reduce((a,r)=>a+r.sofar.ret,0);
+    $("yoyTiles").innerHTML=[
+      big&&T("Biggest deposit",fmt(big.net.cur),`${dl(big)}${isExtra(big)?" · extra check":""}`,+big.payDate.slice(0,4),skey(big)),
+      bigR&&T("Biggest regular check",fmt(bigR.net.cur),dl(bigR),+bigR.payDate.slice(0,4),skey(bigR)),
+      smR&&T("Smallest regular check",fmt(smR.net.cur),dl(smR)+why(smR),+smR.payDate.slice(0,4),skey(smR)),
+      T("Paychecks",(regsA.length+(all.length-regsA.length)).toLocaleString(),`${regsA.length} regular + ${all.length-regsA.length} extra since ${years[0]}`),
+      R.length&&T("Raise streak",`${streak} year${streak===1?"":"s"}`,`${R.length} raises · average ${(avgR*100).toFixed(1)}% · largest ${(maxR.pct*100).toFixed(1)}% (${MON[+maxR.d.slice(5,7)-1]} ${maxR.d.slice(0,4)})`),
+      youT>0&&T("Employer 401(k) per $1",fmt(erT/youT),`${fmt0(erT)} from your employer so far`),
+      T("401(k) limit maxed",maxed.length?maxed.join(", "):"Not yet",maxed.length?"Years you put in the full IRS amount":"No full year at the IRS limit"),
+      early&&T("Tax Freedom Day",`${dayLabel(early.y,early.n)}`,`Earliest, in ${early.y}. Latest ${dayLabel(late.y,late.n)} in ${late.y}${cur?` · ${cur.y}: ${dayLabel(cur.y,cur.n)}`:""}`),
+      lf&&lf.hrs&&T(`Per hour, ${lf.y}`,fmt(lf.full.gross/lf.hrs),`gross · ${fmt(lf.full.net/lf.hrs)} take-home · ${Math.round(lf.hrs).toLocaleString()} paid hours`,lf.y),
+      lf&&T(`Total compensation, ${lf.y}`,fmt0(comp(lf)),`Employer adds ${pc1(comp(lf)-lf.full.gross,lf.full.gross)} on top of gross`,lf.y),
+      thisY&&T("Three-paycheck months",next.length?next.join(" · "):"—",`Coming up${thisY.threes?` · ${thisY.threes} in ${thisY.y}`:""}`)
+    ].filter(Boolean).join("");
+    setSum("yoyRec",big?`Biggest deposit <strong>${fmt0(big.net.cur)}</strong> · ${streak}-year raise streak`:"");
+  }
+  /* total compensation */
+  {const cs=[["gross","Gross pay","--c-gross"],["er401","Employer 401(k)","--c-k-match"],["erHealth","Employer health premiums","--c-health"],["erHsa","Employer HSA","--c-er-hsa"],["erOther","Life, disability and other","--c-er-life"],["erTax","Employer payroll taxes (est.)","--c-fica"]].filter(([k])=>rows.some(r=>r.full[k]>0));
+    barChart($("yoyComp"),{years:Y,proj,series:cs.map(([k,,c])=>({c,vals:V(k)})),aria:"Total compensation by year"});
+    $("yoyCompLeg").innerHTML=legend(cs.map(([,l,c])=>[c,l]));
+    const firstEr=rows.find(r=>r.full.erHealth+r.full.erOther>0);
+    const tc=rows.reduce((a,r)=>a+yv(r,"gross","sofar")+yv(r,"er401","sofar")+yv(r,"erHealth","sofar")+yv(r,"erHsa","sofar")+yv(r,"erOther","sofar")+yv(r,"erTax","sofar"),0);
+    setSum("yoyComp",`<strong>${fmt0(tc)}</strong> so far`);
+    $("yoyCompD").innerHTML=sel?`<b>${sel.y}</b> · `+cs.filter(([k])=>sel.full[k]>0.004).map(([k,l])=>`${l} ${fmt0(yv(sel,k))}`).join(" · ")+` · Total ${fmt0(cs.reduce((a,[k])=>a+yv(sel,k),0))}`+openBtn(sel.y):
+      `Gross pay plus what your employer paid on top, including estimated payroll taxes (its Social Security and Medicare match and federal unemployment). ${fmt0(tc)} so far.${firstEr?` Employer insurance costs first appear on stubs in ${firstEr.y}; earlier stubs don't list them.`:""}`;
+  }
+  /* where it went */
+  const cats=CATS.filter(([k])=>rows.some(r=>r.full[k]>0.004));
+  barChart($("yoyGross"),{years:Y,proj,series:cats.map(([k,,c])=>({c,vals:V(k)})),aria:"Gross pay by year, split by where it went"});
+  $("yoyGrossLeg").innerHTML=legend(cats.map(([,l,c])=>[c,l]));
+  const kept=rows.filter(r=>!r.partial&&r.full.gross>0).map(r=>r.full.net/r.full.gross);
+  setSum("yoyGross",kept.length?`Take-home ${(Math.min(...kept)*100).toFixed(0)}–${(Math.max(...kept)*100).toFixed(0)}% of gross`:"");
+  $("yoyGrossD").innerHTML=sel?`<b>${sel.y}${sel.proj?" (projected)":""}</b> · Gross ${fmt0(yv(sel,"gross"))} · `+cats.filter(([k])=>sel.full[k]>0.004).map(([k,l])=>`${l} ${fmt0(yv(sel,k))} (${pc1(sel.full[k],sel.full.gross)})`).join(" · ")+openBtn(sel.y):`Tap a year for its numbers.${projNote}`;
+  /* base pay */
+  const regs=sortStubs(state.stubs.filter(s=>!isExtra(s)&&annualBase(s)));
+  if(regs.length){const xf=s=>{const d=dObj(s.payDate);return d.getFullYear()+(d-new Date(d.getFullYear(),0,1))/(365.25*864e5)};
+    const pts=[],rpts=[];let pb=null;
+    for(const s of regs){const b=annualBase(s);if(pb==null||Math.abs(b/pb-1)>0.001){pts.push([xf(s),b]);pb=b}}
+    for(const s of regs){const b=annualBase(s)*cpiOf(CPI_BASE)/cpiOf(+s.payDate.slice(0,4));rpts.push([xf(s),b])}
+    const x0=years[0],x1=Math.max(years[years.length-1]+1,xf(regs[regs.length-1])+.05);
+    lineChart($("yoyRate"),{x0,x1,yFmt:kfmt,thin:true,
+      ticks:years.map(y=>({x:y+.5,label:y,y})),cols:years.map(y=>({a:y,b:y+1,y})),
+      series:[{c:"--c-net",pts,step:true,endX:xf(regs[regs.length-1]),dots:false},{c:"--c-ret",pts:rpts,w:1.6,dash:true,step:true,endX:xf(regs[regs.length-1])}],
+      aria:"Yearly base pay over time, as paid and in "+CPI_BASE+" dollars"});
+  }
+  $("yoyRateLeg").innerHTML=legend([["--c-net","Base pay as paid"],["--c-ret",`Same pay in ${CPI_BASE} dollars`,"dash"]]);
+  const R=ev.raises;
+  const ahead=R.filter(r=>r.real!=null&&r.real>=0).length,known=R.filter(r=>r.real!=null).length;
+  setSum("yoyRate",R.length?`${R.length} raises`+(known?` · ${ahead} of ${known} beat inflation`:""):"");
+  $("yoyEvents").innerHTML=ev.events.map(e=>`<li><b>${nice(e.d)}, ${e.d.slice(0,4)}</b> ${esc(e.t)}</li>`).join("");
+  $("yoyEvents").hidden=!ev.events.length;
+  /* tax rates */
+  const pct=k=>rows.map((r,i)=>[i+.5,r.full.gross>0?r.full[k]/r.full.gross*100:0,r.proj]);
+  const tot=rows.map((r,i)=>[i+.5,r.full.gross>0?(r.full.fed+r.full.fica+r.full.state)/r.full.gross*100:0,r.proj]);
+  lineChart($("yoyTax"),{x0:0,x1:rows.length,yMin:0,yFmt:v=>Math.round(v)+"%",ticks:rows.map((r,i)=>({x:i+.5,label:r.y,y:r.y})),cols:rows.map((r,i)=>({a:i,b:i+1,y:r.y})),
+    series:[{c:"--ink",pts:tot,dots:true,w:2.4},{c:"--c-fed",pts:pct("fed"),dots:true},{c:"--c-fica",pts:pct("fica"),dots:true},{c:"--c-state",pts:pct("state"),dots:true}],aria:"Tax rates by year as a percent of gross"});
+  $("yoyTaxLeg").innerHTML=legend([["--ink","All taxes"],["--c-fed","Federal income tax"],["--c-fica","Social Security + Medicare"],["--c-state","State + local"]]);
+  const tr=r=>(r.full.fed+r.full.fica+r.full.state)/r.full.gross;
+  setSum("yoyTax",`All taxes ${(Math.min(...rows.map(tr))*100).toFixed(0)}–${(Math.max(...rows.map(tr))*100).toFixed(0)}% of gross`);
+  $("yoyTaxD").innerHTML=sel?`<b>${sel.y}</b> · All taxes ${pc1(sel.full.fed+sel.full.fica+sel.full.state,sel.full.gross)} · Federal ${pc1(sel.full.fed,sel.full.gross)} · Social Security + Medicare ${pc1(sel.full.fica,sel.full.gross)} (SS rate ${(sel.ssRate*100).toFixed(1)}%) · State + local ${pc1(sel.full.state,sel.full.gross)}`+openBtn(sel.y):"Each tax as a share of gross pay. Open dots are projected.";
+  /* tax freedom day */
+  {const tf=rows.filter(r=>!r.partial);const ix=new Map(rows.map((r,i)=>[r.y,i]));
+    lineChart($("yoyTfd"),{x0:0,x1:rows.length,yFmt:n=>dayLabel(2021,n),ticks:rows.map((r,i)=>({x:i+.5,label:r.y,y:r.y})),cols:rows.map((r,i)=>({a:i,b:i+1,y:r.y})),
+      series:[{c:"--c-fed",pts:tf.map(r=>[ix.get(r.y)+.5,tfdDay(r),r.proj]),dots:true}],aria:"Tax Freedom Day by year"});
+    const t=sel&&!sel.partial?tfdDay(sel):null;
+    $("yoyTfdD").innerHTML=sel&&t!=null?`<b>${sel.y}</b> · ${dayLabel(sel.y,t)}: the first ${Math.ceil(t)} days of pay covered that year's federal, Social Security, Medicare, state and local taxes`+openBtn(sel.y):"The day each year when your pay had covered that year's taxes. Lower is better. Days is how many days of the year's pay went to taxes.";
+    const d=tf.filter(r=>!r.proj).map(r=>({y:r.y,n:tfdDay(r)}));if(d.length){const e=d.reduce((a,b)=>b.n<a.n?b:a),l=d.reduce((a,b)=>b.n>a.n?b:a);setSum("yoyTfd",`${dayLabel(e.y,e.n)} (${e.y}) to ${dayLabel(l.y,l.n)} (${l.y})`)}
+  }
+  /* per hour */
+  {const ph=rows.filter(r=>r.hrs>0);const ix=new Map(rows.map((r,i)=>[r.y,i]));
+    const pt=k=>ph.map(r=>[ix.get(r.y)+.5,yv(r,k)/r.hrs,r.proj]);
+    lineChart($("yoyHour"),{x0:0,x1:rows.length,yMin:0,yFmt:v=>HIDE?"$**":"$"+Math.round(v),ticks:rows.map((r,i)=>({x:i+.5,label:r.y,y:r.y})),cols:rows.map((r,i)=>({a:i,b:i+1,y:r.y})),
+      series:[{c:"--ink",pts:pt("gross"),dots:true},{c:"--c-ret",pts:ph.filter(r=>r.base).map(r=>[ix.get(r.y)+.5,r.base*rf(r.y)/2080,r.proj]),dots:true},{c:"--c-net",pts:pt("net"),dots:true}],aria:"Gross, base and take-home pay per hour by year"});
+    $("yoyHourLeg").innerHTML=legend([["--ink","Gross per hour"],["--c-ret","Base pay per hour"],["--c-net","Take-home per hour"]]);
+    $("yoyHourD").innerHTML=sel&&sel.hrs?`<b>${sel.y}</b> · Gross ${fmt(yv(sel,"gross")/sel.hrs)} · Take-home ${fmt(yv(sel,"net")/sel.hrs)} · Base pay ${fmt(sel.base*rf(sel.y)/2080)} · ${Math.round(sel.hrs).toLocaleString()} paid hours`+openBtn(sel.y):"Gross is all pay, including bonuses and overtime, divided by paid hours (80 per two-week check). Base is your pay rate alone: yearly base pay ÷ 2,080 hours.";
+    const l=[...ph].reverse().find(r=>!r.proj);if(l)setSum("yoyHour",`<strong>${fmt(yv(l,"net")/l.hrs)}</strong> take-home per hour in ${l.y}`);
+  }
+  /* 401k */
+  barChart($("yoy401"),{years:Y,proj,series:[{c:"--c-k-you",vals:V("ret")},{c:"--c-k-match",vals:V("er401")}],marker:rows.map(r=>r.k401Lim*rf(r.y)),aria:"401(k) contributions by year"});
+  $("yoy401Leg").innerHTML=legend([["--c-k-you","You"],["--c-k-match","Employer"],["--amber","IRS limit on your part","tick"]]);
+  setSum("yoy401",`<strong>${fmt0(you+er)}</strong> in so far`);
+  $("yoy401D").innerHTML=sel?`<b>${sel.y}</b> · You ${fmt0(yv(sel,"ret"))} (${pc1(sel.full.ret,sel.full.gross)} of pay) · Employer ${fmt0(yv(sel,"er401"))} · Total ${fmt0(yv(sel,"ret")+yv(sel,"er401"))} · Your limit ${fmt0(sel.k401Lim*rf(sel.y))}, ${Math.round(sel.full.ret/sel.k401Lim*100)}% used`+openBtn(sel.y):`Running total: ${fmt0(you)} from you and ${fmt0(er)} from your employer.`;
+  /* health */
+  const hs=[["health","Health insurance","--c-health"],["hsa","HSA (from your pay)","--c-er-hsa"],["fsa","Health FSA","--c-fsa"]].filter(([k])=>rows.some(r=>r.full[k]>0));
+  barChart($("yoyHealth"),{years:Y,proj,series:hs.map(([k,,c])=>({c,vals:V(k)})),aria:"Health costs from your pay by year"});
+  $("yoyHealthLeg").innerHTML=legend(hs.map(([,l,c])=>[c,l]));
+  const H0=rows.find(r=>!r.partial&&r.full.health>0),H1=[...rows].reverse().find(r=>!r.partial&&!r.proj&&r.full.health>0);
+  setSum("yoyHealth",H0&&H1&&H0!==H1?`Insurance ${fmt0(yv(H0,"health"))} in ${H0.y} → ${fmt0(yv(H1,"health"))} in ${H1.y}`:"");
+  $("yoyHealthD").innerHTML=sel?`<b>${sel.y}</b> · `+hs.filter(([k])=>sel.full[k]>0.004).map(([k,l])=>`${l} ${fmt0(yv(sel,k))}`).join(" · ")+(sel.full.erHsa?` · Employer HSA deposit ${fmt0(yv(sel,"erHsa"))}`:"")+openBtn(sel.y):"What came out of your pay for health coverage and health accounts.";
+  {const hl=r=>{const it=r.m.ys.flatMap(s=>s.items).filter(i=>isHSA(i)||isHSAer(i));if(!it.length)return 0;const L=limFor(r.y),fam=it.some(i=>/FAM/i.test(i.label));
+      return(fam?L.hsaFam:L.hsaSelf)+(ageFor(r.y)>=55?L.hsaCatch:0)};
+    const has=rows.some(r=>r.full.hsa>0||r.full.erHsa>0);$("hsaWrap").hidden=!has;
+    if(has){const hr=rows.filter(r=>hl(r)||r.full.hsa>0||r.full.erHsa>0),HY=hr.map(r=>r.y),HV=k=>hr.map(r=>yv(r,k));
+      barChart($("yoyHsa"),{years:HY,proj,series:[{c:"--c-er-hsa",vals:HV("hsa")},{c:"--c-k-match",vals:HV("erHsa")}],marker:hr.map(r=>hl(r)*rf(r.y)),aria:"HSA contributions by year with the IRS limit"});
+      $("yoyHsaLeg").innerHTML=legend([["--c-er-hsa","You"],["--c-k-match","Employer"],["--amber","IRS limit","tick"]]);
+      const hs=sel&&hr.find(r=>r.y===sel.y);
+      $("yoyHsaD").innerHTML=hs?`<b>${hs.y}</b> · You ${fmt0(yv(hs,"hsa"))} · Employer ${fmt0(yv(hs,"erHsa"))} · Total ${fmt0(yv(hs,"hsa")+yv(hs,"erHsa"))} · Limit ${fmt0(hl(hs)*rf(hs.y))}`+(hl(hs)?(hs.full.hsa+hs.full.erHsa>hl(hs)+0.5?` · <span class="warn">${fmt0((hs.full.hsa+hs.full.erHsa-hl(hs))*rf(hs.y))} over</span>`:` · ${fmt0((hl(hs)-hs.full.hsa-hs.full.erHsa)*rf(hs.y))} unused`):""):"Your HSA deposits plus your employer's, against each year's IRS limit (family or self-only from your stubs, plus the catch-up from age 55).";}}
+  {const sv=(r,w)=>{const P=w==="sofar"?r.sofar:r.full;return{k:P.ret||0,h:P.hsa||0,ek:P.er401||0,eh:P.erHsa||0,g:P.gross||0}};
+    const you=(r,w)=>{const x=sv(r,w);return x.k+x.h},emp=(r,w)=>{const x=sv(r,w);return x.ek+x.eh};
+    barChart($("yoySave"),{years:Y,proj,series:[{c:"--c-ret",vals:rows.map(r=>sv(r).k*rf(r.y))},{c:"--c-er-hsa",vals:rows.map(r=>sv(r).h*rf(r.y))},{c:"--c-k-match",vals:rows.map(r=>sv(r).ek*rf(r.y))},{c:"--c-er-perk",vals:rows.map(r=>sv(r).eh*rf(r.y))}],aria:"Money saved each year, you and your employer"});
+    $("yoySaveLeg").innerHTML=legend([["--c-ret","Your 401(k)"],["--c-er-hsa","Your HSA"],["--c-k-match","Employer 401(k)"],["--c-er-perk","Employer HSA"]]);
+    const done=rows.filter(r=>!r.proj),G=done.reduce((a,r)=>a+sv(r).g,0),YU=done.reduce((a,r)=>a+you(r),0),EM=done.reduce((a,r)=>a+emp(r),0);
+    const span=done.length>1?`${done[0].y}–${done[done.length-1].y}`:done.length?`${done[0].y}`:"";
+    $("yoySaveStats").innerHTML=done.length?`<div class="stat"><small>You saved, ${span}</small><b>${(YU/G*100).toFixed(1)}%</b><small>${fmt0(YU)} of ${fmt0(G)} gross</small></div>
+      <div class="stat"><small>With employer money</small><b>${((YU+EM)/G*100).toFixed(1)}%</b><small>${fmt0(YU+EM)} saved in all</small></div>`:"";
+    const ss=sel&&rows.find(r=>r.y===sel.y);
+    $("yoySaveD").innerHTML=ss?`<b>${ss.y}</b> · You ${fmt0(you(ss)*rf(ss.y))} (${(you(ss)/sv(ss).g*100).toFixed(1)}%) · Employer ${fmt0(emp(ss)*rf(ss.y))} · Total ${((you(ss)+emp(ss))/sv(ss).g*100).toFixed(1)}% of gross`:"Your 401(k) and HSA deposits plus your employer's, each year. Tap a year for its rates.";
+    yearTable("tbSave",rows,[["Your 401(k)",r=>sv(r).k*rf(r.y),"$","sum"],["Your HSA",r=>sv(r).h*rf(r.y),"$","sum"],["You saved",r=>you(r)/sv(r).g,"%",rs=>{const d=rs.filter(r=>!r.proj);return d.reduce((a,r)=>a+you(r),0)/d.reduce((a,r)=>a+sv(r).g,0)}],
+      ["Employer 401(k)",r=>sv(r).ek*rf(r.y),"$","sum"],["Employer HSA",r=>sv(r).eh*rf(r.y),"$","sum"],["Total saved",r=>(you(r)+emp(r))*rf(r.y),"$","sum"],["With employer",r=>(you(r)+emp(r))/sv(r).g,"%",rs=>{const d=rs.filter(r=>!r.proj);return d.reduce((a,r)=>a+you(r)+emp(r),0)/d.reduce((a,r)=>a+sv(r).g,0)}]]);
+    $("yoySaveNote").textContent=`Rates are a share of gross pay. Your 401(k) includes pre-tax and Roth; HSA is what came out of your checks. Employer money is the 401(k) match, safe harbor and pension plus its HSA deposits${rows.some(r=>r.est)?"; 2011 to early 2014 employer 401(k) is estimated (*)":""}. The All row and the rates above cover full years only${rows.some(r=>r.proj)?`; ${rows.find(r=>r.proj).y} is projected to Dec 31`:""}.`;
+    setSum("yoySave",done.length?`<strong>${(YU/G*100).toFixed(1)}%</strong> you · <strong>${((YU+EM)/G*100).toFixed(1)}%</strong> with employer`:"")}
+  {const B=state.settings.bal||{},by=Object.keys(B).map(Number).sort((a,b)=>a-b),cur=+todayISO.slice(0,4);
+    if(!by.length){$("yoyBalStats").innerHTML="";$("yoyBal").innerHTML="";$("yoyBalLeg").innerHTML="";$("tbBal").innerHTML="";$("yoyBalD").textContent="Add your 401(k) and HSA balances from your account statements (below) to see what your money has earned.";$("yoyBalNote").textContent="";setSum("yoyBal","Add balances");}
+    else{const R=new Map(rows.map(r=>[r.y,r]));
+      const inK=y=>{const r=R.get(y);if(!r)return null;const P=y>=cur&&r.sofar?r.sofar:r.full;return(P.ret||0)+(P.er401||0)+(P.loan||0)};
+      const inH=y=>{const r=R.get(y);if(!r)return null;const P=y>=cur&&r.sofar?r.sofar:r.full;return(P.hsa||0)+(P.erHsa||0)};
+      const T=by.map(y=>{const b=B[y],pb=B[y-1],k=+b.k||0,h=+b.h||0,sp=+b.sp||0,ck=inK(y),ch=inH(y);
+        const gk=pb&&ck!=null?k-(+pb.k||0)-ck:null,gh=pb&&ch!=null?h-(+pb.h||0)-ch+sp:null;
+        const rk=gk!=null?gk/((+pb.k||0)+ck/2):null,rh=gh!=null&&(+pb.h||0)+ch/2>0?gh/((+pb.h||0)+ch/2):null;
+        const hi=b.hi!=null?+b.hi:null,hc=b.hc!=null?+b.hc:null,mv=+b.mv||0,phi=pb&&pb.hi!=null?+pb.hi:null;
+        const gi=hi!=null&&phi!=null?r2(hi-phi-mv):null,ri=gi!=null&&phi+mv/2>0?gi/(phi+mv/2):null,gc=gi!=null&&gh!=null?r2(gh-gi):null;
+        return{y,k,h,ck,ch,gk,gh,rk,rh,hi,hc,mv,gi,ri,gc,tot:k+h}});
+      const split=T.some(t=>t.hi!=null);
+      const last=T[T.length-1],gT=T.reduce((a,t)=>a+(t.gk||0)+(t.gh||0),0),cT=T.reduce((a,t)=>a+(t.gk!=null?t.ck:0)+(t.gh!=null?t.ch:0),0),gy=T.filter(t=>t.gk!=null);
+      $("yoyBalStats").innerHTML=`<div class="stat"><small>Balance${last.y>=cur?" now":", end of "+last.y}</small><b>${fmt0(last.tot)}</b><small>401(k) ${fmt0(last.k)} · HSA ${fmt0(last.h)}${last.hi!=null?` (${fmt0(last.hi)} invested, ${last.h?Math.round(last.hi/last.h*100):0}%)`:""}</small></div>`+
+        (gy.length?`<div class="stat"><small>Investment growth${gy.length>1?`, ${gy[0].y}–${gy[gy.length-1].y}`:` in ${gy[0].y}`}</small><b>${gT>=0?"+":"−"}${fmt0(Math.abs(gT))}</b><small>on top of ${fmt0(cT)} put in</small></div>`:"");
+      barChart($("yoyBal"),{years:by,proj:new Set(by.filter(y=>y>=cur)),series:split?[{c:"--c-ret",vals:T.map(t=>t.k)},{c:"--c-er-hsa",vals:T.map(t=>t.hi!=null?t.hc:t.h)},{c:"--c-er-perk",vals:T.map(t=>t.hi!=null?t.hi:0)}]:[{c:"--c-ret",vals:T.map(t=>t.k)},{c:"--c-er-hsa",vals:T.map(t=>t.h)}],aria:"401(k) and HSA balances by year"});
+      $("yoyBalLeg").innerHTML=legend(split?[["--c-ret","401(k)"],["--c-er-hsa","HSA cash"],["--c-er-perk","HSA invested"]]:[["--c-ret","401(k)"],["--c-er-hsa","HSA"]]);
+      const ts=sel&&T.find(t=>t.y===sel.y);
+      $("yoyBalD").innerHTML=ts?`<b>${ts.y}</b> · 401(k) ${fmt0(ts.k)}${ts.gk!=null?` (growth ${ts.gk>=0?"+":"−"}${fmt0(Math.abs(ts.gk))}, ${(ts.rk*100).toFixed(1)}%)`:""} · HSA ${fmt0(ts.h)}${ts.gh!=null?` (growth ${ts.gh>=0?"+":"−"}${fmt0(Math.abs(ts.gh))})`:""}${ts.gi!=null?` · HSA funds ${ts.gi>=0?"+":"−"}${fmt0(Math.abs(ts.gi))} (${(ts.ri*100).toFixed(1)}%)`:""}`:"Year-end balances from your statements. Tap a year for its growth.";
+      const pct=v=>v==null?"—":(v>=0?"+":"−")+Math.abs(v*100).toFixed(1)+"%",sg=v=>v==null?"—":(v>=0?"+":"−")+fmt0(Math.abs(v));
+      $("tbBal").innerHTML=`<thead><tr><th>Year</th><th class="n">401(k) balance</th><th class="n">Put in</th><th class="n">Growth</th><th class="n">Return</th><th class="n">HSA balance</th><th class="n">Put in</th><th class="n">Growth</th>${split?'<th class="n">HSA cash</th><th class="n">HSA invested</th><th class="n">% invested</th><th class="n">Moved in</th><th class="n">Fund growth</th><th class="n">Fund return</th>':""}<th class="n">Total</th></tr></thead><tbody>`+
+        [...T].reverse().map(t=>`<tr><td>${t.y}${t.y>=cur?'<span class="pj">so far</span>':""}</td><td class="n">${fmt0(t.k)}</td><td class="n">${t.ck!=null?fmt0(t.ck):"—"}</td><td class="n ${t.gk==null?"":t.gk>=0?"up":"down"}">${sg(t.gk)}</td><td class="n">${pct(t.rk)}</td><td class="n">${fmt0(t.h)}</td><td class="n">${t.ch!=null?fmt0(t.ch):"—"}</td><td class="n ${t.gh==null?"":t.gh>=0?"up":"down"}">${sg(t.gh)}</td>${split?`<td class="n">${t.hc!=null?fmt0(t.hc):"—"}</td><td class="n">${t.hi!=null?fmt0(t.hi):"—"}</td><td class="n">${t.hi!=null&&t.h?Math.round(t.hi/t.h*100)+"%":"—"}</td><td class="n">${t.hi!=null?fmt0(t.mv):"—"}</td><td class="n ${t.gi==null?"":t.gi>=0?"up":"down"}">${sg(t.gi)}</td><td class="n">${pct(t.ri)}</td>`:""}<td class="n">${fmt0(t.tot)}</td></tr>`).join("")+"</tbody>";
+      $("yoyBalNote").textContent=`Growth = this year's balance − last year's − what went in (you + employer, plus 401(k) loan repayments). Return is growth divided by last year's balance plus half the year's deposits, a standard approximation. A year needs the year before it to show growth. Not counted: 401(k) loans taken out (they lower the balance without being a loss) and fees beyond what the statement shows. HSA growth adds back the spending you enter.${split?" HSA fund growth = invested balance − last year's invested balance − what you moved in; the rest of HSA growth is cash interest. A split year needs the year before it split too.":""}${by.some(y=>y>=cur)?` ${cur} uses deposits so far, so enter your balance as of today.`:""}`;
+      setSum("yoyBal",`<strong>${fmt0(last.tot)}</strong> ${last.y>=cur?"now":"at end of "+last.y}`)}}
+  {const E=new Map(rows.map(r=>{const m=r.m,f=r.proj?"proj":"ytd",L=limFor(r.y);
+      const w=r2(m.val(i=>i.sec==="earnings"||i.sec==="taxable",f)-m.val(isSec125,f));
+      return[r.y,{w,ss:Math.min(w,L.ssBase),cap:L.ssBase,ssT:m.val(isSS,f),mdT:m.val(isMedi,f)}]}));const e=r=>E.get(r.y);
+    barChart($("yoyEarn"),{years:Y,proj,series:[{c:"--c-ret",vals:rows.map(r=>e(r).ss)}],marker:rows.map(r=>e(r).cap),aria:"Social Security wages by year with the yearly cap"});
+    $("yoyEarnLeg").innerHTML=legend([["--c-ret","Social Security wages"],["--amber","Yearly cap","tick"]]);
+    const es=sel&&E.get(sel.y);
+    $("yoyEarnD").innerHTML=es?`<b>${sel.y}</b> · Social Security wages ${fmt0(es.ss)} · ${(es.ss/es.cap*100).toFixed(0)}% of the ${fmt0(es.cap)} cap · Social Security tax ${fmt0(es.ssT)}`:"Earnings Social Security credits you with each year. Compare with the earnings record on your statement at ssa.gov.";
+    const REC=(state.settings.ssa||{}).rec||{},hasRec=Object.keys(REC).length>0,rv=r=>REC[r.y]?REC[r.y][0]:null;
+    const dif=r=>rv(r)==null||r.proj?null:rv(r)-e(r).ss;
+    const noteOf=r=>{const d=dif(r);if(d==null)return r.proj&&rv(r)==null?"":"";if(Math.abs(d)<=2)return"Match";if(d>0)return rv(r)>=e(r).cap-1?"Capped":"Other earnings";return"Check this"};
+    yearTable("tbEarn",rows,(hasRec?[["SSA record",r=>rv(r),"$","sum"],["Difference",r=>dif(r),"$pm"],["Note",r=>noteOf(r),"txt"]]:[]).concat([["SS wages",r=>e(r).ss,"$","sum"],["Cap",r=>e(r).cap,"$"],["Of cap",r=>e(r).ss/e(r).cap,"%"],["Medicare wages",r=>e(r).w,"$","sum"],["SS tax",r=>e(r).ssT,"$","sum"],["Medicare tax",r=>e(r).mdT,"$","sum"]]));
+    {const t=$("tbEarn");t.querySelectorAll("tbody tr").forEach(tr=>{const c=[...tr.cells].find(x=>x.textContent==="Check this");if(c)c.classList.add("warn")})}
+    {const old=Object.keys(REC).map(Number).filter(y=>y<rows[0].y).sort((a,b)=>b-a);
+      $("ssaOld").innerHTML=old.length?`<div class="er-head" style="margin-top:14px"><h3>Before your stubs</h3><span class="bd-sub" style="margin:0">${fmt0(old.reduce((a,y)=>a+REC[y][0],0))} over ${old.length} years</span></div><div class="tbl-wrap"><table><thead><tr><th>Year</th><th class="n">Social Security</th><th class="n">Medicare</th></tr></thead><tbody>${old.map(y=>`<tr><td>${y}</td><td class="n">${fmt0(REC[y][0])}</td><td class="n">${fmt0(REC[y][1]!=null?REC[y][1]:REC[y][0])}</td></tr>`).join("")}</tbody></table></div>`:""}
+    {const P=(state.settings.ssa||{}).paid||{},has=["youSS","erSS","youMd","erMd"].some(k=>P[k]>0);
+      $("ssaPaid").innerHTML=has?`<div class="er-head" style="margin-top:14px"><h3>Lifetime taxes paid in, per SSA</h3></div><div class="statline">
+        <div class="stat"><small>Social Security</small><b>${fmt0((P.youSS||0)+(P.erSS||0))}</b><small>${fmt0(P.youSS||0)} you + ${fmt0(P.erSS||0)} employers</small></div>
+        <div class="stat"><small>Medicare</small><b>${fmt0((P.youMd||0)+(P.erMd||0))}</b><small>${fmt0(P.youMd||0)} you + ${fmt0(P.erMd||0)} employers</small></div></div>`:""}
+    const yrs=rows.filter(r=>!r.proj&&!r.partial);
+    $("yoyEarnNote").textContent=`From your stubs: gross pay plus taxable benefits, minus health, dental, vision, HSA and FSA deductions (W-2 boxes 3 and 5). Always as paid, even with After inflation on, so it matches your Social Security statement.${rows.some(r=>r.proj)?" The current year is projected.":""}${rows.some(r=>r.partial)?" Partial years are missing stubs.":""} ${hasRec?" SSA record: Match is within $2; Capped means the SSA counts only up to that year's cap (for example when two employers each took Social Security); Other earnings is income the SSA has beyond these stubs, such as self-employment; Check this means the SSA shows less than your stubs, which may need a correction with the SSA.":` Years before ${rows[0].y} aren't loaded; add your SSA record below to compare and fill them in.`} Your benefit uses your highest 35 years, adjusted for wage growth (Plan → SS benefit).`;
+    setSum("yoyEarn",`<strong>${fmt0(yrs.reduce((a,r)=>a+e(r).ss,0))}</strong> credited ${yrs.length?`${yrs[0].y}–${yrs[yrs.length-1].y}`:""}`)}
+  /* extras */
+  const bOther=r=>Math.max(0,yv(r,"bonus")-yv(r,"bonusNet")-yv(r,"bonusTax")-yv(r,"bonus401"));const hasBO=rows.some(r=>bOther(r)>1);
+  barChart($("yoyExtra"),{years:Y,proj,series:[{c:"--c-k-p45",vals:V("bonusNet")},{c:"--c-ret",vals:V("bonus401")},{c:"--c-fed",vals:V("bonusTax")}].concat(hasBO?[{c:"--c-other",vals:rows.map(bOther)}]:[]).concat([{c:"--c-fica",vals:V("ot")}]),aria:"Bonuses split into net, 401(k) and taxes, plus overtime, by year"});
+  $("yoyExtraLeg").innerHTML=legend([["--c-k-p45","Bonus you kept (net)"],["--c-ret","Bonus to 401(k)"],["--c-fed","Bonus taxes"]].concat(hasBO?[["--c-other","Other deductions"]]:[]).concat([["--c-fica","Overtime"]]));
+  {const br=[...rows].reverse();const bg=r=>yv(r,"bonus"),Tb=k=>rows.reduce((a,r)=>a+yv(r,k),0),gT=Tb("bonus"),nT=Tb("bonusNet");
+    const dts=r=>r.full.bonusDates.map(d=>nice(d)).join(", ");
+    $("yoyBonusTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Bonus gross</th><th class="n">Bonus net</th><th class="n">Overtime</th><th class="n">Kept</th><th class="n">401(k)</th><th class="n">Taxes</th><th class="n">Bonus + OT</th><th class="n">% of gross</th><th>Paid</th></tr></thead><tbody>`+
+      br.map(r=>{const its=r.full.bonusItems||[],multi=its.length>1,open=multi&&state.bonusOpen&&state.bonusOpen.has(r.y),f=rf(r.y);
+        const subs=multi?its.map(x=>`<tr class="bsub"${open?"":" hidden"} data-p="${r.y}"><td>${nice(x.d)}</td><td class="n">${fmt0(x.gross*f)}</td><td class="n">${fmt0(x.net*f)}${x.est?"†":""}</td><td class="n"></td><td class="n">${x.gross>0.5&&x.net>0.5?pc1(x.net,x.gross):"—"}</td><td class="n">${fmt0(x.k*f)}</td><td class="n">${fmt0(x.tax*f)}</td><td class="n"></td><td class="n"></td><td class="nt">${esc(x.what)}</td></tr>`).join(""):"";
+        return`<tr class="${multi?"click multi":""}${state.yoySel===r.y?" sel":""}${open?" open":""}" data-y="${r.y}"${multi?` data-multi="1" aria-expanded="${!!open}"`:""}><td>${multi?`<span class="xchev">${CHEV}</span>`:""}${r.y}${r.proj?"*":""}</td><td class="n">${fmt0(bg(r))}</td><td class="n">${fmt0(yv(r,"bonusNet"))}${r.full.bonusEst?"†":""}</td><td class="n">${fmt0(yv(r,"ot"))}</td><td class="n">${r.full.bonus>0.5&&r.full.bonusNet>0.5?pc1(r.full.bonusNet,r.full.bonus):"—"}</td><td class="n">${fmt0(yv(r,"bonus401"))}</td><td class="n">${fmt0(yv(r,"bonusTax"))}</td><td class="n">${fmt0(bg(r)+yv(r,"ot"))}</td><td class="n">${pc1(r.full.bonus+r.full.ot,r.full.gross)}</td><td class="nt">${dts(r)}</td></tr>`+subs}).join("")+
+      `<tr class="total"><td>All</td><td class="n">${fmt0(gT)}</td><td class="n">${fmt0(nT)}</td><td class="n">${fmt0(Tb("ot"))}</td><td class="n">${pc1(nT,gT)}</td><td class="n">${fmt0(Tb("bonus401"))}</td><td class="n">${fmt0(Tb("bonusTax"))}</td><td class="n">${fmt0(gT+Tb("ot"))}</td><td class="n">${pc1(gT+Tb("ot"),rows.reduce((a,r)=>a+yv(r,"gross"),0))}</td><td></td></tr></tbody>`;
+    $("yoyBonusNote").textContent=`Bonus net is what was deposited from the bonus. Bonuses paid on their own check use that check's actual deposit; when a check mixed a bonus with other pay, its taxes, 401(k) and deposit are split in proportion to the bonus share.${rows.some(r=>r.full.bonusEst)?" † Includes a bonus paid on a regular check, split that way.":""} Only pay labeled BONUS or VCP BONUS counts here. Non-pension earnings, lump sums, gift cards and tax gross-ups are left out; they still count in gross pay. Overtime is shown gross; it's paid on regular checks with everything else. Paid lists bonus dates of $500 or more. Years with a ▸ have more than one payment: tap the year to see each one.`;
+  }
+  const bT=S("bonus"),oT=S("ot");setSum("yoyExtra",`<strong>${fmt0(bT+oT)}</strong> total`);
+  $("yoyExtraD").innerHTML=sel?`<b>${sel.y}</b> · Bonuses ${fmt0(yv(sel,"bonus"))} gross: ${fmt0(yv(sel,"bonusNet"))} net (${sel.full.bonus>0.5&&sel.full.bonusNet>0.5?pc1(sel.full.bonusNet,sel.full.bonus):"—"} kept), ${fmt0(yv(sel,"bonus401"))} to 401(k), ${fmt0(yv(sel,"bonusTax"))} taxes · Overtime ${fmt0(yv(sel,"ot"))} · ${pc1(sel.full.bonus+sel.full.ot,sel.full.gross)} of gross`+openBtn(sel.y):`${fmt0(bT)} in bonuses, ${fmt0(oT)} in overtime. Projected years assume the latest check repeats, so they include no future bonuses.`;
+  /* time off */
+  {const pr=rows.filter(r=>Object.keys(r.pto).length);$("yoyPtoPanel").hidden=!pr.length;
+   if(pr.length){const y0=pr[0].y,ry=rows.filter(r=>r.y>=y0),types=PTO_T.filter(t=>pr.some(r=>r.pto[t[0]]));
+    const dys=(r,t)=>r.pto[t]?r.pto[t].h/8:0,tot=r=>Object.values(r.pto).reduce((a,o)=>a+o.h,0)/8,dol=r=>Object.values(r.pto).reduce((a,o)=>a+o.d,0);
+    const fd=v=>{const x=Math.round(v*10)/10;return(x%1?x.toFixed(1):String(x))};
+    const done=ry.filter(r=>!r.proj),most=done.reduce((a,r)=>!a||tot(r)>tot(a)?r:a,null),cur=ry.find(r=>r.proj);
+    const vacs=done.map(r=>dys(r,"vac")).sort((a,b)=>a-b),med=vacs.length?vacs[Math.floor(vacs.length/2)]:0;
+    $("yoyPtoTiles").innerHTML=[`<div class="tile"><span class="tl">Days off since ${y0}</span><b>${fd(ry.reduce((a,r)=>a+tot(r),0))}</b><small>${fmt0(ry.reduce((a,r)=>a+dol(r),0))} of paid time off</small></div>`,
+      most?`<button type="button" class="tile" data-open="${most.y}"><span class="tl">Most in a year</span><b>${fd(tot(most))} days</b><small>${most.y}</small></button>`:"",
+      `<div class="tile"><span class="tl">Typical year</span><b>${fd(med)} days</b><small>vacation, middle year since ${y0}</small></div>`,
+      cur?`<button type="button" class="tile" data-open="${cur.y}"><span class="tl">${cur.y} so far</span><b>${fd(tot(cur))} days</b><small>through ${nice(cur.latest)}</small></button>`:""].join("");
+    barChart($("yoyPto"),{years:ry.map(r=>r.y),proj:new Set(),series:types.map(t=>({c:t[3],vals:ry.map(r=>dys(r,t[0]))})),yFmt:v=>Math.round(v)+"d",aria:"Days of paid time off by year"});
+    $("yoyPtoLeg").innerHTML=legend(types.map(t=>[t[3],t[1]]));
+    const sr=ry.find(r=>r.y===state.yoySel);
+    $("yoyPtoD").innerHTML=sr?`<b>${sr.y}${sr.proj?" (so far)":""}</b> · `+types.filter(t=>sr.pto[t[0]]).map(t=>`${t[1]} ${sr.pto[t[0]].h<7.95?Math.round(sr.pto[t[0]].h)+" hr":fd(dys(sr,t[0]))+" days"}`).join(" · ")+` · ${fmt0(dol(sr))} paid`+openBtn(sr.y):`Days are hours ÷ 8. ${cur?`${cur.y} counts checks so far, with no projection.`:""}`;
+    const mon=Array(12).fill(0),yrsIn=new Set();for(const s of state.stubs){const y=+s.payDate.slice(0,4);if(y<y0)continue;const v=stubPto(s).vac;if(v){mon[+s.payDate.slice(5,7)-1]+=v.h/8;yrsIn.add(y)}}
+    const mx=Math.max(...mon,1);
+    $("yoyPtoMonths").innerHTML=mon.map((v,i)=>`<div class="mh" style="background:color-mix(in srgb,var(--c-net) ${Math.round(v/mx*55)}%,var(--soft))" title="${MON[i]}: ${fd(v)} vacation days in all"><b>${Math.round(v)}</b>${MON[i]}</div>`).join("");
+    const fdh=h=>!h?"—":h<7.95?`${Math.round(h)} hr`:fd(h/8);
+    yearTable("tbPto",ry.map(r=>Object.assign({},r,{tag:r.proj?"so far":""})),types.map(t=>[t[1]==="Bereavement"?"Bereav.":t[1],r=>fdh(r.pto[t[0]]?r.pto[t[0]].h:0),"txt",rs=>fdh(rs.reduce((a,r)=>a+(r.pto[t[0]]?r.pto[t[0]].h:0),0))])
+      .concat([["Total days",r=>fd(tot(r)),"txt",rs=>fd(rs.reduce((a,r)=>a+tot(r),0))],["Hours",r=>Object.values(r.pto).reduce((a,o)=>a+o.h,0),"n","sum"],["Paid",r=>dol(r)*rf(r.y),"$","sum"]]));
+    $("yoyPtoNote").textContent=`Days are worked out as time-off pay ÷ your hourly base rate ÷ 8, and land on whole hours. Time off is counted on the check that paid it, which can be a pay period after the days themselves. The month grid adds up vacation days by the month of the paying check, across all years.${y0>rows[0].y?` Stubs before ${y0} don't list time off separately, so those years aren't shown.`:""}`;
+    setSum("yoyPto",`<strong>${fd(ry.reduce((a,r)=>a+tot(r),0))} days</strong> off since ${y0}`);
+   }}
+  /* 401(k) loans and child support */
+  {const has=rows.some(r=>r.full.loan>0.5||r.full.child>0.5);$("yoyOblPanel").hidden=!has;
+   if(has){
+    const all=sortStubs([...state.stubs]),grp=new Map();
+    const segs=[],cur={};
+    for(const s of all)for(const i of s.items){const base=isLoan(i)?"L:"+i.label:isChild(i)?"C":null;if(!base||!(i.cur>0))continue;
+      let g=cur[base];if(g&&(dObj(s.payDate)-dObj(g.last))/864e5>45&&base!=="C")g=null;
+      if(!g){g={k:base,label:i.label,first:s.payDate,last:s.payDate,total:0,lastAmt:0,fee:0};cur[base]=g;segs.push(g)}
+      g.last=s.payDate;g.total+=i.cur;if(base==="C"&&/F$|FEE/i.test(i.label))g.fee+=i.cur;else g.lastAmt=i.cur}
+    segs.forEach(g=>grp.set(g.k+"|"+g.first,g));if(cur.C)grp.set("C",cur.C);
+    const dl=d=>`${MON[+d.slice(5,7)-1]} ${d.slice(0,4)}`,lastPay=[...all].reverse().find(s=>!isExtra(s));
+    const active=g=>lastPay&&g.last>=lastPay.payDate;
+    const loans=segs.filter(g=>g.k[0]==="L").sort((a,b)=>a.first<b.first?-1:1),cs=cur.C;
+    $("yoyOblTiles").innerHTML=loans.map((g,n)=>`<div class="tile"><span class="tl">401(k) loan ${loans.length>1?n+1:""}</span><b>${fmt0(g.total)}</b><small>repaid ${dl(g.first)} – ${active(g)?"now":dl(g.last)} · ${fmt(g.lastAmt)} per check${active(g)?"":" · paid off"}</small></div>`).join("")+
+      (cs?`<div class="tile"><span class="tl">Child support</span><b>${fmt0(cs.total)}</b><small>${dl(cs.first)} – ${active(cs)?"now":dl(cs.last)} · last ${fmt(cs.lastAmt)} per check${cs.fee?` + fees (${fmt0(cs.fee)} total)`:""}${active(cs)?"":" · ended"}</small></div>`:"")+
+      `<div class="tile"><span class="tl">Together</span><b>${fmt0(loans.reduce((a,g)=>a+g.total,0)+(cs?cs.total:0))}</b><small>out of your checks since ${years[0]}</small></div>`;
+    barChart($("yoyObl"),{years:Y,proj,series:[{c:"--c-loan",vals:V("loan")},{c:"--c-child",vals:V("child")}],aria:"401(k) loan repayments and child support by year"});
+    $("yoyOblLeg").innerHTML=legend([["--c-loan","401(k) loan repayment"],["--c-child","Child support"]]);
+    $("yoyOblD").innerHTML=sel?`<b>${sel.y}</b> · 401(k) loan ${fmt0(yv(sel,"loan"))} · Child support ${fmt0(yv(sel,"child"))} · ${pc1(sel.full.loan+sel.full.child,sel.full.gross)} of gross`+openBtn(sel.y):"Tap a year for its numbers.";
+    const Sx=k=>rs=>rs.reduce((a,r)=>a+yv(r,k),0);
+    yearTable("tbObl",rows.filter(r=>r.full.loan+r.full.child>0.5),[["401(k) loan",r=>yv(r,"loan"),"$","sum"],["Child support",r=>yv(r,"child"),"$","sum"],["Total",r=>yv(r,"loan")+yv(r,"child"),"$","sum"],["% of gross",r=>(r.full.loan+r.full.child)/r.full.gross,"%",()=>(Sx("loan")(rows)+Sx("child")(rows))/Sx("gross")(rows)]]);
+    setSum("yoyObl",`<strong>${fmt0(S("loan")+S("child"))}</strong> since ${years[0]}`);
+   }}
+  /* by-year tables under each chart */
+  {const g=r=>yv(r,"gross"),sum=k=>rs=>rs.reduce((a,r)=>a+yv(r,k),0),ofG=k=>rs=>sum(k)(rs)/sum("gross")(rs);
+    yearTable("tbGross",rows,[["Gross",g,"$","sum"]].concat(cats.map(([k,l])=>[l,r=>yv(r,k),"$","sum"])).concat([["Kept",r=>r.full.net/r.full.gross,"%",ofG("net")]]));
+    const cmp=r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther")+yv(r,"erTax");
+    yearTable("tbComp",rows,[["Gross",g,"$","sum"],["Employer 401(k)",r=>yv(r,"er401"),"$","sum"],["Employer health",r=>yv(r,"erHealth"),"$","sum"],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Life, disability, other",r=>yv(r,"erOther"),"$","sum"],["Payroll taxes (est.)",r=>yv(r,"erTax"),"$","sum"],["Total comp",cmp,"$","sum"],["Employer adds",r=>(cmp(r)-g(r))/g(r),"%",rs=>{const G=sum("gross")(rs);return(rs.reduce((a,r)=>a+cmp(r),0)-G)/G}]]);
+    const byY=new Map();for(const r of ev.raises){const y=+r.d.slice(0,4);(byY.get(y)||byY.set(y,[]).get(y)).push(r)}
+    const chg=r=>{const p=rows.find(x=>x.y===r.y-1);if(p&&p.base)return r.base/p.base-1;const f=r.m.ys.find(x=>!isExtra(x)&&annualBase(x)),b0=f&&annualBase(f);return b0&&Math.abs(r.base/b0-1)>0.0005?r.base/b0-1:null},infl=r=>hasCpi(r.y)?cpiOf(r.y)/cpiOf(r.y-1)-1:null;
+    yearTable("tbRate",rows,[["Base pay",r=>r.base*rf(r.y),"$"],["Raise",chg,"pm"],["Prices",r=>chg(r)==null?null:infl(r),"pm"],["Real",r=>{const c=chg(r),i=infl(r);return c==null||i==null?null:(1+c)/(1+i)-1},"pmc"],[`In ${CPI_BASE} dollars`,r=>r.base*cpiOf(CPI_BASE)/cpiOf(r.y),"$"],["Per hour",r=>r.base*rf(r.y)/2080,"$c"],["Raise dates",r=>(byY.get(r.y)||[]).map(x=>`${nice(x.d)} ${sgn(x.pct)}`).join(", ")||"—","txt"]]);
+    const tx=r=>yv(r,"fed")+yv(r,"fica")+yv(r,"state");
+    yearTable("tbTax",rows,[["Federal",r=>yv(r,"fed"),"$","sum"],["%",r=>r.full.fed/r.full.gross,"%",ofG("fed")],["SS + Medicare",r=>yv(r,"fica"),"$","sum"],["%",r=>r.full.fica/r.full.gross,"%",ofG("fica")],["State + local",r=>yv(r,"state"),"$","sum"],["%",r=>r.full.state/r.full.gross,"%",ofG("state")],["All taxes",tx,"$","sum"],["%",r=>tx(r)/g(r),"%",rs=>rs.reduce((a,r)=>a+tx(r),0)/sum("gross")(rs)]]);
+    yearTable("tbTfd",rows,[["Date",r=>r.partial?null:dayLabel(r.y,tfdDay(r)),"txt"],["Days",r=>r.partial?null:Math.ceil(tfdDay(r)),"n"],["Taxes",tx,"$","sum"],["Gross",g,"$","sum"]]);
+    yearTable("tbHour",rows,[["Paid hours",r=>r.hrs,"n","sum"],["Gross / hr",r=>r.hrs?g(r)/r.hrs:null,"$c"],["Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:null,"$c"],["Base / hr",r=>r.base?r.base*rf(r.y)/2080:null,"$c"],["Taxes / hr",r=>r.hrs?tx(r)/r.hrs:null,"$c"]]);
+    let run=0;const runMap=new Map(rows.map(r=>{run+=yv(r,"ret")+yv(r,"er401");return[r.y,run]}));
+    yearTable("tb401",rows,[["You",r=>yv(r,"ret"),"$","sum"],["% of pay",r=>r.full.ret/r.full.gross,"%",ofG("ret")],["Employer",r=>yv(r,"er401"),"$","sum"],["Total",r=>yv(r,"ret")+yv(r,"er401"),"$","sum"],["Your limit",r=>r.k401Lim*rf(r.y),"$"],["Limit used",r=>r.full.ret/r.k401Lim,"%"],["Running total",r=>runMap.get(r.y),"$"]]);
+    {const P=new Map(rows.map(r=>[r.y,premRow(r)])),pv=r=>P.get(r.y),prev=r=>P.get(r.y-1);
+      const chg=(r,k)=>{const a=prev(r),b=pv(r);return a&&b&&a[k]>0.004&&b[k]>0.004?b[k]/a[k]-1:null};
+      const $v=(r,k)=>{const p=pv(r);return p&&p[k]>0.004?p[k]*rf(r.y):null};
+      yearTable("tbPrem",rows,[["Medical",r=>$v(r,"med"),"$c"],["Dental",r=>$v(r,"den"),"$c"],["Vision",r=>$v(r,"vis"),"$c"],["You pay",r=>$v(r,"you"),"$c"],["Change",r=>chg(r,"you"),"pmi"],
+        ["Employer pays",r=>$v(r,"er"),"$c"],["Total",r=>$v(r,"tot"),"$c"],["Total change",r=>chg(r,"tot"),"pmi"],["Your share",r=>{const p=pv(r);return p&&p.er>0.004?p.you/p.tot:null},"%"]]);
+      const big=rows.map(r=>({y:r.y,c:chg(r,"you")})).filter(x=>x.c!=null).sort((a,b)=>b.c-a.c)[0];
+      $("tbPremNote").textContent=`Amounts per regular check, from the last regular check of each year, so a year shows the rate that open enrollment set.${big&&big.c>0?` Biggest jump in what you pay: ${big.y}, up ${(big.c*100).toFixed(1)}%.`:""} Employer amounts show only for years whose stubs list them.`}
+    yearTable("tbHealth",rows,[["Insurance",r=>yv(r,"health"),"$","sum"],["HSA (you)",r=>yv(r,"hsa"),"$","sum"],["Health FSA",r=>yv(r,"fsa"),"$","sum"],["From your pay",r=>yv(r,"health")+yv(r,"hsa")+yv(r,"fsa"),"$","sum"],["% of gross",r=>(r.full.health+r.full.hsa+r.full.fsa)/r.full.gross,"%",rs=>(sum("health")(rs)+sum("hsa")(rs)+sum("fsa")(rs))/sum("gross")(rs)],["Employer HSA",r=>yv(r,"erHsa"),"$","sum"],["Employer premiums",r=>yv(r,"erHealth"),"$","sum"]]);
+  }
+  /* table */
+  const cols=[["y","Year",r=>r.y],["base","Base pay",r=>r.base?r.base*rf(r.y):0,1],["gross","Gross",r=>yv(r,"gross"),1],["net","Take-home",r=>yv(r,"net"),1],
+    ["kept","Kept",r=>r.full.net/r.full.gross,2],["fedp","Federal",r=>r.full.fed/r.full.gross,2],["ficap","FICA",r=>r.full.fica/r.full.gross,2],["statep","State + local",r=>r.full.state/r.full.gross,2],
+    ["ret","401(k) you",r=>yv(r,"ret"),1],["er401","401(k) employer",r=>yv(r,"er401"),1],["hl","Health",r=>yv(r,"health")+yv(r,"hsa")+yv(r,"fsa"),1],["xo","Bonus + OT",r=>yv(r,"bonus")+yv(r,"ot"),1],["comp","Total comp",r=>yv(r,"gross")+yv(r,"er401")+yv(r,"erHealth")+yv(r,"erHsa")+yv(r,"erOther")+(yv(r,"erTax")||0),1],
+    ["hr","Take-home / hr",r=>r.hrs?yv(r,"net")/r.hrs:0,4],["tfd","Tax Freedom Day",r=>r.partial?0:tfdDay(r),5],["checks","Checks",r=>r.checks,3],["threes","3-check months",r=>r.threes,3]];
+  const so=state.yoySort||{k:"y",d:-1};const cf=cols.find(c=>c[0]===so.k)||cols[0];
+  const sorted=[...rows].sort((a,b)=>(cf[2](a)-cf[2](b))*so.d);
+  const cell=(c,r)=>{const v=c[2](r);return c[3]===1?fmt(v):c[3]===2?(v*100).toFixed(1)+"%":c[3]===3?v:c[3]===4?(v?fmt(v):"—"):c[3]===5?(v?dayLabel(r.y,v):"—"):`${r.y}${r.proj?"*":r.partial?"†":""}${r.est?'<span class="estm">‡</span>':""}`};
+  const T=k=>rows.reduce((a,r)=>a+(cols.find(c=>c[0]===k)[2](r)),0);
+  const tG=T("gross");
+  $("yoyTbl").innerHTML=`<thead><tr>${cols.map(c=>`<th class="${c[3]?"n":""}" data-sort="${c[0]}" aria-sort="${so.k===c[0]?(so.d>0?"ascending":"descending"):"none"}">${c[1]}</th>`).join("")}<th>Notes</th></tr></thead><tbody>`+
+    sorted.map(r=>`<tr class="click${state.yoySel===r.y?" sel":""}" data-y="${r.y}">${cols.map(c=>`<td class="${c[3]?"n":""}">${cell(c,r)}</td>`).join("")}<td class="nt">${esc(r.notes.join(" · "))}</td></tr>`).join("")+
+    `<tr class="total"><td>All</td><td class="n"></td><td class="n">${fmt(tG)}</td><td class="n">${fmt(T("net"))}</td><td class="n">${pc1(T("net"),tG)}</td>`+
+    ["fed","fica","state"].map(k=>`<td class="n">${pc1(rows.reduce((a,r)=>a+yv(r,k),0),tG)}</td>`).join("")+
+    `<td class="n">${fmt(T("ret"))}</td><td class="n">${fmt(T("er401"))}</td><td class="n">${fmt(T("hl"))}</td><td class="n">${fmt(T("xo"))}</td><td class="n">${fmt(T("comp"))}</td><td class="n"></td><td class="n"></td><td class="n">${T("checks")}</td><td class="n">${T("threes")}</td><td></td></tr></tbody>`;
+  $("yoyTblNote").textContent=`Tap a column to sort, or a row to open that year. Base pay is the per-check rate times checks per year. Kept, Federal, FICA and State + local are percents of gross.${proj.size?" * Projected to Dec 31; the All row includes the projection.":""}${rows.some(r=>r.partial)?" † Partial year.":""}${rows.some(r=>r.est)?" ‡ "+estNote().slice(2):""}`;
+  setSum("yoyTbl",`${rows.length} years`);
+}
+document.addEventListener("click",e=>{
+  const ob=e.target.closest("[data-open]");if(ob){state.year=+ob.dataset.open;if(ob.dataset.key){state.checkKey=ob.dataset.key;state.mode="cur"}setView("year");window.scrollTo(0,0);return}
+  const th=e.target.closest("#yoyTbl th[data-sort]");if(th){const k=th.dataset.sort;const so=state.yoySort||{k:"y",d:-1};state.yoySort={k,d:so.k===k?-so.d:(k==="y"?-1:-1)};renderYoy();return}
+  const mt=e.target.closest("#yoyBonusTbl tr[data-multi]");if(mt){const y=+mt.dataset.y;state.bonusOpen=state.bonusOpen||new Set();if(state.bonusOpen.has(y))state.bonusOpen.delete(y);else state.bonusOpen.add(y);
+    const op=state.bonusOpen.has(y);mt.classList.toggle("open",op);mt.setAttribute("aria-expanded",String(op));document.querySelectorAll(`#yoyBonusTbl tr.bsub[data-p="${y}"]`).forEach(r=>r.hidden=!op);return}
+  const tr=e.target.closest("#yoyTbl tr[data-y], table.ytab tr[data-y]");if(tr){state.year=+tr.dataset.y;setView("year");window.scrollTo(0,0);return}
+  const col=e.target.closest("#yoyView .col");if(col){const y=+col.dataset.y;state.yoySel=state.yoySel===y?null:y;renderYoy();return}
+  if(e.target.closest("#yoyView .tog")){setTimeout(renderYoy,0);return}
+  const rb=e.target.closest("#yoyReal [data-real]");if(rb){state.real=rb.dataset.real==="1";setOpen("real",state.real);renderYoy();return}
+});
+const TAB_OF={whatif:"plan",bonusEst:"plan",nextyr:"plan",retire:"plan",ssben:"plan",sscap:"plan",add:"stubs"};
+const tabOf=el=>TAB_OF[el.dataset&&el.dataset.k]||"year";
+function setTab(t){if(t===state.tab){window.scrollTo({top:0,behavior:"smooth"});return}state.tab=t;state.view=t==="all"?"all":"year";setOpen("tab",t);render();window.scrollTo(0,0)}
+function setView(v){setTab(v==="all"?"all":"year")}
+$("tabBar").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(b)setTab(b.dataset.tab)});
+let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(state.view==="all")renderYoy()},150)});
+
+/* ---------- main render ---------- */
+/* ---------- jump to sections ---------- */
+const JUMP_NAMES={yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
+  yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
+  yoy401:"401(k)",yoySave:"Savings rate",yoyBal:"Balances",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
+let jumpList=[];
+const YGROUPS=[["pay","Pay",["yoyTop","yoyRec","yoyGross","yoyComp","yoyRate","yoyHour"]],["tax","Taxes",["yoyTax","yoyTfd","yoyEarn"]],
+  ["save","Savings",["yoySave","yoyBal","yoy401","yoyHealth"]],["extra","Extras",["yoyExtra","yoyObl","yoyPto"]],["table","Table",["yoyTbl"]]];
+const ygOf=k=>(YGROUPS.find(g=>g[2].includes(k))||YGROUPS[0])[0];
+function applyGroup(){const g=YGROUPS.some(x=>x[0]===state.yg)?state.yg:"pay";
+  document.querySelectorAll("#yoyView section.panel").forEach(sec=>sec.classList.toggle("grp-off",ygOf(sec.dataset.k||sec.id)!==g));
+  document.querySelectorAll("#yoyView > .grid2").forEach(gr=>gr.classList.toggle("grp-off",![...gr.children].some(c=>!c.classList.contains("grp-off"))));fixSolo()}
+/* a half-width panel left without a partner in its row takes the full row */
+function fixSolo(){document.querySelectorAll(".grid2").forEach(gr=>{const v=[...gr.children].filter(c=>c.matches("section.panel")&&!c.hidden&&!c.classList.contains("grp-off")&&!/1\s*\/\s*-1/.test(c.style.gridColumn));v.forEach(c=>c.classList.remove("solo"));
+  let run=[];const flush=()=>{if(run.length%2)run[run.length-1].classList.add("solo");run=[]};[...gr.children].forEach(c=>{if(!c.matches("section.panel")||c.hidden||c.classList.contains("grp-off"))return;if(/1\s*\/\s*-1/.test(c.style.gridColumn))flush();else run.push(c)});flush()})}
+function setGroup(g){state.yg=g;setOpen("yg",g);applyGroup();renderYoy();fixSolo();buildJump();window.scrollTo(0,0)}
+function jumpSections(){
+  const all=state.view==="all";
+  const els=all?[$("yoyTop"),...document.querySelectorAll("#yoyView section.panel[data-k]")]
+    :[...document.querySelectorAll('.wrap section.panel[data-k]')].filter(s=>!s.closest("#yoyView"));
+  return els.filter(e=>e&&e.offsetParent!==null&&!e.hidden).map(e=>({el:e,k:e.dataset.k||e.id,name:JUMP_NAMES[e.dataset.k||e.id]||(e.querySelector("h2")||{}).textContent||""}));
+}
+function buildJump(){
+  if(state.tab==="all"&&state.stubs.length){jumpList=[];
+    $("jumpBar").innerHTML=YGROUPS.map(([k,l])=>`<button type="button" class="jchip${k===(state.yg||"pay")?" on":""}" data-g="${k}">${l}</button>`).join("");
+    $("jumpBar").hidden=false;$("fab").hidden=true;$("ctlBar").hidden=false;return}
+  jumpList=state.stubs.length?jumpSections():[];
+  $("jumpBar").hidden=jumpList.length<2;$("fab").hidden=true;
+  $("jumpBar").innerHTML=jumpList.map((j,i)=>`<button type="button" class="jchip" data-j="${i}">${esc(j.name)}</button>`).join("");
+  $("fabMenu").innerHTML=`<button type="button" role="menuitem" data-j="top">↑ Back to top</button><div class="sep"></div>`+jumpList.map((j,i)=>`<button type="button" role="menuitem" data-j="${i}">${esc(j.name)}</button>`).join("");
+  $("ctlBar").hidden=$("yearField").hidden&&$("chkBar").hidden&&$("jumpBar").hidden;
+  spy();
+}
+function jumpTo(i){
+  if(i==="top"){window.scrollTo({top:0,behavior:"smooth"});return}
+  const j=jumpList[+i];if(!j)return;const sec=j.el;
+  if(sec.classList.contains("collapsed")&&sec.dataset.k){applyPanel(sec,true);setOpen(sec.dataset.k,true);if(state.view==="all")renderYoy()}
+  /* aim for where the bar will sit once it is pinned, not where it is right now */
+  const bar=$("ctlBar"),pinB=()=>DESK.matches?16:(parseFloat(getComputedStyle(bar).top)||0)+bar.offsetHeight;
+  const want=()=>{const maxY=document.documentElement.scrollHeight-window.innerHeight;return Math.min(maxY,Math.max(0,sec.getBoundingClientRect().top+window.scrollY-pinB()-8))};
+  const ty=want();jumpHold={i:+i,y:ty,t:Date.now()};spyOn=-1;spy();
+  window.scrollTo({top:ty,behavior:"smooth"});
+  clearTimeout(jumpFix);jumpFix=setTimeout(()=>{const t2=want();if(Math.abs(t2-window.scrollY)>3){jumpHold={i:+i,y:t2,t:Date.now()};window.scrollTo({top:t2,behavior:"smooth"})}},700);
+}
+let spyOn=-1,jumpHold=null,jumpFix=0;
+const DESK=matchMedia("(min-width:1100px)");
+document.addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const t=e.target;if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;if(document.querySelector(".yir:not([hidden])"))return;
+  const tabs=["year","all","plan","stubs"];
+  if(/^[1-4]$/.test(e.key)){const b=document.querySelector(`#tabBar [data-tab="${tabs[+e.key-1]}"]`);if(b){b.click();e.preventDefault()}}
+  else if(e.key==="ArrowLeft"||e.key==="ArrowRight"){const b=$(e.key==="ArrowLeft"?"yearPrev":"yearNext");if(b&&!$("yearField").hidden&&!b.disabled){b.click();e.preventDefault()}}
+  else if(e.key==="h"||e.key==="H"){$("hideBtn").click();e.preventDefault()}});
+function spy(){
+  if(!jumpList.length)return;const barB=DESK.matches?120:$("ctlBar").getBoundingClientRect().bottom+24;let on=0;
+  jumpList.forEach((j,i)=>{if(j.el.getBoundingClientRect().top<=barB)on=i});
+  if((window.innerHeight+window.scrollY)>=document.documentElement.scrollHeight-4)on=jumpList.length-1;
+  if(jumpHold){if(Date.now()-jumpHold.t<1500||Math.abs(window.scrollY-jumpHold.y)<30)on=jumpHold.i;else jumpHold=null}
+  if(on===spyOn&&$("jumpBar").querySelector(".on"))return;spyOn=on;
+  $("jumpBar").querySelectorAll(".jchip").forEach((c,i)=>c.classList.toggle("on",i===on));
+  $("fabMenu").querySelectorAll("[data-j]").forEach(c=>c.classList.toggle("on",c.dataset.j===String(on)));
+  const c=$("jumpBar").querySelector(".jchip.on"),bar=$("jumpBar");
+  if(c){const l=c.offsetLeft-bar.offsetLeft,r=l+c.offsetWidth;if(l<bar.scrollLeft+8||r>bar.scrollLeft+bar.clientWidth-8){const to=Math.max(0,l-bar.clientWidth/2+c.offsetWidth/2);try{bar.scrollTo({left:to,behavior:"smooth"})}catch(e){bar.scrollLeft=to}}}
+}
+window.addEventListener("scroll",spy,{passive:true});
+$("jumpBar").addEventListener("click",e=>{const g=e.target.closest("[data-g]");if(g){setGroup(g.dataset.g);return}const b=e.target.closest("[data-j]");if(b)jumpTo(b.dataset.j)});
+const fabClose=()=>{$("fabMenu").hidden=true;$("fab").setAttribute("aria-expanded","false")};
+$("fab").addEventListener("click",e=>{e.stopPropagation();const open=$("fabMenu").hidden;$("fabMenu").hidden=!open;$("fab").setAttribute("aria-expanded",String(open))});
+$("fabMenu").addEventListener("click",e=>{const b=e.target.closest("[data-j]");if(b){fabClose();jumpTo(b.dataset.j)}});
+document.addEventListener("click",e=>{if(!$("fabMenu").hidden&&!e.target.closest("#fabMenu,#fab"))fabClose()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")fabClose()});
+
+/* the app can stay open for days on a phone: pick up a new day when it comes back */
+function freshDay(){const t=isoOf(new Date());if(t!==todayISO){const oldY=+todayISO.slice(0,4);todayISO=t;if(state.year===oldY&&+t.slice(0,4)>oldY&&yearStubs(+t.slice(0,4)).length)state.year=+t.slice(0,4);render()}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)freshDay()});window.addEventListener("focus",freshDay);
+/* ask the browser (iOS included) not to clear this site's storage under pressure */
+let persistAsked=false;function askPersist(){if(persistAsked||!state.stubs.length)return;persistAsked=true;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persisted().then(p=>p||navigator.storage.persist()).catch(()=>{})}catch(e){}}
+function render(){memoClear();applyEst();memoClear();askPersist();renderMain();renderBackupNote();buildJump();if(window.__fillOh&&document.activeElement!==$("ohUtIn"))window.__fillOh();ssaFill();window.__fillBal&&window.__fillBal();
+  {const t=state.tab,on=state.stubs.length&&(t==="year"||t==="all");$("rptBar").hidden=!on;$("rptBtn").textContent=t==="all"?"Save all-years report as PDF":`Save ${state.year} report as PDF`}}
+function renderMain(){
+  const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
+  if(!state.year||!years.includes(state.year))state.year=years[years.length-1]||new Date().getFullYear();
+  $("yearSel").innerHTML=(years.length?[...years].reverse():[state.year]).map(y=>`<option${y===state.year?" selected":""}>${y}</option>`).join("");
+  {const i=years.indexOf(state.year);$("yearPrev").disabled=i<=0;$("yearNext").disabled=i<0||i>=years.length-1}
+  const y=state.year;LIM=limFor(y);SSR=LIM.ssRate||.062;const m=model(y);
+  renderStubs();
+  const panels=document.querySelectorAll(".wrap > section.panel:not(:last-child):not(#emptyNote), .wrap > .grid2");
+  const addSec=document.querySelector('section[data-k="add"]');
+  if(!m.latest){$("yirBar").hidden=true;panels.forEach(p=>p.hidden=true);$("chkBar").hidden=true;$("yoyView").hidden=true;$("tabBar").hidden=true;$("yearField").hidden=true;$("emptyNote").hidden=false;if(addSec){addSec.hidden=false;applyPanel(addSec,true)}return}
+  $("emptyNote").hidden=true;$("tabBar").hidden=false;
+  const tab=state.tab,all=tab==="all";
+  $("tabBar").querySelectorAll("[data-tab]").forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle("on",on);if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+  $("yearField").hidden=!(tab==="year"||tab==="plan");$("yoyView").hidden=!all;if(tab!=="year")$("chkBar").hidden=true;
+  panels.forEach(p=>p.hidden=tabOf(p)!==tab);if(addSec)addSec.hidden=tab!=="stubs";
+  $("yirBar").hidden=true;
+  if(all){applyGroup();renderYoy();fixSolo();return}
+  if(tab==="stubs")return;
+  $("age").value=ageFor(y)||"";["seProfit","otherInc","estPaid"].forEach(k=>{const el=$(k);if(document.activeElement!==el)el.value=taxIn(y)[k]});
+  let ma=m;if(state.mode==="cur"){const ck=chosenCheck(m);if(ck&&ck!==m.latest)ma=model(y,ck)}
+  renderCalendar(m,y);renderBreakdown(m);renderChecks(m,y,state.mode==="cur"?chosenCheck(m):null);renderW2(ma,y);renderTax(ma);renderMeters(ma);renderWhatIf(ma,y);renderBonusEst(ma,y);renderYearEnd(m,y);
+  {const ny=nextYear();$("nyBox").innerHTML=ny;const sec=document.querySelector('section[data-k="nextyr"]');if(!ny)sec.hidden=true;else{const t=sec.querySelector(".tog span");if(t)t.textContent=`Next year, ${y+1}`}}
+  if(tab!=="year")$("chkBar").hidden=true;
+  renderRetire();renderSsBen();
+  {const cur=+todayISO.slice(0,4);$("yirBar").hidden=tab!=="year";$("yirBtn").innerHTML=`<span aria-hidden="true">✦</span> ${y}${y>=cur?" so far":""} in review`}
+  if(!$("ssCap").innerHTML.trim())document.querySelector('section[data-k="sscap"]').hidden=true;
+  {const asof=ma!==m?` · as of ${nice(ma.latest.payDate)}`:"";$("w2year").textContent=y+asof;
+   document.querySelectorAll(".asof").forEach(e=>{e.hidden=!asof;e.textContent=asof?`Showing the year as of the ${nice(ma.latest.payDate)} check, as if it were the latest. Switch to Year to date to see the whole year.`:""})}
+}
+
+/* ---------- events ---------- */
+function toast(msg,err){const t=$("toast");t.hidden=false;t.className="toast"+(err?" err":"");t.textContent=msg}
+function readText(txt,src){
+  txt=txt.replace(/^\uFEFF/,"").trim();if(!txt){toast(src?`${src} is empty.`:"Paste a statement first.",true);return}
+  if(/^[\[{]/.test(txt)){try{const o=JSON.parse(txt);const raw=Array.isArray(o)?o:o.stubs;if(!Array.isArray(raw))throw 0;const list=raw.filter(okStub);if(raw.length&&!list.length)throw 0;
+      if(o.settings)Object.assign(state.settings,o.settings);syncInputs();const r=addStubs(list);toast(`Restored ${r.added+r.replaced} stubs from backup.`);$("pasteBox").value="";return}catch(e){toast("That looks like a backup but couldn't be read.",true);return}}
+  const list=parseText(txt);
+  if(!list.length){toast("No statement found. Make sure the text includes the Pay Date line and the Earnings and Taxes tables.",true);return}
+  const r=addStubs(list);$("pasteBox").value="";
+  toast(`Read ${list.length} stub${list.length>1?"s":""}${src?" from "+src:""}: ${list.map(s=>nice(s.payDate)).join(", ")}.`+(r.replaced?` ${r.replaced} replaced an existing copy.`:"")+" See Stub checks above.");
+}
+$("readBtn").addEventListener("click",()=>readText($("pasteBox").value));
+$("txtIn").addEventListener("change",async e=>{
+  const files=[...e.target.files];e.target.value="";if(!files.length)return;
+  for(const f of files){let t;try{t=await(f.text?f.text():new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(f)}))}catch(err){toast(`Couldn't open ${f.name}.`,true);continue}readText(t,f.name)}
+});
+$("pdfIn").addEventListener("change",async e=>{
+  const files=[...e.target.files];if(!files.length)return;toast(`Reading ${files.length} PDF${files.length>1?"s":""}…`);
+  const all=[];const fails=[];
+  for(const f of files){try{const list=parseText(await pdfToText(f));if(list.length)all.push(...list);else fails.push(f.name)}catch(err){fails.push(f.name)}}
+  e.target.value="";
+  if(all.length){addStubs(all);toast(`Read ${all.length} stub${all.length>1?"s":""} from PDF.`+(fails.length?` Couldn't read: ${fails.join(", ")}.`:""),!!fails.length)}
+  else toast(`Couldn't find statement text in ${fails.join(", ")}. A scanned or photographed PDF has no text layer; print the statement to PDF from the portal instead.`,true);
+});
+$("stubTbl").addEventListener("click",e=>{const b=e.target.closest("[data-del]");if(!b)return;const d=b.dataset.del;
+  if(armed===d){memoClear();state.stubs=state.stubs.filter(s=>skey(s)!==d);armed=null;save();render();toast(`Removed ${nice(d.slice(0,10))}.`)}else{armed=d;renderStubs()}});
+let clearArmed=false;
+$("clearAll").addEventListener("click",()=>{if(!clearArmed){clearArmed=true;$("clearAll").textContent="Confirm clear";return}
+  clearArmed=false;$("clearAll").textContent="Clear all stubs";state.stubs=[];save();render();toast("All stubs cleared.")});
+function markBackup(){state.settings.lastBackup={at:todayISO,n:state.stubs.length};delete state.settings.bkSnooze;save();renderBackupNote()}
+function renderBackupNote(){const el=$("bkNote");if(!state.stubs.length){el.hidden=true;return}
+  const lb=state.settings.lastBackup,days=lb?Math.round((new Date(todayISO)-new Date(lb.at))/864e5):null,added=lb?state.stubs.length-lb.n:state.stubs.length;
+  const due=!lb||days>30||added>=4,snz=state.settings.bkSnooze&&state.settings.bkSnooze>todayISO;
+  el.hidden=!due||!!snz;if(el.hidden)return;
+  $("bkMsg").innerHTML=!lb?`<b>No backup saved yet.</b> Your ${state.stubs.length} stubs live only in this browser. Save a backup file so you don't lose them.`:
+    `<b>Time for a backup.</b> Last one was ${days===0?"today":days===1?"yesterday":days+" days ago"}${added>0?`, and ${added} stub${added===1?" has":"s have"} been added since`:""}.`}
+$("bkGo").addEventListener("click",()=>$("saveBackup").click());
+$("bkLater").addEventListener("click",()=>{const d=new Date(todayISO);d.setDate(d.getDate()+7);state.settings.bkSnooze=d.toISOString().slice(0,10);save();renderBackupNote()});
+$("saveBackup").addEventListener("click",async()=>{
+  if(!state.stubs.length){toast("No stubs to back up yet.",true);return}
+  const json=JSON.stringify({stubs:pureStubs(),settings:state.settings,savedAt:new Date().toISOString(),app:"Paycheck X-Ray"});
+  const name=`paycheck-xray-backup-${todayISO}.txt`;const yrs=[...new Set(state.stubs.map(s=>s.payDate.slice(0,4)))].sort();
+  const msg=`${state.stubs.length} stubs, ${yrs[0]}–${yrs[yrs.length-1]}`;
+  let file=null;try{file=new File([json],name,{type:"text/plain"})}catch(e){}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:"Paycheck X-Ray backup"});markBackup();toast(`Backup ready: ${name} (${msg}). Load it later with Choose text file.`);return}
+    catch(e){if(e&&e.name==="AbortError"){toast("Backup not saved.");return}}}
+  try{const url=URL.createObjectURL(new Blob([json],{type:"text/plain"}));const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);markBackup();
+    toast(`Saved ${name} (${msg}). Load it later with Choose text file.`)}
+  catch(e){toast("Couldn't save a file here. Use Copy backup instead.",true)}
+});
+$("copyBackup").addEventListener("click",()=>{const json=JSON.stringify({stubs:pureStubs(),settings:state.settings});markBackup();const out=$("backupOut");
+  const fallback=()=>{out.hidden=false;out.value=json;out.focus();out.select();toast("Select-all is ready. Copy this text and keep it somewhere safe.")};
+  try{navigator.clipboard.writeText(json).then(()=>{out.hidden=true;toast("Backup copied. Paste it into the box above to restore.")},fallback)}catch(e){fallback()}});
+$("m-cur").closest(".seg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;state.mode=b.dataset.mode;render()});
+$("yearSel").addEventListener("change",e=>{keepPos(()=>{state.year=Number(e.target.value);state.checkKey=null;render()})});
+const stepYear=d=>{const ys=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort((a,b)=>a-b);const n=ys[ys.indexOf(state.year)+d];if(n)keepPos(()=>{state.year=n;state.checkKey=null;render()})};
+$("yearPrev").addEventListener("click",()=>stepYear(-1));$("yearNext").addEventListener("click",()=>stepYear(1));
+/* keep the screen still: anchor on what's just under the pinned bar, re-render, then put it back at the same height */
+function keepPos(fn){
+  const bar=$("ctlBar"),top=bar?bar.getBoundingClientRect().bottom+8:80,x=Math.round(window.innerWidth/2);
+  let el=null;try{el=document.elementFromPoint?document.elementFromPoint(x,Math.min(top+40,(window.innerHeight||800)-1)):null}catch(e){}
+  const pick=e=>{while(e&&e!==document.body){if(e.id&&!e.closest("#ctlBar"))return e;if(e.matches&&e.matches("section.panel"))return e;e=e.parentElement}return null};
+  let a=pick(el);const y0=window.scrollY,t0=a?a.getBoundingClientRect().top:0;
+  try{fn()}finally{
+  if(a&&(!a.isConnected||!a.getClientRects().length))a=null;
+  try{if(a){const d=a.getBoundingClientRect().top-t0;if(Math.abs(d)>0.5)window.scrollTo(0,window.scrollY+d)}else if(window.scrollY!==y0)window.scrollTo(0,y0)}catch(e){}}
+}
+$("checkSel").addEventListener("change",e=>{keepPos(()=>{state.checkKey=e.target.value;render()})});
+const stepCheck=d=>{const ys=yearStubs(state.year);const i=ys.findIndex(x=>skey(x)===state.checkKey);const n=ys[i+d];if(n)keepPos(()=>{state.checkKey=skey(n);render()})};
+$("chkPrev").addEventListener("click",()=>stepCheck(-1));$("chkNext").addEventListener("click",()=>stepCheck(1));
+const pickDay=d=>{const ys=yearStubs(state.year);const s=ys.find(x=>x.payDate===d&&!isExtra(x))||ys.find(x=>x.payDate===d);if(!s)return;
+  state.checkKey=skey(s);state.mode="cur";render();const sec=document.querySelector('section[data-k="gross"]');if(sec){applyPanel(sec,true);setOpen("gross",true);sec.scrollIntoView({behavior:"smooth",block:"start"})}};
+const pickPill=p=>{if(p.dataset.key){state.checkKey=p.dataset.key;state.mode="cur";render();const sec=document.querySelector('section[data-k="gross"]');if(sec){applyPanel(sec,true);setOpen("gross",true);sec.scrollIntoView({behavior:"smooth",block:"start"})}}else pickDay(p.dataset.chk)};
+$("months").addEventListener("click",e=>{const p=e.target.closest("[data-chk],[data-key]");if(p)pickPill(p)});
+$("months").addEventListener("keydown",e=>{const p=e.target.closest("[data-chk],[data-key]");if(p&&(e.key==="Enter"||e.key===" ")){e.preventDefault();pickPill(p)}});
+function syncInputs(){$("age").value=state.settings.age;$("seProfit").value=state.settings.seProfit;$("otherInc").value=state.settings.otherInc;$("estPaid").value=state.settings.estPaid}
+const debounce=(fn,ms)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
+const keepFocus=fn=>{const el=document.activeElement,id=el&&el.id,ss=el&&el.selectionStart,se=el&&el.selectionEnd;fn();if(id){const n=$(id);if(n&&n!==document.activeElement){n.focus();try{n.setSelectionRange(ss,se)}catch(e){}}}};
+const renderSoon=debounce(()=>keepFocus(()=>keepPos(()=>render())),350);
+$("age").addEventListener("input",e=>{state.settings.age=Number(e.target.value)||0;state.settings.ageYear=state.year;save();renderSoon()});
+["seProfit","otherInc","estPaid"].forEach(k=>$(k).addEventListener("input",e=>{const t=state.settings.tax=state.settings.tax||{};t[state.year]=Object.assign({},taxIn(state.year),{[k]:Number(e.target.value)||0});save();renderSoon()}));
+
+state.tab=["year","all","plan","stubs"].includes(ui.tab)?ui.tab:(isOpen("view")?"all":"year");state.view=state.tab==="all"?"all":"year";state.real=isOpen("real");state.yg=typeof ui.yg==="string"?ui.yg:"pay";
+window.__applyTheme&&window.__applyTheme();initPanels();
+document.querySelectorAll("#yoyView .tbl-wrap").forEach((w,i)=>{const sec=w.closest("section.panel");if(!sec||sec.dataset.k==="yoyTbl")return;
+  const t=w.querySelector("table"),key="tbl."+(t&&t.id||i);const b=document.createElement("button");b.type="button";b.className="tblbtn";
+  const set=open=>{w.classList.toggle("tbl-off",!open);b.textContent=open?"Hide table ▴":"Show table ▾";b.setAttribute("aria-expanded",String(open))};
+  set(!!ui[key]);b.addEventListener("click",()=>{const open=w.classList.contains("tbl-off");set(open);setOpen(key,open)});w.before(b)});
+load();syncInputs();render();
+window.__pxr={parseText,model,breakdown};
+window.PXR={getStubs:()=>state.stubs,addStubs,skey,isExtra,fmt,nice,esc,openAdd:()=>{if(state.tab!=="stubs")setTab("stubs");const sec=document.querySelector('section[data-k="add"]');if(sec){applyPanel(sec,true);setOpen("add",true)}}};
+})();

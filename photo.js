@@ -1,7 +1,9 @@
 /* Paycheck X-Ray: read a stub photo on the device, then let the person review before saving. */
 (function () {
   "use strict";
-  const TESS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+  const TESS = "lib/tesseract/tesseract.min.js";
+  /* text reader, its engine and the English data all come from this site (lib/tesseract), never from outside */
+  const abs = p => new URL(p, location.href).href;
   const SECS = ["earnings", "taxable", "memo", "pretax", "posttax", "taxes"];
   const SEC_NAME = { earnings: "Earnings", taxable: "Taxable benefits", memo: "Employer paid", pretax: "Pre-tax deductions", posttax: "After-tax deductions", taxes: "Taxes" };
   const $ = id => document.getElementById(id);
@@ -14,7 +16,7 @@
     if (!tessReady) tessReady = loadScript(TESS);
     await tessReady;
     if (!worker) {
-      worker = await window.Tesseract.createWorker("eng", 1, { logger: m => { if (m.status === "recognizing text") onProg(0.25 + m.progress * 0.75, "Reading the numbers"); else if (/load|init/i.test(m.status)) onProg(0.1 + (m.progress || 0) * 0.15, "Getting the text reader ready"); } });
+      worker = await window.Tesseract.createWorker("eng", 1, { workerPath: abs("lib/tesseract/worker.min.js"), corePath: abs("lib/tesseract/core"), langPath: abs("lib/tesseract/lang"), workerBlobURL: false, logger: m => { if (m.status === "recognizing text") onProg(0.25 + m.progress * 0.75, "Reading the numbers"); else if (/load|init/i.test(m.status)) onProg(0.1 + (m.progress || 0) * 0.15, "Getting the text reader ready"); } });
       await worker.setParameters({ tessedit_pageseg_mode: "11", preserve_interword_spaces: "1" });
     }
     return worker;

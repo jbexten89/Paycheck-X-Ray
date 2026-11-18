@@ -1,6 +1,7 @@
 // Offline cache for the app shell. Pay data never passes through here; it lives in the browser's localStorage.
-const CACHE = "pxr-v119";
-const SHELL = ["./", "index.html", "ocr.js", "photo.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
+const CACHE = "pxr-v120";
+const SHELL = ["./", "index.html", "head.js", "app.js", "ocr.js", "photo.js", "layout.js", "sw-register.js", "lib/fonts/nunito-sans-latin-opsz-normal.woff2", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
+// The PDF and photo libraries in lib/ are saved the first time they are used.
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" }))))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
@@ -12,7 +13,7 @@ const timeout = (ms, p) => new Promise((ok, no) => { const t = setTimeout(() => 
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
-  // Outside libraries (PDF reader, PDF maker, text recognition) go straight to the network.
+  // Nothing should load from other sites (the page forbids it); leave any such request alone.
   if (new URL(req.url).origin !== location.origin) return;
   // Network first so updates show up. On a weak signal, don't wait more than 3 seconds before opening the saved copy.
   const net = fetch(req).then(r => {
