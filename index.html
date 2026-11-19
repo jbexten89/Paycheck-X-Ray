@@ -419,13 +419,13 @@ header.top{padding-top:18px}
 /* header: mark, title and subtitle on the left, square icon buttons on the right */
 header.top{align-items:center;flex-wrap:nowrap}
 .top .brand{display:flex;align-items:center;gap:12px;min-width:0}
-.top .mark{width:40px;height:40px;flex:none;--mk-doc:#151a22;--mk-edge:#6b7480}
+.top .mark{width:30px;height:30px;flex:none;--mk-doc:#151a22;--mk-edge:#6b7480}
 html.light .top .mark{--mk-doc:#ffffff;--mk-edge:#8a929c}
-.top h1{font-size:clamp(24px,6.4vw,30px);font-weight:700;letter-spacing:-.01em;line-height:1.1;white-space:nowrap}
-.top .sub{font-size:clamp(13px,3.6vw,15px);color:var(--muted);line-height:1.3;margin-top:2px}
+.top h1{font-size:21px;font-weight:600;letter-spacing:0;line-height:1.2;white-space:nowrap}
+.top .sub{font-size:13px;color:var(--muted);line-height:1.3;margin-top:1px}
 .hdrbtns{gap:10px;flex:none}
-.hdrbtns .themebtn{width:44px;height:44px;padding:0;justify-content:center;border-radius:12px;background:var(--surface);color:var(--muted);box-sizing:border-box}
-.hdrbtns .themebtn svg{width:21px;height:21px}
+.hdrbtns .themebtn{width:36px;height:36px;padding:0;justify-content:center;border-radius:11px;background:var(--surface);color:var(--muted);box-sizing:border-box}
+.hdrbtns .themebtn svg{width:18px;height:18px}
 .hdrbtns .themebtn.on{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 /* sticky header: stays under the status bar, compacts once you scroll */
 /* controls bar pins just below the status bar; the title above it scrolls away */
@@ -463,7 +463,7 @@ tr.top35>td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
   .themebtn,.jchip,.btn.small,.tog,.pd,.seg button,.er-tog,.tblbtn,.bd-row.grp.can{position:relative}
   .themebtn::before,.jchip::before,.btn.small::before,.tog::before,.seg button::before,.er-tog::before,.tblbtn::before{content:"";position:absolute;inset:-6px -3px}
   .pd::before{content:"";position:absolute;inset:-10px -2px}
-  #hideBtn::before{inset:-6px}
+  .hdrbtns .themebtn::before{inset:-5px}
   .ye input[type=checkbox]{width:24px;height:24px}
 }
 .updbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:400;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--accent);box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:14px;white-space:nowrap}
@@ -474,7 +474,7 @@ html:not(.rpt) body{padding:28px 40px 56px calc(272px + 40px)}
 html:not(.rpt) .wrap{max-width:1240px}
 html:not(.rpt) .side{display:flex;flex-direction:column;gap:18px;position:fixed;top:0;left:0;bottom:0;width:272px;box-sizing:border-box;padding:28px 20px 20px;border-right:1px solid var(--line);background:var(--surface);overflow-y:auto;z-index:80;scrollbar-width:thin}
 html:not(.rpt) .side header.top{flex-direction:column;align-items:flex-start;gap:12px;order:1}
-html:not(.rpt) .side h1{font-size:22px}html:not(.rpt) .side .top .mark{width:34px;height:34px}html:not(.rpt) .side .top .sub{font-size:12.5px}
+html:not(.rpt) .side h1{font-size:21px}html:not(.rpt) .side .top .mark{width:30px;height:30px}html:not(.rpt) .side .top .sub{font-size:13px}
 html:not(.rpt) .side .hdrbtns{align-self:flex-start}
 html:not(.rpt) .side .tabbar{order:2;position:static;display:flex;flex-direction:column;gap:2px;background:none;border:0;padding:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
 html:not(.rpt) .side .tabbar button{flex-direction:row;gap:12px;padding:9px 12px;border-radius:10px;font-size:14.5px}
