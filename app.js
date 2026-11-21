@@ -1589,8 +1589,15 @@ function renderYoy(){
         `Wage-indexed = that year's Social Security wages raised to ${AWI_Y} wage levels, which is how Social Security ranks them.`+(SP.hasAge?"":" Set your age in Plan to include future working years.")+
         (hasRec?"":" Add your SSA record to include years before your stubs.")+`</p>`}
     {const t=$("tbEarn");t.querySelectorAll("tbody tr").forEach(tr=>{const c=[...tr.cells].find(x=>x.textContent==="Check this");if(c)c.classList.add("warn")})}
-    {const old=Object.keys(REC).map(Number).filter(y=>y<rows[0].y).sort((a,b)=>b-a);
-      $("ssaOld").innerHTML=old.length?`<div class="er-head" style="margin-top:14px"><h3>Before your stubs</h3><span class="bd-sub" style="margin:0">${fmt0(old.reduce((a,y)=>a+REC[y][0],0))} over ${old.length} years</span></div><div class="tbl-wrap"><table><thead><tr><th>Year</th><th class="n">Wage-indexed</th><th class="n">SS wages</th><th class="n">Medicare wages</th></tr></thead><tbody>${old.map(y=>`<tr${used.has(y)?' class="top35"':""}><td>${y}</td><td class="n">${fmt0(ixv(y))}</td><td class="n">${fmt0(REC[y][0])}</td><td class="n">${fmt0(REC[y][1]!=null?REC[y][1]:REC[y][0])}</td></tr>`).join("")}</tbody></table></div>`:""}
+    /* every year of earnings in one list: the SSA record where entered, otherwise stubs (box 3 / box 5 plus business profit) */
+    {const cur=+todayISO.slice(0,4),all=[...new Set([...Object.keys(REC),...Object.keys(SP.E)].map(Number))].filter(y=>(SP.E[y]&&SP.E[y].v>0)||REC[y]).sort((a,b)=>b-a);
+      const medOf=y=>{if(REC[y])return REC[y][1]!=null?REC[y][1]:REC[y][0];if(!yearStubs(y).length)return null;const m=model(y),se=+taxIn(y).seProfit||0;
+        return m.val(i=>i.sec==="earnings"||i.sec==="taxable","proj")-m.val(isSec125,"proj")+(se>=400?se*.9235:0)};
+      const ssOf=y=>SP.E[y]?SP.E[y].v:REC[y][0],tag=y=>REC[y]?"":SP.E[y]&&SP.E[y].proj&&y>=cur?' <small class="muted">so far</small>':' <small class="muted">stubs</small>';
+      const inTop=all.filter(y=>used.has(y)).length,sum=all.reduce((a,y)=>a+ssOf(y),0);
+      $("ssaOld").innerHTML=all.length?`<div class="er-head" style="margin-top:14px"><h3>Every year</h3><span class="bd-sub" style="margin:0">${fmt0(sum)} over ${all.length} years · ${inTop} in your top 35</span></div>
+        <div class="tbl-wrap"><table class="everyyr"><thead><tr><th>Year</th><th class="n">Indexed</th><th class="n">SS wages</th><th class="n">Medicare</th></tr></thead><tbody>${all.map(y=>`<tr${used.has(y)?' class="top35"':""}><td>${y}${tag(y)}</td><td class="n">${fmt0(ixv(y))}</td><td class="n">${fmt0(ssOf(y))}</td><td class="n">${medOf(y)==null?"—":fmt0(medOf(y))}</td></tr>`).join("")}</tbody></table></div>
+        <p class="note" style="margin:6px 0 0">From your SSA record where you've entered it; years marked "stubs" come from your pay stubs (W-2 box 3 and 5, plus business profit)${hasRec?"":". Add your SSA record below to fill in the years before your stubs"}. Highlighted rows are the 35 years your benefit is figured from.</p>`:""}
     {const P=(state.settings.ssa||{}).paid||{},has=["youSS","erSS","youMd","erMd"].some(k=>P[k]>0);
       $("ssaPaid").innerHTML=has?`<div class="er-head" style="margin-top:14px"><h3>Lifetime taxes paid in, per SSA</h3></div><div class="statline">
         <div class="stat"><small>Social Security</small><b>${fmt0((P.youSS||0)+(P.erSS||0))}</b><small>${fmt0(P.youSS||0)} you + ${fmt0(P.erSS||0)} employers</small></div>
