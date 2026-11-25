@@ -2039,13 +2039,13 @@ function renderSide(m,y){
   $("qeSeg").addEventListener("click",e=>{const b=e.target.closest("[data-qe]");if(!b)return;state.settings.qe=b.dataset.qe==="1";save();keepPos(()=>render())})}
 
 /* ---------- Bonus history: target bonus opportunity, payout %, and the check it was paid on ---------- */
-/* years 2020 and earlier without entered figures: target = 7.5% of base when the year's gross pay is under $100,000, 10% otherwise;
+/* years 2020 and earlier without entered figures: target = 7.5% of base when the year's base pay is under $100,000, 10% otherwise;
    base = pay without bonus or overtime; a bonus paid January-June counts toward the year before (paid in arrears), July-December toward its own year */
 const VCP_AUTO_LAST=2020;
 function vcpAuto(V){const pays=[];state.stubs.forEach(s=>s.items.forEach(i=>{if(isBonusE(i)&&(+i.cur||0)>0.005){const y=+s.payDate.slice(0,4),mo=+s.payDate.slice(5,7);pays.push({py:mo<=6?y-1:y,d:s.payDate,v:+i.cur})}}));
   const ys=[...new Set(state.stubs.map(s=>+s.payDate.slice(0,4)))].filter(y=>y<=VCP_AUTO_LAST&&!V[y]);
   return ys.map(y=>{const m=model(y);if(m.partial)return null;const gross=m.val(i=>i.sec==="earnings","ytd"),base=m.val(i=>i.sec==="earnings"&&!isBonusE(i)&&!isOTe(i),"ytd");
-    const tPct=gross<100000?7.5:10,tgt=base*tPct/100,mine=pays.filter(p=>p.py===y),main=mine.reduce((a,p)=>!a||p.v>a.v?p:a,null),other=mine.filter(p=>p!==main).reduce((a,p)=>a+p.v,0);
+    const tPct=base<100000?7.5:10,tgt=base*tPct/100,mine=pays.filter(p=>p.py===y),main=mine.reduce((a,p)=>!a||p.v>a.v?p:a,null),other=mine.filter(p=>p!==main).reduce((a,p)=>a+p.v,0);
     const amt=main?main.v:0;return{y,base,gross,tPct,tgt,pay:tgt>0?Math.round(amt/tgt*1000)/10:0,amt,paid:main?main.v:null,paidOn:main?main.d:null,other,auto:true}}).filter(Boolean)}
 const vpct=p=>Number.isInteger(p)?String(p):p.toFixed(1);
 function vcpRows(){const V=state.settings.vcp||{};return vcpAuto(V).concat(Object.keys(V).map(Number).sort((a,b)=>a-b).map(y=>{const v=V[y],base=+v.base||0,tgt=v.tPct!=null?base*v.tPct/100:+v.tAmt||0,amt=tgt*(+v.pay||0)/100;
@@ -2066,9 +2066,9 @@ function renderVcp(){
     `<div class="legend-row" style="margin:0"><span>${sw("",1)} Target</span><span>${sw("var(--good,#3CC79A)")} At or over target</span><span>${sw("var(--accent)")} Under target</span></div>`;
   /* four columns so it fits a phone: base sits under the target, the paid date and other bonuses under the amount */
   $("vcpTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Target</th><th class="n">Payout</th><th class="n">Bonus</th></tr></thead><tbody>`+
-    [...R].reverse().map(r=>`<tr><td>${r.y}</td><td class="n">${fmt(r.tgt)}<small>${r.tPct!=null?`${r.tPct}% of ${fmt(r.base)}`:"fixed"}${r.auto?`<br>gross ${r.gross<100000?"under":"over"} $100k`:""}</small></td><td class="n">${vpct(r.pay)}%${r.auto?"*":""}</td><td class="n">${fmt(r.paid!=null?r.paid:r.amt)}<small>${r.paidOn?"paid "+nice(r.paidOn)+(r.paidOn.slice(0,4)!==String(r.y)?", "+r.paidOn.slice(0,4):""):r.auto?"no bonus":r.y>=cur?"upcoming":"no stub"}${r.other>0.5?`<br>+${fmt(r.other)} other`:""}</small></td></tr>`).join("")+`</tbody>`;
+    [...R].reverse().map(r=>`<tr><td>${r.y}</td><td class="n">${fmt(r.tgt)}<small>${r.tPct!=null?`${r.tPct}% of ${fmt(r.base)}`:"fixed"}${r.auto?`<br>base ${r.base<100000?"under":"over"} $100k`:""}</small></td><td class="n">${vpct(r.pay)}%${r.auto?"*":""}</td><td class="n">${fmt(r.paid!=null?r.paid:r.amt)}<small>${r.paidOn?"paid "+nice(r.paidOn)+(r.paidOn.slice(0,4)!==String(r.y)?", "+r.paidOn.slice(0,4):""):r.auto?"no bonus":r.y>=cur?"upcoming":"no stub"}${r.other>0.5?`<br>+${fmt(r.other)} other`:""}</small></td></tr>`).join("")+`</tbody>`;
     const nA=R.filter(r=>r.auto).length;
-  $("vcpNote").textContent=(nA?`*${VCP_AUTO_LAST} and earlier are worked out from your stubs: target is 7.5% of base pay (pay without bonus or overtime) when that year's gross pay was under $100,000, 10% when it was $100,000 or more, and payout % = the bonus paid ÷ that target. Bonuses paid January–June count toward the year before. Enter a year below to replace its estimate. `:"")+`Bonus = target × payout %. A target written as a percent is that share of the year's bonus-eligible base. "Paid" is the check where your stubs show that amount; other bonuses that year are listed separately and don't count toward the payout.`+
+  $("vcpNote").textContent=(nA?`*${VCP_AUTO_LAST} and earlier are worked out from your stubs: target is 7.5% of base pay (pay without bonus or overtime) when that base was under $100,000, 10% when it was $100,000 or more, and payout % = the bonus paid ÷ that target. Bonuses paid January–June count toward the year before. Enter a year below to replace its estimate. `:"")+`Bonus = target × payout %. A target written as a percent is that share of the year's bonus-eligible base. "Paid" is the check where your stubs show that amount; other bonuses that year are listed separately and don't count toward the payout.`+
     (T?` Typical bonus for estimates: ${fmt(T.tgt)} target × ${Math.round(T.avg)}% (average payout over the ${T.n} ${T.fixed?"fixed-target":"percent-of-base"} year${T.n>1?"s":""}) = ${fmt(T.amt)}. Paychecks to retirement, Last year and SS benefit use it unless you type your own bonus in Paychecks to retirement.`:"");
   setSum("yoyVcp",`<strong>${vpct(last.pay)}%</strong> payout in ${last.y} · ${Math.round(avg)}% average`)}
 $("vcpSave").addEventListener("click",()=>{const V={};let n=0;
