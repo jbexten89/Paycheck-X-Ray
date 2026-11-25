@@ -451,6 +451,10 @@ html{touch-action:manipulation}
 #ohTbl tr.ohr td,#seTbl tr.ohr td{border-bottom:0;padding-bottom:2px}#ohTbl tr.ohd td,#seTbl tr.ohd td{padding-top:0;font-size:12.5px;color:var(--muted)}#ohTbl th:first-child{text-transform:none}
 .seShow{display:flex;align-items:center;min-height:40px;font-family:var(--f-num);font-weight:600;color:var(--ink)}
 #seQe p{margin:8px 0 0;line-height:1.45}
+.vcpbars{display:grid;gap:10px;margin:6px 0 12px}.vcpbars .r{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;font-size:13.5px}
+.vcpbars .tr{position:relative;height:18px}.vcpbars .t{position:absolute;left:0;top:0;bottom:0;border:1.5px dashed var(--muted);border-radius:5px;box-sizing:border-box}
+.vcpbars .p{position:absolute;left:0;top:4px;bottom:4px;border-radius:4px;background:var(--accent)}.vcpbars .p.up{background:var(--good,#3CC79A)}.vcpbars .p.fut{opacity:.45}
+.vcpbars .v{font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted)}.vcpbars .v b{color:var(--ink);font-weight:600}
 .sbbon{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0 6px;font-size:14px}
 .sbhow{margin:10px 0}.sbhow>summary{color:var(--accent);font-weight:600;cursor:pointer;padding:8px 0}
 .sbhow table td:first-child{white-space:nowrap}.sbhow table td.f{color:var(--muted);font-size:13px}.sbhow h3{font-size:14px;margin:14px 0 4px}.sbhow h3:first-child{margin-top:4px}
@@ -592,6 +596,18 @@ html:not(.rpt) .panel>.phead,html:not(.rpt) summary{cursor:pointer}
       <div class="panel-head"><h2>Per hour</h2></div>
       <div class="chart" id="yoyHour"></div><div class="legend-row" id="yoyHourLeg"></div><p class="yd" id="yoyHourD"></p>
       <div class="tbl-wrap"><table class="yt ytab" id="tbHour"></table></div>
+    </section>
+    <section class="panel" data-k="yoyVcp" style="grid-column:1/-1">
+      <div class="panel-head"><h2>Bonus history</h2></div>
+      <div class="statline" id="vcpStats"></div>
+      <div class="vcpbars" id="vcpBars"></div>
+      <div class="tbl-wrap"><table id="vcpTbl"></table></div>
+      <p class="note" id="vcpNote" style="margin:6px 0 0"></p>
+      <details class="ohbox" id="vcpBox"><summary>Edit bonus history</summary>
+        <p class="note" style="margin:6px 0">One year per line: year, bonus-eligible base, target, payout %. Write the target as a percent of base (10%) or a dollar amount (12000).</p>
+        <textarea id="vcpIn" rows="7" placeholder="2025 100000 12000 100&#10;2020 90000 10% 100"></textarea>
+        <button type="button" class="btn small" id="vcpSave" style="margin-top:8px">Save</button>
+      </details>
     </section>
     <section class="panel" data-k="yoyBal">
       <div class="panel-head"><h2>Account balances</h2></div>

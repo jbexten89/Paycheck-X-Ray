@@ -1011,7 +1011,7 @@ function renderRetire(){
   const recentR=ev.raises.slice(-5),avgR=recentR.length?recentR.reduce((a,r)=>a+r.pct,0)/recentR.length*100:3;
   const raise=w.raise!=null?+w.raise:Math.round(avgR*2)/2;
   const bRows=ys.filter(y=>y<+todayISO.slice(0,4)).slice(-3).map(y=>yoyRow(y)).filter(Boolean),avgB=bRows.length?bRows.reduce((a,r)=>a+r.full.bonus,0)/bRows.length:0;
-  const bonus=w.bonus!=null?+w.bonus:Math.round(avgB/500)*500;
+  const bonus=w.bonus!=null?+w.bonus:vcpTypical()?typicalBonus():Math.round(avgB/500)*500;
   [["rtAge",rAge],["rtRaise",raise],["rtBonus",bonus]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
   if(document.activeElement!==$("rtDate"))$("rtDate").value=end;
   const per=annualBase(s)/(isSemi(s)?24:26),sum=p=>s.items.filter(p).reduce((a,i)=>a+(+i.cur||0),0);
@@ -1117,7 +1117,7 @@ $("sdPdf").addEventListener("click",e=>{e.preventDefault();savePdf()});
   window.__fillBal=fill;}
 {const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   EYEX='<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.7 8.5 2 12 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
-  const MONEY_IN=["sbEarn","rtBonus","beAmt","wiH","wiX","wiMed","wiDen","wiVis","seInc","seExp","otherInc","estPaid","ssaYouSS","ssaErSS","ssaYouMd","ssaErMd","ohUtIn","ssaIn","balIn","pasteBox"];
+  const MONEY_IN=["sbEarn","rtBonus","beAmt","wiH","wiX","wiMed","wiDen","wiVis","seInc","seExp","otherInc","estPaid","ssaYouSS","ssaErSS","ssaYouMd","ssaErMd","ohUtIn","ssaIn","balIn","vcpIn","pasteBox"];
   MONEY_IN.forEach(id=>{const e=$(id);if(e)e.classList.add("money")});
   const show=()=>{document.documentElement.classList.toggle("hide",HIDE);const b=$("hideBtn");b.innerHTML=HIDE?EYEX:EYE;b.classList.toggle("on",HIDE);b.setAttribute("aria-pressed",String(HIDE));b.setAttribute("aria-label",HIDE?"Dollar amounts hidden. Tap to show.":"Hide dollar amounts")};
   show();$("hideBtn").addEventListener("click",()=>{HIDE=!HIDE;setOpen("hide",HIDE);show();keepPos(()=>render());toast(HIDE?"Dollar amounts hidden":"Dollar amounts shown")});}
@@ -1156,7 +1156,7 @@ function ssPlan(){
     return{A,pia:piaOf(A),n:list.filter(x=>x.v>0).length,top}};
   return{E,cur,born,last,fut,base,idx,calc,hasAge:!!age,bmode,typB,noBonus,custom}}
 /* typical yearly bonus: the Paychecks to retirement setting, or the average of the last 3 full years */
-function typicalBonus(){const w=state.settings.rt||{};if(w.bonus!=null)return +w.bonus;
+function typicalBonus(){const w=state.settings.rt||{};if(w.bonus!=null)return +w.bonus;const T=vcpTypical();if(T)return Math.round(T.amt/500)*500;
   const ys=[...new Set(state.stubs.map(x=>+x.payDate.slice(0,4)))].sort((a,b)=>a-b).filter(y=>y<+todayISO.slice(0,4)).slice(-3),rows=ys.map(y=>yoyRow(y)).filter(Boolean);
   return rows.length?Math.round(rows.reduce((a,r)=>a+r.full.bonus,0)/rows.length/500)*500:0}
 function renderSsBen(){
@@ -1166,7 +1166,7 @@ function renderSsBen(){
   const{E,cur,last,fut,base,idx,calc,bmode,typB,noBonus,custom}=ssPlan();
   $("sbBon").querySelectorAll("[data-bm]").forEach(b=>b.setAttribute("aria-pressed",String(!custom&&b.dataset.bm===bmode)));
   $("sbBonNote").textContent=custom?`Using the ${fmt0(fut)} you typed. Pick a choice above to go back to the automatic amount.`:
-    `${fmt0(noBonus)} without a bonus${typB?` + ${bmode==="every"?`a ${fmt0(typB)} bonus`:bmode==="some"?`half of a ${fmt0(typB)} bonus (${fmt0(typB/2)})`:"no bonus"}`:""} = ${fmt0(fut)} a year. The typical bonus comes from Paychecks to retirement${(state.settings.rt||{}).bonus!=null?"":" (your average over the last 3 years)"}.`;
+    `${fmt0(noBonus)} without a bonus${typB?` + ${bmode==="every"?`a ${fmt0(typB)} bonus`:bmode==="some"?`half of a ${fmt0(typB)} bonus (${fmt0(typB/2)})`:"no bonus"}`:""} = ${fmt0(fut)} a year. The typical bonus comes from ${(state.settings.rt||{}).bonus!=null?"Paychecks to retirement":vcpTypical()?"your bonus history (All years → Pay → Bonus)":"Paychecks to retirement (your average over the last 3 years)"}.`;
   [["sbLast",last],["sbEarn",fut]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
   const R=calc(last),R0=calc(Math.min(last,cur)),add=Math.floor(R.pia)-Math.floor(R0.pia);
   const at=mo=>{const d=mo-fraM;const f=d<0?(-d<=36?1+d*5/900:1-0.2-(-d-36)*5/1200):1+Math.min(d,70*12-fraM)*(2/3)/100;return Math.floor(R.pia*f)};
@@ -1388,7 +1388,8 @@ function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows]
 const legend=items=>items.map(([c,l,cls])=>`<span><i class="sw${cls?" "+cls:""}" style="background:var(${c})"></i>${l}</span>`).join("");
 const openBtn=y=>` <button class="linkbtn" data-open="${y}">Open ${y} →</button>`;
 
-function renderYoy(){
+function renderYoy(){renderYoyCore();renderVcp()}
+function renderYoyCore(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort((a,b)=>a-b);
   const rows=years.map(yoyRow).filter(Boolean);if(!rows.length)return;
   const ev=yoyEvents();yoyCache={rows,ev};
@@ -1728,10 +1729,10 @@ let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout((
 /* ---------- main render ---------- */
 /* ---------- jump to sections ---------- */
 const JUMP_NAMES={home:"At a glance",side:"Side business",ohtax:"Ohio & local",changes:"What changed",lastyr:"Last year",yearend:"Year-end",cal:"Calendar",gross:"Where it went",checks:"Stub checks",w2:"W-2",tax:"Withholding",savings:"Savings",whatif:"What if",bonusEst:"Bonus",nextyr:"Next year",retire:"Retirement",ssben:"SS benefit",sscap:"SS cap",add:"Add stubs",
-  yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",
+  yoyTop:"Summary",yoyRec:"Records",yoyGross:"Pay split",yoyComp:"Total comp",yoyRate:"Base pay",yoyTax:"Tax rates",yoyTfd:"Tax Freedom Day",yoyHour:"Per hour",yoyVcp:"Bonus",
   yoy401:"401(k)",yoySave:"Savings rate",yoyBal:"Balances",yoyHealth:"Health",yoyExtra:"Bonuses",yoyObl:"Loans & support",yoyPto:"Time off",yoyEarn:"SS record",yoyTbl:"Every year"};
 let jumpList=[];
-const YGROUPS=[["pay","Pay",["yoyTop","yoyRec","yoyGross","yoyComp","yoyRate","yoyHour"]],["tax","Taxes",["yoyTax","yoyTfd","yoyEarn"]],
+const YGROUPS=[["pay","Pay",["yoyTop","yoyRec","yoyGross","yoyComp","yoyRate","yoyHour","yoyVcp"]],["tax","Taxes",["yoyTax","yoyTfd","yoyEarn"]],
   ["save","Savings",["yoySave","yoyBal","yoy401","yoyHealth"]],["extra","Extras",["yoyExtra","yoyObl","yoyPto"]],["table","Table",["yoyTbl"]]];
 const ygOf=k=>(YGROUPS.find(g=>g[2].includes(k))||YGROUPS[0])[0];
 function applyGroup(){const g=YGROUPS.some(x=>x[0]===state.yg)?state.yg:"pay";
@@ -1911,7 +1912,7 @@ function renderLastYr(){
   const rAge=w.age!=null?+w.age:65,end=w.date||`${born+rAge}-12-31`,L=+end.slice(0,4);
   const recentR=ev.raises.slice(-5),avgR=recentR.length?recentR.reduce((a,r)=>a+r.pct,0)/recentR.length*100:3,raise=(w.raise!=null?+w.raise:Math.round(avgR*2)/2)/100;
   const bRows=ys.filter(y=>y<+todayISO.slice(0,4)).slice(-3).map(y=>yoyRow(y)).filter(Boolean),avgB=bRows.length?bRows.reduce((a,r)=>a+r.full.bonus,0)/bRows.length:0;
-  const bonusY=w.bonus!=null?+w.bonus:Math.round(avgB/500)*500,grow=Math.pow(1+raise,Math.max(0,L-Y0));
+  const bonusY=w.bonus!=null?+w.bonus:vcpTypical()?typicalBonus():Math.round(avgB/500)*500,grow=Math.pow(1+raise,Math.max(0,L-Y0));
   const lbk=state.stubs.filter(x=>isBonusCheck(x)).map(x=>x.payDate).sort().pop(),bmd=lbk?lbk.slice(5):"11-20",bonusDate=`${L}-${bmd}`;
   const bonusDef=end>=bonusDate?Math.round(bonusY*grow/100)*100:0,bonus=ly.bonus!=null?+ly.bonus:bonusDef,ptoH=ly.pto!=null?+ly.pto:0;
   [["lyPto",ptoH],["lyBonus",bonus]].forEach(([id,v])=>{const el=$(id);if(document.activeElement!==el)el.value=String(v)});
@@ -2036,6 +2037,33 @@ function renderSide(m,y){
     const inc=cur.seInc!=null?+cur.seInc:0,exp=+cur.seExp||0;cur.seProfit=Math.max(0,inc-exp);t[state.year]=cur;save();keepPos(()=>render())};
   $("seInc").addEventListener("change",e=>seSet("seInc",e.target.value));$("seExp").addEventListener("change",e=>seSet("seExp",e.target.value));
   $("qeSeg").addEventListener("click",e=>{const b=e.target.closest("[data-qe]");if(!b)return;state.settings.qe=b.dataset.qe==="1";save();keepPos(()=>render())})}
+
+/* ---------- Bonus history: target bonus opportunity, payout %, and the check it was paid on ---------- */
+function vcpRows(){const V=state.settings.vcp||{};return Object.keys(V).map(Number).sort((a,b)=>a-b).map(y=>{const v=V[y],base=+v.base||0,tgt=v.tPct!=null?base*v.tPct/100:+v.tAmt||0,amt=tgt*(+v.pay||0)/100;
+  const bs=yearStubs(y).flatMap(s=>s.items.filter(i=>isBonusE(i)&&(+i.cur||0)>0.005).map(i=>({d:s.payDate,v:+i.cur})));
+  const hit=bs.find(b=>Math.abs(b.v-amt)<=Math.max(1,amt*0.002)),other=bs.filter(b=>b!==hit).reduce((a,b)=>a+b.v,0);
+  return{y,base,tPct:v.tPct,tAmt:v.tAmt,tgt,pay:+v.pay||0,amt,paidOn:hit?hit.d:null,other}})}
+/* typical bonus: latest target x average payout over the years with the same kind of target (fixed $ or % of base) as the latest */
+function vcpTypical(){const R=vcpRows().filter(r=>r.tgt>0);if(!R.length)return null;const last=R[R.length-1],same=R.filter(r=>(r.tPct!=null)===(last.tPct!=null)),avg=same.reduce((a,r)=>a+r.pay,0)/same.length;return{tgt:last.tgt,avg,amt:last.tgt*avg/100,n:same.length,fixed:last.tPct==null}}
+function renderVcp(){
+  const R=vcpRows(),cur=+todayISO.slice(0,4);
+  {const el=$("vcpIn");if(document.activeElement!==el){const V=state.settings.vcp||{};el.value=Object.keys(V).sort().reverse().map(y=>{const v=V[y];return`${y} ${v.base} ${v.tPct!=null?v.tPct+"%":v.tAmt} ${v.pay}`}).join("\n")}}
+  if(!R.length){$("vcpStats").innerHTML="";$("vcpBars").innerHTML="";$("vcpTbl").innerHTML="";$("vcpNote").textContent="Add each year's bonus-eligible base, target bonus and payout % below to compare what you were paid with your target.";$("vcpBox").open=true;setSum("yoyVcp","Add your bonus history");return}
+  const avg=R.reduce((a,r)=>a+r.pay,0)/R.length,last=R[R.length-1],best=R.reduce((a,r)=>r.pay>a.pay?r:a,R[0]),T=vcpTypical();
+  $("vcpStats").innerHTML=`<div class="stat"><small>${last.y} payout</small><b>${last.pay}%</b><small>${fmt0(last.amt)} on a ${fmt0(last.tgt)} target</small></div>`+
+    `<div class="stat"><small>Average payout</small><b>${Math.round(avg)}%</b><small>${R.length} years · best ${best.pay}% in ${best.y}</small></div>`;
+  const mx=Math.max(...R.map(r=>Math.max(r.tgt,r.amt)))||1,sw=(c,dash)=>`<i style="display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:-1px;${dash?"border:1.5px dashed var(--muted)":"background:"+c}"></i>`;
+  $("vcpBars").innerHTML=[...R].reverse().map(r=>{const fut=!r.paidOn&&r.y>=cur;return`<div class="r"><span>${r.y}</span><div class="tr" title="Target ${fmt0(r.tgt)}, paid ${fmt0(r.amt)}"><div class="t" style="width:${r.tgt/mx*100}%"></div><div class="p ${r.pay>=100?"up":""} ${fut?"fut":""}" style="width:${r.amt/mx*100}%"></div></div><span class="v"><b>${fmt0(r.amt)}</b> · ${r.pay}%</span></div>`}).join("")+
+    `<div class="legend-row" style="margin:0"><span>${sw("",1)} Target</span><span>${sw("var(--good,#3CC79A)")} At or over target</span><span>${sw("var(--accent)")} Under target</span></div>`;
+  $("vcpTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Base</th><th class="n">Target</th><th class="n">Payout</th><th class="n">Bonus</th><th>Paid</th></tr></thead><tbody>`+
+    [...R].reverse().map(r=>`<tr><td>${r.y}</td><td class="n">${fmt0(r.base)}</td><td class="n">${fmt0(r.tgt)}<br><small class="muted">${r.tPct!=null?r.tPct+"% of base":"fixed"}</small></td><td class="n">${r.pay}%</td><td class="n">${fmt(r.amt)}</td><td>${r.paidOn?nice(r.paidOn):r.y>=cur?"upcoming":'<span class="muted">no stub</span>'}${r.other>0.5?`<br><small class="muted">+ ${fmt0(r.other)} other bonus</small>`:""}</td></tr>`).join("")+`</tbody>`;
+    $("vcpNote").textContent=`Bonus = target × payout %. A target written as a percent is that share of the year's bonus-eligible base. "Paid" is the check where your stubs show that amount; other bonuses that year are listed separately and don't count toward the payout.`+
+    (T?` Typical bonus for estimates: ${fmt0(T.tgt)} target × ${Math.round(T.avg)}% (average payout over the ${T.n} ${T.fixed?"fixed-target":"percent-of-base"} year${T.n>1?"s":""}) = ${fmt0(T.amt)}. Paychecks to retirement, Last year and SS benefit use it unless you type your own bonus in Paychecks to retirement.`:"");
+  setSum("yoyVcp",`<strong>${last.pay}%</strong> payout in ${last.y} · ${Math.round(avg)}% average`)}
+$("vcpSave").addEventListener("click",()=>{const V={};let n=0;
+  for(const ln of $("vcpIn").value.split(/\n/)){const m=ln.replace(/[$,]/g,"").match(/^\s*((?:19|20)\d\d)\s+([\d.]+)\s+([\d.]+)\s*(%?)\s+([\d.]+)\s*%?\s*$/);if(!m)continue;
+    const v={base:+m[2],pay:+m[5]};if(m[4]==="%"||+m[3]<100)v.tPct=+m[3];else v.tAmt=+m[3];V[m[1]]=v;n++}
+  state.settings.vcp=V;save();$("vcpBox").open=false;keepPos(()=>render());toast(n?`Saved ${n} year${n>1?"s":""} of bonus history.`:"Bonus history cleared.")});
 
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
