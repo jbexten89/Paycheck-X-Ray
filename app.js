@@ -2042,7 +2042,7 @@ function renderSide(m,y){
 function vcpRows(){const V=state.settings.vcp||{};return Object.keys(V).map(Number).sort((a,b)=>a-b).map(y=>{const v=V[y],base=+v.base||0,tgt=v.tPct!=null?base*v.tPct/100:+v.tAmt||0,amt=tgt*(+v.pay||0)/100;
   const bs=yearStubs(y).flatMap(s=>s.items.filter(i=>isBonusE(i)&&(+i.cur||0)>0.005).map(i=>({d:s.payDate,v:+i.cur})));
   const hit=bs.find(b=>Math.abs(b.v-amt)<=Math.max(1,amt*0.002)),other=bs.filter(b=>b!==hit).reduce((a,b)=>a+b.v,0);
-  return{y,base,tPct:v.tPct,tAmt:v.tAmt,tgt,pay:+v.pay||0,amt,paidOn:hit?hit.d:null,other}})}
+  return{y,base,tPct:v.tPct,tAmt:v.tAmt,tgt,pay:+v.pay||0,amt,paidOn:hit?hit.d:null,paid:hit?hit.v:null,other}})}
 /* typical bonus: latest target x average payout over the years with the same kind of target (fixed $ or % of base) as the latest */
 function vcpTypical(){const R=vcpRows().filter(r=>r.tgt>0);if(!R.length)return null;const last=R[R.length-1],same=R.filter(r=>(r.tPct!=null)===(last.tPct!=null)),avg=same.reduce((a,r)=>a+r.pay,0)/same.length;return{tgt:last.tgt,avg,amt:last.tgt*avg/100,n:same.length,fixed:last.tPct==null}}
 function renderVcp(){
@@ -2055,8 +2055,9 @@ function renderVcp(){
   const mx=Math.max(...R.map(r=>Math.max(r.tgt,r.amt)))||1,sw=(c,dash)=>`<i style="display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:-1px;${dash?"border:1.5px dashed var(--muted)":"background:"+c}"></i>`;
   $("vcpBars").innerHTML=[...R].reverse().map(r=>{const fut=!r.paidOn&&r.y>=cur;return`<div class="r"><span>${r.y}</span><div class="tr" title="Target ${fmt0(r.tgt)}, paid ${fmt0(r.amt)}"><div class="t" style="width:${r.tgt/mx*100}%"></div><div class="p ${r.pay>=100?"up":""} ${fut?"fut":""}" style="width:${r.amt/mx*100}%"></div></div><span class="v"><b>${fmt0(r.amt)}</b> · ${r.pay}%</span></div>`}).join("")+
     `<div class="legend-row" style="margin:0"><span>${sw("",1)} Target</span><span>${sw("var(--good,#3CC79A)")} At or over target</span><span>${sw("var(--accent)")} Under target</span></div>`;
-  $("vcpTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Base</th><th class="n">Target</th><th class="n">Payout</th><th class="n">Bonus</th><th>Paid</th></tr></thead><tbody>`+
-    [...R].reverse().map(r=>`<tr><td>${r.y}</td><td class="n">${fmt0(r.base)}</td><td class="n">${fmt0(r.tgt)}<br><small class="muted">${r.tPct!=null?r.tPct+"% of base":"fixed"}</small></td><td class="n">${r.pay}%</td><td class="n">${fmt(r.amt)}</td><td>${r.paidOn?nice(r.paidOn):r.y>=cur?"upcoming":'<span class="muted">no stub</span>'}${r.other>0.5?`<br><small class="muted">+ ${fmt0(r.other)} other bonus</small>`:""}</td></tr>`).join("")+`</tbody>`;
+  /* four columns so it fits a phone: base sits under the target, the paid date and other bonuses under the amount */
+  $("vcpTbl").innerHTML=`<thead><tr><th>Year</th><th class="n">Target</th><th class="n">Payout</th><th class="n">Bonus</th></tr></thead><tbody>`+
+    [...R].reverse().map(r=>`<tr><td>${r.y}</td><td class="n">${fmt0(r.tgt)}<small>${r.tPct!=null?`${r.tPct}% of ${fmt0(r.base)}`:"fixed"}</small></td><td class="n">${r.pay}%</td><td class="n">${fmt0(r.paid!=null?r.paid:r.amt)}<small>${r.paidOn?"paid "+nice(r.paidOn):r.y>=cur?"upcoming":"no stub"}${r.other>0.5?`<br>+${fmt0(r.other)} other`:""}</small></td></tr>`).join("")+`</tbody>`;
     $("vcpNote").textContent=`Bonus = target × payout %. A target written as a percent is that share of the year's bonus-eligible base. "Paid" is the check where your stubs show that amount; other bonuses that year are listed separately and don't count toward the payout.`+
     (T?` Typical bonus for estimates: ${fmt0(T.tgt)} target × ${Math.round(T.avg)}% (average payout over the ${T.n} ${T.fixed?"fixed-target":"percent-of-base"} year${T.n>1?"s":""}) = ${fmt0(T.amt)}. Paychecks to retirement, Last year and SS benefit use it unless you type your own bonus in Paychecks to retirement.`:"");
   setSum("yoyVcp",`<strong>${last.pay}%</strong> payout in ${last.y} · ${Math.round(avg)}% average`)}
