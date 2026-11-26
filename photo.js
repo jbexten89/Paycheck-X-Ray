@@ -10,6 +10,8 @@
   const r2 = n => Math.round(n * 100) / 100;
   const P = () => window.PXR;
   let tessReady = null, worker = null, current = null;
+  /* several photos at once: all are read first, put in pay-date order, then reviewed one by one */
+  let queue = [], qTotal = 0, qPos = 0, qSaved = 0;
 
   function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("Couldn't load the text reader. Check your connection and try again.")); document.head.appendChild(s); }); }
   async function getWorker(onProg) {
@@ -71,27 +73,51 @@
   function show(html) { const r = $("review"); r.hidden = false; r.innerHTML = html; P().openAdd(); r.scrollIntoView({ behavior: "smooth", block: "start" }); }
   function progress(p, msg) { const bar = document.querySelector("#review .rv-prog div"); if (bar) bar.style.width = Math.round(p * 100) + "%"; const t = document.querySelector("#review .rv-msg"); if (t) t.textContent = msg; }
 
-  async function handle(file) {
-    if (!file) return;
+  async function handle(files) {
+    files = [].concat(files).filter(Boolean);
+    if (!files.length) return;
     if (!P().getStubs().length) { show(`<h3>Add one stub first</h3><p class="muted" style="margin:0">Photos are read by following the format of a stub you've already added. Paste a statement or a backup above, then try the photo again.</p><div class="row-actions"><button class="btn ghost small" data-rv="cancel">Close</button></div>`); return; }
-    show(`<h3>Reading your stub</h3><span class="muted rv-msg">Preparing the photo</span><div class="rv-prog"><div></div></div><p class="note" style="margin:0">The first photo downloads the text reader (about 15 MB). After that it's cached. The photo never leaves this device.</p>`);
-    try {
-      progress(0.03, "Preparing the photo");
-      const { canvas, thumb } = await prepImage(file);
-      const w = await getWorker(progress);
-      progress(0.25, "Reading the numbers");
-      const { data } = await w.recognize(canvas);
-      fromOCR(data, thumb);
-    } catch (e) {
-      show(`<h3>Couldn't read that photo</h3><p class="muted" style="margin:0">${P().esc(e.message || String(e))}</p><div class="row-actions"><button class="btn ghost small" data-rv="cancel">Close</button></div>`);
+    const n = files.length;
+    show(`<h3>Reading ${n > 1 ? `${n} stub photos` : "your stub"}</h3><span class="muted rv-msg">Preparing the photo</span><div class="rv-prog"><div></div></div><p class="note" style="margin:0">The first photo loads the text reader (about 7 MB) from this site. After that it's saved on this device. Photos never leave this device.</p>`);
+    queue.forEach(q => q.thumb && URL.revokeObjectURL(q.thumb));
+    queue = []; qTotal = n; qPos = 0; qSaved = 0;
+    for (let k = 0; k < n; k++) {
+      const of = n > 1 ? ` (photo ${k + 1} of ${n})` : "", base = k / n, part = 1 / n;
+      try {
+        progress(base + part * 0.03, "Preparing the photo" + of);
+        const { canvas, thumb } = await prepImage(files[k]);
+        const w = await getWorker(p => progress(base + part * p * 0.25, "Loading the text reader" + of));
+        progress(base + part * 0.3, "Reading the numbers" + of);
+        const { data } = await w.recognize(canvas);
+        let date = "";
+        try { const pick = pickTemplate(data.text); const r = window.PXR_OCR.parse(data.words.map(x => ({ text: x.text, bbox: x.bbox })), data.text, pick.tpl, pick.curTpl); date = (r && r.stub && r.stub.payDate) || ""; } catch (e) { }
+        queue.push({ data, thumb, date, name: files[k].name });
+      } catch (e) { queue.push({ err: e.message || String(e), name: files[k].name, date: "" }); }
+      progress(base + part, (k + 1 < n ? "Read" : "Done") + of);
     }
+    /* oldest first, so each one is checked against the stub saved just before it */
+    queue.sort((a, b) => (a.date || "9999") < (b.date || "9999") ? -1 : (a.date || "9999") > (b.date || "9999") ? 1 : 0);
+    next();
   }
+  function next() {
+    const q = queue.shift();
+    if (!q) { finish(); return; }
+    qPos++;
+    if (q.err) { current = null; show(`<h3>Couldn't read ${qTotal > 1 ? `photo ${qPos} of ${qTotal}` : "that photo"}</h3><p class="muted" style="margin:0">${P().esc(q.name || "")} ${P().esc(q.err)}</p><div class="row-actions">${queue.length ? `<button class="btn small" data-rv="cancel">Next photo</button><button class="btn ghost small" data-rv="stop">Stop</button>` : `<button class="btn ghost small" data-rv="cancel">Close</button>`}</div>`); return; }
+    fromOCR(q.data, q.thumb);
+  }
+  function finish() {
+    const r = $("review"); r.hidden = true; r.innerHTML = "";
+    if (qTotal > 1) { const t = $("toast"); if (t) { t.hidden = false; t.className = "toast"; t.textContent = `Saved ${qSaved} of ${qTotal} stub photos.`; } }
+    qTotal = 0; qPos = 0;
+  }
+  function stopAll() { queue.forEach(q => q.thumb && URL.revokeObjectURL(q.thumb)); queue = []; if (current && current.thumb) URL.revokeObjectURL(current.thumb); current = null; finish(); }
 
   function fromOCR(data, thumb) {
     {
       const pick = pickTemplate(data.text);
       const res = window.PXR_OCR.parse(data.words.map(x => ({ text: x.text, bbox: x.bbox })), data.text, pick.tpl, pick.curTpl);
-      if (res.error) { show(`<h3>Couldn't read that photo</h3><p class="muted" style="margin:0">${P().esc(res.error)}</p><div class="row-actions"><button class="btn ghost small" data-rv="cancel">Close</button></div>`); return; }
+      if (res.error) { show(`<h3>Couldn't read ${qTotal > 1 ? `photo ${qPos} of ${qTotal}` : "that photo"}</h3><p class="muted" style="margin:0">${P().esc(res.error)}</p><div class="row-actions">${queue.length ? `<button class="btn small" data-rv="cancel">Next photo</button><button class="btn ghost small" data-rv="stop">Stop</button>` : `<button class="btn ghost small" data-rv="cancel">Close</button>`}</div>`); current = { thumb }; return; }
       current = { res, tpl: pick.tpl, thumb };
       renderReview();
     }
@@ -138,7 +164,8 @@
     }
     const banner = ev.allGood ? `<div class="rv-banner ok">Everything checks out against your ${P_.nice(tpl.payDate)} stub and the section totals.</div>`
       : `<div class="rv-banner warn">${[ev.need ? `${ev.need} line${ev.need > 1 ? "s" : ""} to check` : "", ev.secFail ? `${ev.secFail} section${ev.secFail > 1 ? "s" : ""} not adding up` : "", ev.netOk === false ? "net pay doesn't match" : ""].filter(Boolean).join(" · ")}. Compare the highlighted rows with your stub, fix any numbers, then tap Check to mark them right.</div>`;
-    show(`<div class="rv-top"><h3>Review stub photo</h3>${thumb ? `<img class="rv-img" src="${thumb}" alt="Your stub photo">` : ""}</div>
+    const more = queue.length > 0;
+    show(`<div class="rv-top"><h3>Review stub photo${qTotal > 1 ? ` <span class="muted" style="font-weight:500">${qPos} of ${qTotal}</span>` : ""}</h3>${thumb ? `<img class="rv-img" src="${thumb}" alt="Your stub photo">` : ""}</div>
       <div class="rv-meta"><label class="field" for="rvDate" style="flex-direction:row;align-items:center;gap:6px">Pay date <input id="rvDate" type="date" value="${res.stub.payDate || ""}"></label>
         <label class="field" for="rvKind" style="flex-direction:row;align-items:center;gap:6px">Type <select id="rvKind"><option${res.stub.kind !== "Additional" ? " selected" : ""}>Normal</option><option${res.stub.kind === "Additional" ? " selected" : ""}>Additional</option></select></label>
         <span class="muted" style="font-size:13px">Compared with ${P_.nice(tpl.payDate)}</span></div>
@@ -146,7 +173,7 @@
       <div class="tbl-wrap rv"><table><thead><tr><th>Line</th><th class="n">This check</th><th class="n">YTD</th><th></th></tr></thead><tbody>${rows}
         <tr class="sec"><td>Net pay <span class="chk" style="color:${ev.netOk === false ? "var(--amber)" : "var(--good)"}">${ev.netRead == null ? "" : ev.netOk ? "matches deposit" : `deposit read as ${P_.fmt(ev.netRead)}`}</span></td><td class="n">${P_.fmt(ev.net)}</td><td></td><td></td></tr>
       </tbody></table></div>
-      <div class="row-actions"><button class="btn" data-rv="save">${ev.allGood ? "Save stub" : "Save anyway"}</button><button class="btn ghost small" data-rv="addline">Add a missing line</button><button class="btn ghost small" data-rv="cancel">Cancel</button></div>`);
+      <div class="row-actions"><button class="btn" data-rv="save">${ev.allGood ? "Save stub" : "Save anyway"}${more ? " & next" : ""}</button><button class="btn ghost small" data-rv="addline">Add a missing line</button><button class="btn ghost small" data-rv="cancel">${more ? "Skip" : "Cancel"}</button>${more ? `<button class="btn ghost small" data-rv="stop">Stop</button>` : ""}</div>`);
   }
 
   function save() {
@@ -160,14 +187,14 @@
     const S = s => totals[s] ? totals[s].cur : 0, SY = s => totals[s] ? totals[s].ytd : 0;
     const net = { cur: r2(S("earnings") - S("pretax") - S("posttax") - S("taxes")), ytd: r2(SY("earnings") - SY("pretax") - SY("posttax") - SY("taxes")) };
     const stub = { payDate: date, period: res.stub.period, kind, payRate: tpl.payRate || null, filing: tpl.filing || null, employer: tpl.employer || undefined, freq: tpl.freq || undefined, items, totals, net, source: "photo" };
-    P().addStubs([stub]);
+    P().addStubs([stub]); qSaved++;
     if (current.thumb) URL.revokeObjectURL(current.thumb); current = null;
-    $("review").hidden = true; $("review").innerHTML = "";
-    const t = $("toast"); if (t) { t.hidden = false; t.className = "toast"; t.textContent = `Saved the ${P().nice(date)} stub from your photo.`; }
+    const t = $("toast"); if (t) { t.hidden = false; t.className = "toast"; t.textContent = `Saved the ${P().nice(date)} stub from your photo${qTotal > 1 ? ` (${qPos} of ${qTotal})` : ""}.`; }
+    if (queue.length) next(); else finish();
   }
 
   document.addEventListener("change", e => {
-    if (e.target.id === "photoIn" || e.target.id === "photoIn2") { const f = e.target.files[0]; e.target.value = ""; handle(f); }
+    if (e.target.id === "photoIn" || e.target.id === "photoIn2") { const fs = [...e.target.files]; e.target.value = ""; handle(fs); }
     else if (e.target.closest && e.target.closest("#review") && e.target.dataset.i != null) {
       const l = current.res.lines[+e.target.dataset.i], f = e.target.dataset.f;
       if (f === "label") l.label = e.target.value; else if (f === "sec") l.sec = e.target.value; else { const v = e.target.value.replace(/[^\d.\-]/g, ""); l[f] = v === "" ? null : Number(v); }
@@ -178,7 +205,8 @@
   document.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-rv]"); if (!b) return;
     const a = b.dataset.rv;
-    if (a === "cancel") { $("review").hidden = true; $("review").innerHTML = ""; if (current && current.thumb) URL.revokeObjectURL(current.thumb); current = null; }
+    if (a === "cancel") { if (current && current.thumb) URL.revokeObjectURL(current.thumb); current = null; if (queue.length) next(); else finish(); }
+    else if (a === "stop") stopAll();
     else if (a === "save") save();
     else if (a === "ok") { const l = current.res.lines[+b.dataset.i]; if (l.status === "check") { l.status = "derived"; l.note = "Checked by you"; renderReview(); } }
     else if (a === "addline") {
