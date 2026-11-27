@@ -11,7 +11,40 @@
   const P = () => window.PXR;
   let tessReady = null, worker = null, current = null;
   /* several photos at once: all are read first, put in pay-date order, then reviewed one by one */
-  let queue = [], qTotal = 0, qPos = 0, qSaved = 0;
+  let queue = [], qTotal = 0, qPos = 0, qSaved = 0, pending = null;
+
+  /* ---- one stub from several screenshots: stack them into one tall page and drop the rows that repeat where they overlap ---- */
+  const norm = t => String(t).toLowerCase().replace(/[^a-z0-9.]/g, "");
+  function sim(a, b) { if (a === b) return 1; if (!a || !b) return 0; const m = a.length, n = b.length; if (Math.abs(m - n) > Math.max(m, n) * 0.3) return 0;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j); for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+    return 1 - prev[n] / Math.max(m, n) }
+  function rowsOf(words) {
+    const ws = words.map(w => ({ w, b: w.bbox })).filter(o => o.b && String(o.w.text).trim()).sort((p, q) => (p.b.y0 + p.b.y1) - (q.b.y0 + q.b.y1));
+    const hs = ws.map(o => o.b.y1 - o.b.y0).sort((a, b) => a - b), mh = hs.length ? hs[hs.length >> 1] : 20, rows = [];
+    for (const o of ws) { const cy = (o.b.y0 + o.b.y1) / 2, r = rows[rows.length - 1]; if (r && Math.abs(cy - r.cy) < mh * 0.6) { r.ws.push(o); r.cy = (r.cy * (r.ws.length - 1) + cy) / r.ws.length } else rows.push({ cy, ws: [o] }) }
+    rows.forEach(r => { r.ws.sort((p, q) => p.b.x0 - q.b.x0); r.t = norm(r.ws.map(o => o.w.text).join(" ")) });
+    return rows }
+  /* the longest run of rows at the end of one page (skipping a few rows of screen chrome) that also appears near the top of the next */
+  function overlap(A, B) {
+    let best = null;
+    for (let e = 0; e <= Math.min(6, A.length - 1); e++) for (let j = 0; j <= Math.min(8, B.length - 1); j++) {
+      for (let k = Math.min(A.length - e, B.length - j, 40); k >= 1; k--) {
+        let ok = true, chars = 0;
+        for (let i = 0; i < k; i++) { const a = A[A.length - e - k + i].t, b = B[j + i].t; if (sim(a, b) < 0.8) { ok = false; break } chars += Math.min(a.length, b.length) }
+        if (ok && chars >= 14 && (k >= 2 || /\d/.test(B[j].t)) && (!best || k > best.k || (k === best.k && chars > best.chars))) { best = { e, j, k, chars }; break }
+      }
+    }
+    return best }
+  function stitch(pages) {
+    let words = [], text = [], off = 0, prev = null;
+    for (const pg of pages) {
+      let rows = rowsOf(pg.data.words);
+      if (prev) { const ov = overlap(prev.rows, rows);
+        if (ov) { const cut = new Set(prev.rows.slice(prev.rows.length - ov.e).flatMap(r => r.ws.map(o => o.w))); words = words.filter(w => !cut.has(w.src)); rows = rows.slice(ov.j + ov.k) } }
+      const keep = rows.flatMap(r => r.ws.map(o => ({ text: o.w.text, bbox: { x0: o.b.x0, x1: o.b.x1, y0: o.b.y0 + off, y1: o.b.y1 + off }, src: o.w })));
+      words = words.concat(keep); text.push(rows.map(r => r.ws.map(o => o.w.text).join(" ")).join("\n"));
+      prev = { rows }; off += pg.h + 40 }
+    return { words: words.map(w => ({ text: w.text, bbox: w.bbox })), text: text.join("\n") } }
 
   function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("Couldn't load the text reader. Check your connection and try again.")); document.head.appendChild(s); }); }
   async function getWorker(onProg) {
@@ -73,12 +106,13 @@
   function show(html) { const r = $("review"); r.hidden = false; r.innerHTML = html; P().openAdd(); r.scrollIntoView({ behavior: "smooth", block: "start" }); }
   function progress(p, msg) { const bar = document.querySelector("#review .rv-prog div"); if (bar) bar.style.width = Math.round(p * 100) + "%"; const t = document.querySelector("#review .rv-msg"); if (t) t.textContent = msg; }
 
-  async function handle(files) {
+  async function handle(files, mode) {
     files = [].concat(files).filter(Boolean);
     if (!files.length) return;
+    if (files.length > 1 && !mode) { pending = files; show(`<h3>${files.length} photos</h3><p class="muted" style="margin:0 0 10px">Are these screenshots of one long stub, or separate stubs?</p><div class="row-actions"><button class="btn" data-rv="one">One stub</button><button class="btn ghost" data-rv="many">${files.length} separate stubs</button><button class="btn ghost small" data-rv="cancel">Cancel</button></div><p class="note" style="margin:8px 0 0">For one stub, pick the screenshots in order from top to bottom. Overlapping parts are only counted once.</p>`); return; }
     if (!P().getStubs().length) { show(`<h3>Add one stub first</h3><p class="muted" style="margin:0">Photos are read by following the format of a stub you've already added. Paste a statement or a backup above, then try the photo again.</p><div class="row-actions"><button class="btn ghost small" data-rv="cancel">Close</button></div>`); return; }
-    const n = files.length;
-    show(`<h3>Reading ${n > 1 ? `${n} stub photos` : "your stub"}</h3><span class="muted rv-msg">Preparing the photo</span><div class="rv-prog"><div></div></div><p class="note" style="margin:0">The first photo loads the text reader (about 7 MB) from this site. After that it's saved on this device. Photos never leave this device.</p>`);
+    const n = files.length, one = mode === "one";
+    show(`<h3>Reading ${one ? `your stub from ${n} photos` : n > 1 ? `${n} stub photos` : "your stub"}</h3><span class="muted rv-msg">Preparing the photo</span><div class="rv-prog"><div></div></div><p class="note" style="margin:0">The first photo loads the text reader (about 7 MB) from this site. After that it's saved on this device. Photos never leave this device.</p>`);
     queue.forEach(q => q.thumb && URL.revokeObjectURL(q.thumb));
     queue = []; qTotal = n; qPos = 0; qSaved = 0;
     for (let k = 0; k < n; k++) {
@@ -91,9 +125,15 @@
         const { data } = await w.recognize(canvas);
         let date = "";
         try { const pick = pickTemplate(data.text); const r = window.PXR_OCR.parse(data.words.map(x => ({ text: x.text, bbox: x.bbox })), data.text, pick.tpl, pick.curTpl); date = (r && r.stub && r.stub.payDate) || ""; } catch (e) { }
-        queue.push({ data, thumb, date, name: files[k].name });
+        queue.push({ data, thumb, date, name: files[k].name, h: canvas.height });
       } catch (e) { queue.push({ err: e.message || String(e), name: files[k].name, date: "" }); }
       progress(base + part, (k + 1 < n ? "Read" : "Done") + of);
+    }
+    if (one) {
+      const bad = queue.find(q => q.err); if (bad) { queue = []; qTotal = 0; show(`<h3>Couldn't read one of the photos</h3><p class="muted" style="margin:0">${P().esc(bad.name || "")} ${P().esc(bad.err)}</p><div class="row-actions"><button class="btn ghost small" data-rv="cancel">Close</button></div>`); return; }
+      const pages = queue; queue = []; qTotal = 1; qPos = 1;
+      pages.slice(1).forEach(q => q.thumb && URL.revokeObjectURL(q.thumb));
+      fromOCR(stitch(pages), pages[0].thumb); return;
     }
     /* oldest first, so each one is checked against the stub saved just before it */
     queue.sort((a, b) => (a.date || "9999") < (b.date || "9999") ? -1 : (a.date || "9999") > (b.date || "9999") ? 1 : 0);
@@ -205,8 +245,9 @@
   document.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-rv]"); if (!b) return;
     const a = b.dataset.rv;
-    if (a === "cancel") { if (current && current.thumb) URL.revokeObjectURL(current.thumb); current = null; if (queue.length) next(); else finish(); }
+    if (a === "cancel") { pending = null; if (current && current.thumb) URL.revokeObjectURL(current.thumb); current = null; if (queue.length) next(); else finish(); }
     else if (a === "stop") stopAll();
+    else if (a === "one" || a === "many") { const f = pending; pending = null; if (f) handle(f, a); }
     else if (a === "save") save();
     else if (a === "ok") { const l = current.res.lines[+b.dataset.i]; if (l.status === "check") { l.status = "derived"; l.note = "Checked by you"; renderReview(); } }
     else if (a === "addline") {
