@@ -118,9 +118,75 @@
     return { payDate, period: pp ? [toISO(pp[1]), toISO(pp[2])] : null, kind, dateGuessed };
   }
 
-  /* Main entry. words: [{text,bbox:{x0,y0,x1,y1}}], text: full OCR text, tpl: previous stub. */
-  function parse(words, text, tpl, curTpl) {
+
+  /* ---- Mobile-app format: one Amount column per line (this check only), section totals on the header rows, no year to date.
+     Each amount is paired with the label on its row; year to date is the previous stub's plus this check. ---- */
+  const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+  const SEC_HDR = [[/^earnings$/, "earnings"], [/^taxable\s*benefits?$/, "taxable"], [/^memo(\s*information)?$/, "memo"], [/^pre-?\s*tax\s*deductions?$/, "pretax"], [/^(after|post)-?\s*tax\s*deductions?$/, "posttax"], [/^taxes$/, "taxes"], [/^net\s*pay$/, "net"]];
+  const lnorm = t => String(t).toLowerCase().replace(/[^a-z0-9+&]/g, "");
+  function lsim(a, b) { if (a === b) return 1; if (!a || !b) return 0; const m = a.length, n = b.length;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j); for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+    return 1 - prev[n] / Math.max(m, n) }
+  /* the app's screen says Hr/Unit and Preview, or the page simply has one amount column instead of two */
+  function isAppFormat(text, words) { const f = String(text || "");
+    if (!/(Pre-?Tax\s*Deductions|Memo\s*Information|Taxable\s*Benefits|Net\s*Pay)/i.test(f)) return false;
+    if (/Hr\s*\/\s*Unit|\bPreview\b/i.test(f) && !/\bYTD\b|Year\s*to\s*Date/i.test(f)) return true;
+    return !!words && !findColumns(words.map(moneyToken).filter(Boolean)) }
+  function parseApp(words, text, tpl, all) {
+    const flat = String(text || "").replace(/\s+/g, " ");
+    const md = flat.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s*(20\d\d)\b/i);
+    const pp = flat.match(/(\d{1,2}\/\d{1,2}\/20\d\d)\s*[-–]\s*(\d{1,2}\/\d{1,2}\/20\d\d)/);
+    const payDate = md ? `${md[3]}-${String(MONTHS[md[1].slice(0, 3).toLowerCase()]).padStart(2, "0")}-${md[2].padStart(2, "0")}` : (pp ? toISO(pp[1]) : null);
+    if (!payDate) return { error: "Couldn't find the pay date on this stub. Include the top of the stub, where the date is." };
+    const W = Math.max(...words.map(w => (w.bbox || w.b).x1), 1);
+    const amts = words.map(w => ({ w, t: moneyToken(w) })).filter(o => o.t && o.t.x1 > W * 0.72).map(o => o.t).sort((a, b) => a.y - b.y);
+    const lab = words.map(w => ({ w, b: w.bbox || w.b })).filter(o => o.b.x1 < W * 0.6 && /[A-Za-z0-9]/.test(o.w.text) && !moneyToken(o.w));
+    let sec = null, net = null; const lines = [], obs = {}, seen = new Set();
+    for (const a of amts) {
+      const tol = Math.max(a.h * 1.45, 12);
+      const ws = lab.filter(o => Math.abs((o.b.y0 + o.b.y1) / 2 - a.y) < tol).sort((p, q) => Math.round(((p.b.y0 + p.b.y1) / 2 - (q.b.y0 + q.b.y1) / 2) / (a.h * 0.6)) || p.b.x0 - q.b.x0);
+      const label = ws.map(o => o.w.text).join(" ").replace(/\s+/g, " ").trim(), v = a.cands[0];
+      if (!label) continue;
+      const hdr = SEC_HDR.find(([re]) => re.test(label.toLowerCase().trim()));
+      if (hdr) { sec = hdr[1]; if (sec === "net") net = v; else obs[sec] = v; continue }
+      if (!sec || sec === "net" || /direct\s*deposit|routing|account/i.test(label)) continue;
+      const key = sec + ":" + lnorm(label); if (seen.has(key)) continue; seen.add(key);
+      lines.push({ sec, label, cur: v, status: "ok", note: "" });
+    }
+    if (!lines.length) return { error: "Couldn't match amounts to line names. Try screenshots of the stub without zooming in." };
+    /* the stub saved just before this one: its year to date carries forward */
+    const stubs = (all || []).slice().sort((p, q) => p.payDate < q.payDate ? -1 : p.payDate > q.payDate ? 1 : (p.kind === "Additional") - (q.kind === "Additional"));
+    const bonusOnly = lines.filter(l => l.sec === "earnings" && !/bonus|vcp|award|incent/i.test(l.label)).every(l => !l.cur) && lines.some(l => l.sec === "earnings" && /bonus|vcp|award|incent/i.test(l.label) && l.cur > 0);
+    const kind = bonusOnly || stubs.some(x => x.payDate === payDate && x.kind !== "Additional") ? "Additional" : "Normal";
+    const before = stubs.filter(x => x.payDate < payDate || (x.payDate === payDate && kind === "Additional" && x.kind !== "Additional"));
+    const prev = before.length ? before[before.length - 1] : null, sameYear = prev && prev.payDate.slice(0, 4) === payDate.slice(0, 4);
+    /* use the names already on your stubs when the read name is close, so lines line up from check to check */
+    const known = {}; for (const x of stubs.slice(-12)) for (const i of x.items) (known[i.sec] = known[i.sec] || new Set()).add(i.label);
+    for (const l of lines) { let best = null, bs = 0; for (const k of known[l.sec] || []) { const s2 = lsim(lnorm(k), lnorm(l.label)); if (s2 > bs) { bs = s2; best = k } }
+      if (best && bs >= 0.72) l.label = best; else { l.isNew = true; l.note = "New line" } }
+    for (const l of lines) { const pi = sameYear && prev.items.find(i => i.sec === l.sec && i.label === l.label); l.ytd = r2((pi && pi.ytd || 0) + l.cur); if (!l.isNew) l.status = "ok" }
+    /* lines on the previous stub that weren't read here: zero on a bonus check, otherwise to be checked */
+    if (prev) for (const i of prev.items) if (!lines.some(l => l.sec === i.sec && l.label === i.label)) {
+      const cur = kind === "Additional" ? 0 : (i.cur || 0);
+      lines.push({ sec: i.sec, label: i.label, cur, ytd: sameYear ? r2((i.ytd || 0) + cur) : cur, status: kind === "Additional" ? "derived" : "check", note: kind === "Additional" ? "Not on this check" : "Not read from the photo; assumed same as last time" });
+    }
+    lines.sort((p, q) => SECS.indexOf(p.sec) - SECS.indexOf(q.sec));
+    const sections = {}, totals = {};
+    for (const s2 of SECS) { const ls = lines.filter(l => l.sec === s2); if (!ls.length) continue; const sumC = r2(ls.reduce((a, l) => a + (l.cur || 0), 0)), sumY = r2(ls.reduce((a, l) => a + (l.ytd || 0), 0));
+      sections[s2] = { obsC: obs[s2] != null ? obs[s2] : null, obsY: null, sumC, sumY, cur: obs[s2] != null ? Math.abs(obs[s2] - sumC) < 0.015 : null, ytd: null, pass: obs[s2] == null || Math.abs(obs[s2] - sumC) < 0.015 };
+      totals[s2] = { cur: sumC, ytd: sumY } }
+    const S = s2 => totals[s2] ? totals[s2].cur : 0, netCalc = r2(S("earnings") - S("pretax") - S("posttax") - S("taxes"));
+    const netO = { cur: net != null ? net : netCalc, ytd: r2((sameYear && prev.net && prev.net.ytd || 0) + (net != null ? net : netCalc)) };
+    const stub = { payDate, period: pp ? [toISO(pp[1]), toISO(pp[2])] : null, kind, payRate: prev && prev.payRate || null, filing: prev && prev.filing || null,
+      items: lines.map(l => ({ sec: l.sec, label: l.label, cur: l.cur || 0, ytd: l.ytd })), totals, net: netO, source: "photo" };
+    return { stub, lines, checks: { sections, netMatches: Math.abs(netO.cur - netCalc) < 0.015, unread: lines.filter(l => l.status === "check").length, consecutive: !!sameYear, appFormat: true },
+      head: { payDate, kind, period: stub.period }, template: prev ? prev.payDate : null, prevStub: prev };
+  }
+
+  /* Main entry. words: [{text,bbox:{x0,y0,x1,y1}}], text: full OCR text, tpl: previous stub, all: every saved stub (for the app format). */
+  function parse(words, text, tpl, curTpl, all) {
     if (!tpl) return { error: "Add at least one stub by paste or backup first, so the photo has a format to follow." };
+    if (isAppFormat(text, words)) { const r = parseApp(words, text, tpl, all); if (!r.error || /Hr\s*\/\s*Unit|\bPreview\b/i.test(String(text))) return r }
     const head = headerInfo(text, tpl);
     let toks = words.map(moneyToken).filter(Boolean);
     const earnWord = words.find(w => /^Earnings$/i.test(String(w.text).trim()));
@@ -235,6 +301,6 @@
     return { stub, lines, checks, head, template: tpl.payDate };
   }
 
-  const api = { parse, moneyToken, findColumns, templateSeq, align, headerInfo };
+  const api = { parse, moneyToken, findColumns, templateSeq, align, headerInfo, isAppFormat };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.PXR_OCR = api;
 })(typeof self !== "undefined" ? self : this);

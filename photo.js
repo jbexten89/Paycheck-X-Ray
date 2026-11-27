@@ -37,7 +37,11 @@
     return best }
   function stitch(pages) {
     let words = [], text = [], off = 0, prev = null;
+    const W0 = pages[0].w || 1;
     for (const pg of pages) {
+      /* screenshots can come from different screens: bring every page to the first page's width */
+      const f = pg.w ? W0 / pg.w : 1;
+      if (f !== 1) pg.data = Object.assign({}, pg.data, { words: pg.data.words.map(w => Object.assign({}, w, { bbox: { x0: w.bbox.x0 * f, x1: w.bbox.x1 * f, y0: w.bbox.y0 * f, y1: w.bbox.y1 * f } })) }), pg.h = pg.h * f;
       let rows = rowsOf(pg.data.words);
       if (prev) { const ov = overlap(prev.rows, rows);
         if (ov) { const cut = new Set(prev.rows.slice(prev.rows.length - ov.e).flatMap(r => r.ws.map(o => o.w))); words = words.filter(w => !cut.has(w.src)); rows = rows.slice(ov.j + ov.k) } }
@@ -124,8 +128,8 @@
         progress(base + part * 0.3, "Reading the numbers" + of);
         const { data } = await w.recognize(canvas);
         let date = "";
-        try { const pick = pickTemplate(data.text); const r = window.PXR_OCR.parse(data.words.map(x => ({ text: x.text, bbox: x.bbox })), data.text, pick.tpl, pick.curTpl); date = (r && r.stub && r.stub.payDate) || ""; } catch (e) { }
-        queue.push({ data, thumb, date, name: files[k].name, h: canvas.height });
+        try { const pick = pickTemplate(data.text); const r = window.PXR_OCR.parse(data.words.map(x => ({ text: x.text, bbox: x.bbox })), data.text, pick.tpl, pick.curTpl, P().getStubs()); date = (r && r.stub && r.stub.payDate) || ""; } catch (e) { }
+        queue.push({ data, thumb, date, name: files[k].name, h: canvas.height, w: canvas.width });
       } catch (e) { queue.push({ err: e.message || String(e), name: files[k].name, date: "" }); }
       progress(base + part, (k + 1 < n ? "Read" : "Done") + of);
     }
@@ -156,9 +160,9 @@
   function fromOCR(data, thumb) {
     {
       const pick = pickTemplate(data.text);
-      const res = window.PXR_OCR.parse(data.words.map(x => ({ text: x.text, bbox: x.bbox })), data.text, pick.tpl, pick.curTpl);
+      const res = window.PXR_OCR.parse(data.words.map(x => ({ text: x.text, bbox: x.bbox })), data.text, pick.tpl, pick.curTpl, P().getStubs());
       if (res.error) { show(`<h3>Couldn't read ${qTotal > 1 ? `photo ${qPos} of ${qTotal}` : "that photo"}</h3><p class="muted" style="margin:0">${P().esc(res.error)}</p><div class="row-actions">${queue.length ? `<button class="btn small" data-rv="cancel">Next photo</button><button class="btn ghost small" data-rv="stop">Stop</button>` : `<button class="btn ghost small" data-rv="cancel">Close</button>`}</div>`); current = { thumb }; return; }
-      current = { res, tpl: pick.tpl, thumb };
+      current = { res, tpl: res.prevStub || pick.tpl, thumb };
       renderReview();
     }
   }
