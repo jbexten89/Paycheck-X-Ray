@@ -1388,7 +1388,7 @@ function yearTable(id,rows,cols){const el=$(id);if(!el)return;const br=[...rows]
 const legend=items=>items.map(([c,l,cls])=>`<span><i class="sw${cls?" "+cls:""}" style="background:var(${c})"></i>${l}</span>`).join("");
 const openBtn=y=>` <button class="linkbtn" data-open="${y}">Open ${y} →</button>`;
 
-function renderYoy(){renderYoyCore();renderVcp()}
+function renderYoy(){renderYoyCore();renderVcp();renderBalCards();renderVcpCards()}
 function renderYoyCore(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort((a,b)=>a-b);
   const rows=years.map(yoyRow).filter(Boolean);if(!rows.length)return;
@@ -2075,6 +2075,46 @@ $("vcpSave").addEventListener("click",()=>{const V={};let n=0;
   for(const ln of $("vcpIn").value.split(/\n/)){const m=ln.replace(/[$,]/g,"").match(/^\s*((?:19|20)\d\d)\s+([\d.]+)\s+([\d.]+)\s*(%?)\s+([\d.]+)\s*%?\s*$/);if(!m)continue;
     const v={base:+m[2],pay:+m[5]};if(m[4]==="%"||+m[3]<100)v.tPct=+m[3];else v.tAmt=+m[3];V[m[1]]=v;n++}
   state.settings.vcp=V;save();$("vcpBox").open=false;keepPos(()=>render());toast(n?`Saved ${n} year${n>1?"s":""} of bonus history.`:"Bonus history cleared.")});
+
+
+/* ---------- Year cards: one card per year with labeled number boxes; each box saves when you leave it ---------- */
+function yearCards(el,{years,fields,get,set,remove,head,cls}){
+  const sig=years.join(",")+"|"+fields.map(f=>f.k).join(",");
+  if(el.dataset.sig!==sig){el.dataset.sig=sig;
+    el.innerHTML=years.map(y=>`<div class="ycard${cls?" "+cls(y):""}" data-y="${y}"><div class="yh"><b>${y}</b><small>${head?head(y):""}</small>${remove?`<button type="button" data-yrm="${y}" aria-label="Remove ${y}">Remove</button>`:""}</div><div class="ygrid">${fields.map(f=>`<label>${f.label}<input class="money w2in" type="number" inputmode="decimal" step="${f.step||"0.01"}" data-yk="${f.k}" data-y="${y}" placeholder="${f.ph||"0"}"></label>`).join("")}</div></div>`).join("")}
+  el.querySelectorAll("input[data-yk]").forEach(i=>{if(document.activeElement===i)return;const v=get(+i.dataset.y,i.dataset.yk);i.value=v==null||v===""?"":String(v)});
+  el.querySelectorAll(".ycard").forEach(c=>{const sm=c.querySelector(".yh small");if(sm&&head)sm.textContent=head(+c.dataset.y)});
+  if(!el._wired){el._wired=true;
+    el.addEventListener("change",e=>{const i=e.target.closest("input[data-yk]");if(!i)return;const t=i.value.trim();el._set(+i.dataset.y,i.dataset.yk,t===""?null:+t);save();yoyCache=null;setTimeout(()=>keepPos(()=>render()),0)});
+    el.addEventListener("focusin",e=>{const i=e.target.closest("input[data-yk]");if(i&&i.value)setTimeout(()=>{try{i.select()}catch(x){}},0)});
+    el.addEventListener("click",e=>{const b=e.target.closest("[data-yrm]");if(!b)return;const y=b.dataset.yrm;if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="Tap again to remove";setTimeout(()=>{b.dataset.armed="";b.textContent="Remove"},3000);return}
+      el._remove(+y);save();yoyCache=null;keepPos(()=>render())})}
+  el._set=set;el._remove=remove||(()=>{})}
+/* balances: this year on top, earlier years folded away */
+const BAL_F=[{k:"k",label:"401(k) balance"},{k:"hc",label:"HSA cash"},{k:"hi",label:"HSA invested"},{k:"sp",label:"Spent from HSA"},{k:"mv",label:"Moved to invested"}];
+const balGet=(y,k)=>{const b=(state.settings.bal||{})[y];if(!b)return null;if(k==="hc"&&b.hc==null&&b.hi==null)return b.h!=null?b.h:null;return b[k]!=null?b[k]:null};
+const balSet=(y,k,v)=>{const B=state.settings.bal=state.settings.bal||{},b=B[y]=B[y]||{};
+  if(k==="hc"&&b.hc==null&&b.hi==null&&b.h!=null)b.hi=0;
+  if(v==null)delete b[k];else b[k]=v;
+  if(k==="hc"||k==="hi"){if(b.hc!=null||b.hi!=null)b.h=r2((+b.hc||0)+(+b.hi||0))}
+  if(y===+todayISO.slice(0,4))b.at=todayISO;
+  if(!Object.keys(b).some(x=>x!=="at"&&b[x]!=null&&b[x]!==0))delete B[y]};
+function renderBalCards(){
+  const B=state.settings.bal||{},cur=+todayISO.slice(0,4),ys=Object.keys(B).map(Number).filter(y=>y<cur).sort((a,b)=>b-a);
+  yearCards($("balNow"),{years:[cur],fields:BAL_F,get:balGet,set:balSet,cls:()=>"now",head:()=>{const b=B[cur];return b&&b.at?`as of ${nice(b.at)}`:"enter today's balances"}});
+  yearCards($("balCards"),{years:ys,fields:BAL_F,get:balGet,set:balSet,head:()=>"at Dec 31",remove:y=>{delete state.settings.bal[y]}});
+  $("balYears").querySelector("summary").textContent=`Earlier years${ys.length?` (${ys.length})`:""}`}
+$("balAdd").addEventListener("click",()=>{const B=state.settings.bal=state.settings.bal||{},cur=+todayISO.slice(0,4),ys=Object.keys(B).map(Number).filter(y=>y<cur),y=ys.length?Math.min(...ys)-1:cur-1;B[y]={};
+  renderBalCards();const i=$("balCards").querySelector(`input[data-y="${y}"]`);if(i)i.focus()});
+/* bonus history: base, target ($ fixed or % of base), payout % */
+const VCP_F=[{k:"base",label:"Bonus-eligible base"},{k:"tAmt",label:"Target $ (fixed)"},{k:"tPct",label:"or target % of base",step:"0.1"},{k:"pay",label:"Payout %",step:"0.1"}];
+const vcpGet=(y,k)=>{const v=(state.settings.vcp||{})[y];return v&&v[k]!=null?v[k]:null};
+const vcpSet=(y,k,val)=>{const V=state.settings.vcp=state.settings.vcp||{},v=V[y]=V[y]||{};if(val==null)delete v[k];else v[k]=val;
+  if(k==="tAmt"&&val!=null)delete v.tPct;if(k==="tPct"&&val!=null)delete v.tAmt;if(!Object.keys(v).length)delete V[y]};
+function renderVcpCards(){const V=state.settings.vcp||{},ys=Object.keys(V).map(Number).sort((a,b)=>b-a);
+  yearCards($("vcpCards"),{years:ys,fields:VCP_F,get:vcpGet,set:vcpSet,head:y=>{const v=V[y]||{},t=v.tPct!=null?(+v.base||0)*v.tPct/100:+v.tAmt||0;return t&&v.pay!=null?`bonus ${fmt(t*v.pay/100)}`:""},remove:y=>{delete state.settings.vcp[y]}})}
+$("vcpAdd").addEventListener("click",()=>{const V=state.settings.vcp=state.settings.vcp||{},ys=Object.keys(V).map(Number),y=ys.length?Math.max(...ys)+1:+todayISO.slice(0,4);
+  const last=ys.length?V[Math.max(...ys)]:null;V[y]=last?Object.assign({},last.tAmt!=null?{tAmt:last.tAmt}:{tPct:last.tPct}):{};save();$("vcpEdit").open=true;renderVcpCards();const i=$("vcpCards").querySelector(`input[data-y="${y}"]`);if(i)i.focus()});
 
 function renderMain(){
   const years=[...new Set(state.stubs.map(s=>Number(s.payDate.slice(0,4))))].sort();
